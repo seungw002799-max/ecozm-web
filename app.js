@@ -81,18 +81,19 @@ async function limited(fn) {
   }
 }
 
-async function fetchJsonRetry(url) {
+async function fetchJsonRetry(url, tries, ms) {
   let last = null;
-  for (let a = 0; a < 3; a++) {
+  tries = tries || 3; ms = ms || 30000;
+  for (let a = 0; a < tries; a++) {
     const ac = new AbortController();
-    const tm = setTimeout(() => ac.abort(), 30000);
+    const tm = setTimeout(() => ac.abort(), ms);
     try {
       const r = await fetch(url, { signal: ac.signal });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const txt = await r.text();
       try { return JSON.parse(txt); } catch (e) { throw new Error('응답 형식 오류: ' + txt.slice(0, 120)); }
     } catch (e) {
-      last = e.name === 'AbortError' ? new Error('시간 초과(30초)') : e;
+      last = e.name === 'AbortError' ? new Error('시간 초과(' + Math.round(ms / 1000) + '초)') : e;
       await sleep(500 * (a + 1));
     } finally { clearTimeout(tm); }
   }
@@ -475,12 +476,18 @@ async function reprocess(s, keepCrs) {
       if (my !== s.seq) return;
       const cands = j.candidates || [];
       if (!cands.length) throw new Error('좌표계 후보를 찾지 못했습니다. 도면 좌표를 확인하세요.');
+      // 후보별 생태자연도 건수 확인 (빠른 1회 시도, 12초). 서버가 응답하지 않으면 우선순위로 정하고 경고
+      let down = false;
       await Promise.all(cands.map(async c => {
         c.hits = null;
         const b = c.bbox5186;
-        if (!b || !App.cfg.dataGoKrKey) return;
-        try { c.hits = (await wfsCount(b)).total; } catch (e) { c.hits = null; }
+        if (!b || !App.cfg.dataGoKrKey || down) return;
+        try {
+          const j = await limited(() => fetchJsonRetry(wfsUrl(b, 1), 1, 12000));
+          c.hits = typeof j.totalFeatures === 'number' ? j.totalFeatures : (j.features || []).length;
+        } catch (e) { c.hits = null; if (/시간 초과|HTTP 5/.test(e.message)) down = true; }
       }));
+      if (down && cands.every(c => c.hits == null)) toast('생태자연도 서버가 응답하지 않아 좌표계를 우선순위(EPSG:5186 등)로 정했습니다. 지도에서 위치를 확인하세요.', 'warn');
       if (my !== s.seq) return;
       let idx = -1;
       cands.forEach((c, i) => { if (c.hits > 0 && (idx < 0 || (c.priority || 0) < (cands[idx].priority || 0))) idx = i; });

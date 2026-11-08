@@ -1,0 +1,715 @@
+/* 생태자연도 등급별 면적 산정 도구 - 작업 탭 (app.js)
+ * 도면 출력 탭은 app2.js 에 있으며 전역 App 객체를 공유한다. */
+'use strict';
+
+// ============================================================ 1. 공통 상수/유틸
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const CATS = ['사업지구', '계획지구', '사업노선', '계획노선'];
+const GRADE_COLOR = { '1': '#1AA800', '2': '#92D050', '3': '#FFFFFF', '9': '#FF8000' };
+const GRADE_NAME = { '1': '1등급', '2': '2등급', '3': '3등급', '9': '별도관리지역' };
+const EP = 'https://apis.data.go.kr/B553084/ecoapi/EcologyzmpService';
+const REF_BBOX = [314548, 401742, 320867, 409072];
+const PX_PER_MM96 = 96 / 25.4; // 96dpi 기준 mm당 px
+const DEFAULT_CAT_STYLE = {
+  '사업지구': { color: '#FF0000', width: 3, dash: 'solid' },
+  '계획지구': { color: '#0050FF', width: 3, dash: 'dashed' },
+  '사업노선': { color: '#E000E0', width: 3, dash: 'solid' },
+  '계획노선': { color: '#00A0E0', width: 3, dash: 'dashed' },
+};
+
+const App = {
+  cfg: {},
+  opts: { basemap: 'base', mode: 'both', opA: 0.6, opI: 0.6, proxy: false, rest3: true, range: 500 },
+  catStyle: JSON.parse(JSON.stringify(DEFAULT_CAT_STYLE)),
+  sites: [],
+  area: null,        // /api/area 응답
+  eczmCount: 0,
+  fresh: null,       // 최근 자료 확인 결과
+  listeners: [],     // 상태 변경 시 호출 (도면 출력 탭 갱신)
+  liveSets: [],      // 화면에 떠 있는 레이어 세트
+  CATS, GRADE_COLOR, GRADE_NAME, PX_PER_MM96,
+  src: {
+    around: new ol.source.Vector(),
+    inside: new ol.source.Vector(),
+    sites: new ol.source.Vector(),
+  },
+};
+App.emit = () => App.listeners.forEach(fn => { try { fn(); } catch (e) { console.error(e); } });
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function fmt(n) {
+  return (Number(n) || 0).toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+App.fmt = fmt;
+
+let toastTimer = null;
+function toast(msg, kind, ms) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = 'toast' + (kind ? ' ' + kind : '');
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  if (ms !== 0) toastTimer = setTimeout(() => { t.hidden = true; }, ms || (kind === 'error' ? 9000 : 4500));
+}
+App.toast = toast;
+
+async function api(path, body, raw) {
+  const r = await fetch(path, body === undefined ? {} : {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (raw && r.ok) return r;
+  let j = null;
+  try { j = await r.json(); } catch (e) { /* 본문 없음 */ }
+  if (!r.ok) throw new Error((j && j.error) || ('HTTP ' + r.status));
+  return j;
+}
+
+// 동시 요청 4개 제한 (슬롯을 대기자에게 직접 넘겨 초과 방지)
+const sem = { n: 0, q: [] };
+async function limited(fn) {
+  if (sem.n >= 4) await new Promise(r => sem.q.push(r)); else sem.n++;
+  try { return await fn(); } finally {
+    const r = sem.q.shift();
+    if (r) r(); else sem.n--;
+  }
+}
+
+async function fetchJsonRetry(url) {
+  let last = null;
+  for (let a = 0; a < 3; a++) {
+    const ac = new AbortController();
+    const tm = setTimeout(() => ac.abort(), 30000);
+    try {
+      const r = await fetch(url, { signal: ac.signal });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const txt = await r.text();
+      try { return JSON.parse(txt); } catch (e) { throw new Error('응답 형식 오류: ' + txt.slice(0, 120)); }
+    } catch (e) {
+      last = e.name === 'AbortError' ? new Error('시간 초과(30초)') : e;
+      await sleep(500 * (a + 1));
+    } finally { clearTimeout(tm); }
+  }
+  throw last;
+}
+
+// ============================================================ 2. 설정 / 옵션 저장
+function loadLocal() {
+  try { Object.assign(App.opts, JSON.parse(localStorage.getItem('ecoOpts') || '{}')); } catch (e) { /* 무시 */ }
+  if (!['base', 'sat', 'none'].includes(App.opts.basemap)) App.opts.basemap = 'base';
+  App.opts.mode = 'both';
+  try {
+    const cs = JSON.parse(localStorage.getItem('ecoCatStyle') || '{}');
+    for (const c of CATS) if (cs[c]) Object.assign(App.catStyle[c], cs[c]);
+  } catch (e) { /* 무시 */ }
+}
+App.saveOpts = () => localStorage.setItem('ecoOpts', JSON.stringify(App.opts));
+
+function dataKey() {
+  const k = App.cfg.dataGoKrKey || '';
+  return k.indexOf('%') >= 0 ? k : encodeURIComponent(k);
+}
+
+// ============================================================ 3. 생태자연도 API
+function wfsUrl(b, maxFeatures) {
+  return `${EP}/wfs/getEcologyzmpWFS?ServiceKey=${dataKey()}&typename=tbl_opn_eczm&srs=EPSG:5186` +
+    `&bbox=${b[0]},${b[1]},${b[2]},${b[3]}&outputFormat=application/json` + (maxFeatures ? `&maxFeatures=${maxFeatures}` : '');
+}
+async function wfsCount(b) {
+  const j = await limited(() => fetchJsonRetry(wfsUrl(b, 1)));
+  return { total: typeof j.totalFeatures === 'number' ? j.totalFeatures : (j.features || []).length, first: (j.features || [])[0] };
+}
+function idToDate(id) {
+  const m = /\.(\d{8})/.exec(String(id || ''));
+  return m ? `${m[1].slice(0, 4)}-${m[1].slice(4, 6)}-${m[1].slice(6, 8)}` : '';
+}
+
+// 쿼드트리 수집: totalFeatures > features.length 이면 4등분 재귀 (startIndex 사용 안 함)
+async function collectEczm(bbox, onProg) {
+  const feats = new Map();
+  let calls = 0, deepWarn = 0;
+  async function rec(b, depth) {
+    const j = await limited(() => fetchJsonRetry(wfsUrl(b)));
+    calls++;
+    const arr = j.features || [];
+    arr.forEach((f, i) => {
+      const id = f.id != null ? f.id : ('noid-' + calls + '-' + i);
+      if (!feats.has(id)) { f.id = id; feats.set(id, f); }
+    });
+    if (onProg) onProg(calls, feats.size);
+    const total = typeof j.totalFeatures === 'number' ? j.totalFeatures : (arr.length >= 500 ? Infinity : arr.length);
+    if (total > arr.length) {
+      if (depth >= 12) { deepWarn++; return; }
+      const mx = (b[0] + b[2]) / 2, my = (b[1] + b[3]) / 2;
+      await Promise.all([
+        rec([b[0], b[1], mx, my], depth + 1), rec([mx, b[1], b[2], my], depth + 1),
+        rec([b[0], my, mx, b[3]], depth + 1), rec([mx, my, b[2], b[3]], depth + 1),
+      ]);
+    }
+  }
+  await rec(bbox, 0);
+  return { features: Array.from(feats.values()), calls, deepWarn };
+}
+
+// ============================================================ 4. 자료 최신 확인
+async function checkFresh() {
+  const info = $('#freshInfo'), banner = $('#freshBanner');
+  if (!App.cfg.dataGoKrKey) {
+    info.innerHTML = '<span class="bad">data.go.kr 인증키를 입력하세요.</span>';
+    return null;
+  }
+  info.textContent = '확인 중...';
+  try {
+    const xml = await limited(async () => {
+      const r = await fetch(`${EP}/wms/getEcologyzmpWMS?ServiceKey=${dataKey()}&request=GetCapabilities`);
+      if (!r.ok) throw new Error('GetCapabilities HTTP ' + r.status);
+      return r.text();
+    });
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    const updateSequence = doc.documentElement.getAttribute('updateSequence') || '';
+    const ref = await wfsCount(REF_BBOX);
+    const cur = {
+      updateSequence, idDate: idToDate(ref.first && ref.first.id), refTotal: ref.total,
+      checkedAt: new Date().toISOString(),
+    };
+    let prev = {};
+    try { prev = await api('/api/state'); } catch (e) { prev = {}; }
+    if (prev && prev.updateSequence !== undefined) {
+      const diffs = [];
+      if (String(prev.updateSequence) !== String(cur.updateSequence)) diffs.push('updateSequence ' + prev.updateSequence);
+      if (prev.idDate !== cur.idDate) diffs.push('기준일 ' + prev.idDate);
+      if (prev.refTotal !== cur.refTotal) diffs.push('기준 영역 건수 ' + prev.refTotal);
+      if (diffs.length) {
+        banner.hidden = false;
+        banner.textContent = `생태자연도 자료가 갱신되었습니다 (이전: ${diffs.join(', ')} → 현재: updateSequence ${cur.updateSequence}, 기준일 ${cur.idDate}, 기준 영역 건수 ${cur.refTotal})`;
+      }
+    } else {
+      banner.hidden = false;
+      banner.textContent = '기준 자료 등록: 이번 확인 값을 기준으로 저장했습니다.';
+    }
+    try { await api('/api/state', cur); } catch (e) { /* 저장 실패는 진행 허용 */ }
+    App.fresh = cur;
+    info.innerHTML = `<span class="ok">자료 상태: 최신 확인됨</span><br>확인 시각 ${esc(new Date(cur.checkedAt).toLocaleString('ko-KR'))}<br>` +
+      `updateSequence ${esc(cur.updateSequence)} · 자료 기준일 ${esc(cur.idDate || '-')}`;
+    return cur;
+  } catch (e) {
+    App.fresh = null;
+    info.innerHTML = `<span class="bad">자료 확인 실패: ${esc(e.message)}</span><br>인증키나 네트워크를 확인하세요. 작업은 계속할 수 있습니다.`;
+    return null;
+  }
+}
+
+// ============================================================ 5. 스타일 / 레이어 세트
+const styleCache = new Map();
+function cached(key, mk) {
+  let s = styleCache.get(key);
+  if (!s) { s = mk(); styleCache.set(key, s); if (styleCache.size > 2000) styleCache.clear(); }
+  return s;
+}
+function dashArr(kind, w) {
+  if (kind === 'dashed') return [w * 4, w * 2.5];
+  if (kind === 'dotted') return [w * 0.8, w * 2];
+  return undefined;
+}
+App.dashArr = dashArr;
+
+function gradeStyle(grade, s, thin) {
+  return cached(`g|${grade}|${s.toFixed(3)}|${thin ? 1 : 0}`, () => {
+    const col = GRADE_COLOR[grade] || '#BBBBBB';
+    return new ol.style.Style({
+      fill: new ol.style.Fill({ color: col }),
+      stroke: new ol.style.Stroke({ color: grade === '3' ? '#999999' : 'rgba(60,60,60,0.7)', width: Math.max(0.3, (thin ? 0.5 : 0.8) * s) }),
+    });
+  });
+}
+function siteStyle(cat, s) {
+  const st = App.catStyle[cat] || DEFAULT_CAT_STYLE['사업지구'];
+  return cached(`s|${cat}|${st.color}|${st.width}|${st.dash}|${s.toFixed(3)}`, () => {
+    const w = st.width * s;
+    return new ol.style.Style({ stroke: new ol.style.Stroke({ color: st.color, width: w, lineDash: dashArr(st.dash, w), lineCap: 'butt' }) });
+  });
+}
+
+function tileSource(layer, ext, proxy) {
+  const key = App.cfg.vworldKey;
+  const url = proxy ? `/tile/vworld/${layer}/{z}/{y}/{x}.${ext}` : `https://api.vworld.kr/req/wmts/1.0.0/${key}/${layer}/{z}/{y}/{x}.${ext}`;
+  return new ol.source.XYZ({ url, minZoom: 6, maxZoom: 19, crossOrigin: 'anonymous' });
+}
+
+/* 레이어 세트 생성. getScale(): 선 굵기 배율(styleScale). 미리보기/내보내기가 같은 팩토리를 사용 */
+App.createLayerSet = function (getScale, live) {
+  const set = { baseKey: null };
+  set.base = new ol.layer.Tile({ visible: false, zIndex: 0 });
+  set.label = new ol.layer.Tile({ visible: false, zIndex: 1 });
+  set.around = new ol.layer.Vector({
+    source: App.src.around, zIndex: 2,
+    style: f => gradeStyle(String(f.get('eczm_grad')), getScale(), true),
+  });
+  set.inside = new ol.layer.Vector({
+    source: App.src.inside, zIndex: 3,
+    style: f => {
+      let g = String(f.get('grade'));
+      if (g === 'rest') { if (!App.opts.rest3) return null; g = '3'; }
+      return gradeStyle(g, getScale(), false);
+    },
+  });
+  set.sites = new ol.layer.Vector({
+    source: App.src.sites, zIndex: 4,
+    style: f => siteStyle(f.get('category'), getScale()),
+  });
+  set.layers = [set.base, set.label, set.around, set.inside, set.sites];
+  set.errors = 0;
+  set.refresh = function (over) {
+    const o = Object.assign({}, App.opts, over || {});
+    // 표시 방식은 '주변 전체 + 사업지구 내부' 하나로 고정, 투명도는 하나로 통일
+    if (!['base', 'sat', 'none'].includes(o.basemap)) o.basemap = App.opts.basemap = 'base';
+    set.around.setVisible(true);
+    set.inside.setVisible(true);
+    set.around.setOpacity(Number(o.opA));
+    set.inside.setOpacity(Number(o.opA));
+    const key = [o.basemap, o.proxy ? 1 : 0, App.cfg.vworldKey || ''].join('|');
+    if (key !== set.baseKey) {
+      set.baseKey = key;
+      const hasKey = !!App.cfg.vworldKey;
+      let b = null, l = null;
+      if (o.basemap !== 'none') {
+        if (!hasKey) { b = new ol.source.OSM(); }
+        else if (o.basemap === 'base') b = tileSource('Base', 'png', o.proxy);
+        else if (o.basemap === 'sat') b = tileSource('Satellite', 'jpeg', o.proxy);
+        else if (o.basemap === 'hybrid') { b = tileSource('Satellite', 'jpeg', o.proxy); l = tileSource('Hybrid', 'png', o.proxy); }
+        else if (o.basemap === 'gray') b = tileSource('gray', 'png', o.proxy);
+      }
+      set.errors = 0;
+      [[set.base, b], [set.label, l]].forEach(([lyr, s]) => {
+        if (s) {
+          s.on('tileloaderror', () => { set.errors++; if (live && set.errors === 1) toast('배경지도 타일을 불러오지 못했습니다. 브이월드 키/도메인을 확인하세요.', 'warn'); });
+          lyr.setSource(s);
+        }
+        lyr.setVisible(!!s);
+      });
+    }
+  };
+  set.changed = () => { set.around.changed(); set.inside.changed(); set.sites.changed(); };
+  set.tileSources = () => [set.base.getSource(), set.label.getSource()].filter(Boolean);
+  if (live) App.liveSets.push(set);
+  return set;
+};
+
+// ============================================================ 6. 작업 지도
+proj4.defs('EPSG:5186', '+proj=tmerc +lat_0=38 +lon_0=127 +k=1 +x_0=200000 +y_0=600000 +ellps=GRS80 +units=m +no_defs');
+ol.proj.proj4.register(proj4);
+const geojson = new ol.format.GeoJSON();
+const readOpts = { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' };
+App.readOpts = readOpts;
+
+App.workSet = App.createLayerSet(() => 1, true);
+App.workMap = new ol.Map({
+  target: 'map',
+  layers: App.workSet.layers,
+  view: new ol.View({ projection: 'EPSG:3857', center: ol.proj.fromLonLat([127.8, 36.3]), zoom: 7, minZoom: 5, maxZoom: 21 }),
+});
+
+App.applyOpts = function () {
+  App.liveSets.forEach(s => { s.refresh(); s.changed(); });
+  renderTable();
+  App.emit();
+};
+
+App.sitesExtent = function () {
+  const e = App.src.sites.getExtent();
+  return (e && isFinite(e[0])) ? e : null;
+};
+function fitSites(sitesOnly) {
+  const e = App.sitesExtent();
+  if (e) App.workMap.getView().fit(e, { padding: [50, 50, 50, 50], maxZoom: 18, duration: 300 });
+}
+
+// ============================================================ 7. 옵션 UI (두 탭 공유)
+function buildMapOpts(el, pfx) {
+  el.innerHTML = `
+    <label class="field"><span>배경지도</span><select data-opt="basemap">
+      <option value="base">일반지도</option><option value="sat">위성지도</option><option value="none">흰색 배경</option></select></label>
+    <div class="slider"><span>생태자연도 투명도</span><input type="range" min="0" max="1" step="0.05" data-opt="opA"></div>`;
+}
+function syncOptUI() {
+  $$('[data-opt]').forEach(el => {
+    const v = App.opts[el.dataset.opt];
+    if (el.type === 'checkbox') el.checked = !!v;
+    else if (el.type === 'radio') el.checked = el.value === String(v);
+    else el.value = v;
+  });
+}
+function initOptUI() {
+  $('#optRest3').dataset.opt = 'rest3';
+  $('#optRange').dataset.opt = 'range';
+  buildMapOpts($('#mapOptsWork'), 'w');
+  buildMapOpts($('#mapOptsLayout'), 'l');
+  syncOptUI();
+  document.addEventListener('input', e => {
+    const el = e.target.closest ? e.target.closest('[data-opt]') : null;
+    if (!el) return;
+    const k = el.dataset.opt;
+    if (el.type === 'checkbox') App.opts[k] = el.checked;
+    else if (el.type === 'radio') { if (!el.checked) return; App.opts[k] = el.value; }
+    else if (el.type === 'range' || el.type === 'number') App.opts[k] = Number(el.value);
+    else App.opts[k] = el.value;
+    App.saveOpts();
+    syncOptUI();
+    App.applyOpts();
+  });
+}
+
+// ============================================================ 8. 구분별 선 스타일 UI
+function initCatStyles() {
+  const box = $('#catStyles');
+  box.innerHTML = CATS.map(c => {
+    const s = App.catStyle[c];
+    return `<div class="cat-row" data-cat="${c}"><span>${c}</span>
+      <input type="color" data-f="color" value="${s.color}">
+      <input type="number" data-f="width" min="0.5" max="12" step="0.5" value="${s.width}">
+      <select data-f="dash"><option value="solid">실선</option><option value="dashed">파선</option><option value="dotted">점선</option></select></div>`;
+  }).join('');
+  CATS.forEach(c => { $(`.cat-row[data-cat="${c}"] select`, box).value = App.catStyle[c].dash; });
+  box.addEventListener('input', e => {
+    const row = e.target.closest('.cat-row'); if (!row) return;
+    const f = e.target.dataset.f;
+    App.catStyle[row.dataset.cat][f] = f === 'width' ? (Number(e.target.value) || 1) : e.target.value;
+    localStorage.setItem('ecoCatStyle', JSON.stringify(App.catStyle));
+    App.liveSets.forEach(s => s.sites.changed());
+    App.emit();
+  });
+}
+
+// ============================================================ 9. 도면(사이트) 카드
+let siteSeq = 0;
+function guessCategory(name) {
+  if (/사업지구|사업부지|사업구역/.test(name)) return '사업지구';
+  if (/계획지구|계획구역|계획부지/.test(name)) return '계획지구';
+  if (/사업노선/.test(name)) return '사업노선';
+  if (/계획노선/.test(name)) return '계획노선';
+  if (/노선|도로|선형/.test(name)) return '사업노선';
+  return '사업지구';
+}
+function autoLayers(layers) {
+  const re = /경계|구역|부지|지구|노선|계획|사업|용지|boundary|limit|site/i;
+  let any = false;
+  layers.forEach(l => { l.checked = l.closed > 0 && re.test(l.name); if (l.checked) any = true; });
+  if (!any) layers.forEach(l => { l.checked = l.closed > 0; });
+}
+
+function renderCard(s) {
+  let el = s.el;
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'site-card';
+    el.dataset.sid = s.id;
+    s.el = el;
+    $('#siteList').appendChild(el);
+  }
+  const layers = (s.layers || []).map((l, i) =>
+    `<label><input type="checkbox" data-act="layer" data-i="${i}" ${l.checked ? 'checked' : ''}> <span>${esc(l.name || '(이름 없음)')}</span>
+     <span class="cnt">${l.count}개 · 닫힘 ${l.closed}</span></label>`).join('');
+  let crs = '';
+  if (s.cands && s.cands.length) {
+    const opts = s.cands.map((c, i) => `<option value="${i}" ${i === s.crsIdx ? 'selected' : ''}>${esc(c.label || c.key)} (${c.hits == null ? '확인불가' : c.hits + '건'})</option>`).join('');
+    const c = s.cands[s.crsIdx] || s.cands[0];
+    const geo = (c.lat != null && c.lon != null) ? `, 경위도 ${Number(c.lat).toFixed(2)}N ${Number(c.lon).toFixed(2)}E` : '';
+    crs = `<label class="field"><span>좌표계</span><select data-act="crs">${opts}</select></label>
+      <div class="note">자동 판정: ${esc(c.key)} (${c.hits == null ? '생태자연도 확인 불가' : '생태자연도 ' + c.hits + '건 확인'}${geo})</div>`;
+    if (s.cands.filter(x => x.hits > 0).length >= 2) {
+      crs += '<div class="note warn">다른 좌표계도 육지에 위치합니다. 지도에서 위치를 꼭 확인하세요.</div>';
+    }
+  }
+  el.innerHTML = `
+    <div class="head"><span class="fname">${esc(s.name)}</span>
+      <button class="btn small" data-act="zoom" type="button" ${s.geometry ? '' : 'disabled'}>위치로 이동</button>
+      <button class="btn small" data-act="del" type="button">삭제</button></div>
+    ${s.converter ? `<div class="note">DWG→DXF 변환: ${esc(s.converter)}</div>` : ''}
+    <label class="field"><span>구분</span><select data-act="cat">${CATS.map(c => `<option ${c === s.category ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+    ${s.layers ? `<div class="layer-list">${layers || '<div class="note">레이어 없음</div>'}</div>` : ''}
+    ${crs}
+    ${s.busy ? `<div class="busy">${esc(s.busy)}</div>` : ''}
+    ${s.area != null ? `<div class="area">면적 ${fmt(s.area)} ㎡</div>` : ''}
+    ${s.poly > 0 ? `<div class="note">흩어진 선 ${s.poly}개 영역을 면으로 합성했습니다.</div>` : ''}
+    ${s.error ? `<div class="note err">${esc(s.error)}</div>` : ''}`;
+}
+
+function siteById(id) { return App.sites.find(s => String(s.id) === String(id)); }
+
+async function addFile(file) {
+  const s = { id: ++siteSeq, name: file.name, category: guessCategory(file.name), busy: '업로드 중...', seq: 0 };
+  App.sites.push(s);
+  renderCard(s);
+  try {
+    const r = await fetch('/api/upload', { method: 'POST', headers: { 'X-Filename': encodeURIComponent(file.name) }, body: file });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+    s.fileId = j.fileId;
+    s.converter = j.converter || '';
+    s.layers = (j.layers || []).map(l => ({ name: l.name, count: l.count, types: l.types, closed: l.closed || 0, checked: false }));
+    autoLayers(s.layers);
+    s.bounds = j.bounds;
+    await reprocess(s);
+  } catch (e) {
+    s.busy = ''; s.error = e.message; renderCard(s);
+    toast(`${file.name}: ${e.message}`, 'error');
+  }
+}
+
+// 좌표계 판정 + 면적/도형 생성
+async function reprocess(s, keepCrs) {
+  const my = ++s.seq;
+  const names = s.layers.filter(l => l.checked).map(l => l.name);
+  s.error = '';
+  if (!names.length) { s.busy = ''; s.error = '선택된 레이어가 없습니다.'; clearSiteGeom(s); renderCard(s); return; }
+  try {
+    if (!keepCrs) {
+      s.busy = '좌표계 판정 중...'; renderCard(s);
+      const j = await api('/api/crs', { fileId: s.fileId, layers: names });
+      if (my !== s.seq) return;
+      const cands = j.candidates || [];
+      if (!cands.length) throw new Error('좌표계 후보를 찾지 못했습니다. 도면 좌표를 확인하세요.');
+      await Promise.all(cands.map(async c => {
+        c.hits = null;
+        const b = c.bbox5186;
+        if (!b || !App.cfg.dataGoKrKey) return;
+        try { c.hits = (await wfsCount(b)).total; } catch (e) { c.hits = null; }
+      }));
+      if (my !== s.seq) return;
+      let idx = -1;
+      cands.forEach((c, i) => { if (c.hits > 0 && (idx < 0 || (c.priority || 0) < (cands[idx].priority || 0))) idx = i; });
+      s.cands = cands;
+      s.crsIdx = idx >= 0 ? idx : 0;
+    }
+    s.busy = '도형 생성 중...'; renderCard(s);
+    const c = s.cands[s.crsIdx];
+    const j = await api('/api/site', { fileId: s.fileId, layers: names, crs: c.key, scale: c.scale == null ? 1 : c.scale });
+    if (my !== s.seq) return;
+    s.geometry = j.geometry; s.area = j.area; s.bbox = j.bbox; s.poly = j.polygonizedFromLines || 0;
+    const first = !App.sitesExtent();
+    setSiteFeature(s);
+    s.busy = '';
+    renderCard(s);
+    if (first) fitSites();
+  } catch (e) {
+    if (my !== s.seq) return;
+    s.busy = ''; s.error = e.message; clearSiteGeom(s); renderCard(s);
+    toast(e.message, 'error');
+  }
+}
+function clearSiteGeom(s) {
+  if (s.feature) { App.src.sites.removeFeature(s.feature); s.feature = null; }
+  s.geometry = null; s.area = null; s.bbox = null; s.poly = 0;
+}
+function setSiteFeature(s) {
+  if (s.feature) App.src.sites.removeFeature(s.feature);
+  const f = geojson.readFeature({ type: 'Feature', geometry: s.geometry, properties: {} }, readOpts);
+  f.set('category', s.category);
+  s.feature = f;
+  App.src.sites.addFeature(f);
+  App.emit();
+}
+
+function initSiteList() {
+  const list = $('#siteList');
+  list.addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    const card = e.target.closest('.site-card'); const s = siteById(card.dataset.sid); if (!s) return;
+    if (b.dataset.act === 'del') {
+      s.seq++;
+      clearSiteGeom(s);
+      App.sites.splice(App.sites.indexOf(s), 1);
+      card.remove();
+      App.emit();
+    } else if (b.dataset.act === 'zoom' && s.feature) {
+      App.workMap.getView().fit(s.feature.getGeometry().getExtent(), { padding: [60, 60, 60, 60], maxZoom: 18, duration: 300 });
+    }
+  });
+  list.addEventListener('change', e => {
+    const t = e.target; const act = t.dataset.act; if (!act) return;
+    const card = t.closest('.site-card'); const s = siteById(card.dataset.sid); if (!s) return;
+    if (act === 'cat') {
+      s.category = t.value;
+      if (s.feature) { s.feature.set('category', s.category); App.emit(); }
+    } else if (act === 'layer') {
+      s.layers[Number(t.dataset.i)].checked = t.checked;
+      clearTimeout(s.layerTimer);
+      s.layerTimer = setTimeout(() => reprocess(s), 450);
+    } else if (act === 'crs') {
+      s.crsIdx = Number(t.value);
+      reprocess(s, true);
+    }
+  });
+  const dz = $('#dropZone'), fi = $('#fileInput');
+  $('#btnPick').addEventListener('click', () => fi.click());
+  fi.addEventListener('change', async () => { const fs = Array.from(fi.files); fi.value = ''; for (const f of fs) await addFile(f); });
+  ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('drag'); }));
+  ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('drag'); }));
+  dz.addEventListener('drop', async e => { for (const f of Array.from(e.dataTransfer.files)) await addFile(f); });
+}
+
+// ============================================================ 10. 면적 산정
+async function calculate() {
+  const btn = $('#btnCalc'), prog = $('#calcProgress');
+  const ready = App.sites.filter(s => s.geometry && !s.busy);
+  if (!App.cfg.dataGoKrKey) return toast('data.go.kr 인증키를 입력하고 저장하세요.', 'error');
+  if (!ready.length) return toast('면적을 계산할 도면(도형)이 없습니다.', 'error');
+  btn.disabled = true; prog.hidden = false; prog.textContent = '자료 최신 여부 확인 중...';
+  try {
+    await checkFresh();
+    const ext = [Infinity, Infinity, -Infinity, -Infinity];
+    ready.forEach(s => { ext[0] = Math.min(ext[0], s.bbox[0]); ext[1] = Math.min(ext[1], s.bbox[1]); ext[2] = Math.max(ext[2], s.bbox[2]); ext[3] = Math.max(ext[3], s.bbox[3]); });
+    const rg = Math.max(0, Number(App.opts.range) || 0);
+    const bbox = [ext[0] - rg, ext[1] - rg, ext[2] + rg, ext[3] + rg];
+    const got = await collectEczm(bbox, (calls, n) => { prog.textContent = `생태자연도 수집 중... 호출 ${calls}회, 폴리곤 ${n.toLocaleString()}개`; });
+    if (got.deepWarn) toast(`일부 영역은 분할 한계(깊이 12)에 도달했습니다 (${got.deepWarn}곳). 누락 가능성이 있습니다.`, 'warn');
+    prog.textContent = `면적 계산 중... (폴리곤 ${got.features.length.toLocaleString()}개)`;
+    const res = await api('/api/area', {
+      sites: ready.map(s => ({ category: s.category, name: s.name, geometry: s.geometry })),
+      eczm: { type: 'FeatureCollection', features: got.features },
+    });
+    App.area = res;
+    App.eczmCount = res.eczmCount != null ? res.eczmCount : got.features.length;
+    App.src.around.clear(); App.src.inside.clear();
+    App.src.around.addFeatures(geojson.readFeatures({ type: 'FeatureCollection', features: got.features }, readOpts));
+    App.src.inside.addFeatures(geojson.readFeatures(res.clipped, readOpts));
+    renderTable();
+    prog.textContent = `완료: 호출 ${got.calls}회, 생태자연도 폴리곤 ${App.eczmCount.toLocaleString()}개`;
+    App.emit();
+  } catch (e) {
+    prog.textContent = '실패: ' + e.message;
+    toast(e.message, 'error');
+  } finally { btn.disabled = false; }
+}
+
+// 표 모델 (화면 표, TSV, 도면 면적표가 공유)
+App.tableModel = function () {
+  const r = App.area; if (!r) return null;
+  const as3 = !!App.opts.rest3;
+  const keys = r.gradeKeys.slice();
+  if (as3 && !keys.includes('3')) keys.push('3');
+  const order = { '1': 0, '2': 1, '3': 2, '9': 3 };
+  keys.sort((a, b) => ((order[a] != null ? order[a] : 9) - (order[b] != null ? order[b] : 9)) || a.localeCompare(b));
+  const cols = keys.map(k => ({ key: k, label: GRADE_NAME[k] || (r.gradeLabels && r.gradeLabels[k]) || k }));
+  if (!as3) cols.push({ key: 'none', label: '등급 없음(자료 외)' });
+  const rows = CATS.map(c => r.rows.find(x => x.category === c)).filter(Boolean).map(row => ({
+    category: row.category,
+    total: row.total,
+    vals: cols.map(c => c.key === 'none' ? row.noData : ((row.areas[c.key] || 0) + (c.key === '3' && as3 ? row.noData : 0))),
+  }));
+  return { cols, rows };
+};
+function renderTable() {
+  const m = App.tableModel();
+  $('#resultBox').hidden = !m;
+  if (!m) return;
+  const pct = (v, t) => t ? (v / t * 100) : 0;
+  let h = '<tr><th rowspan="2">구분</th>' + m.cols.map(c => `<th colspan="2">${esc(c.label)}</th>`).join('') + '<th colspan="2">계</th></tr><tr>' +
+    m.cols.map(() => '<th>면적(㎡)</th><th>비율(%)</th>').join('') + '<th>면적(㎡)</th><th>비율(%)</th></tr>';
+  m.rows.forEach(r => {
+    h += `<tr><td class="cat">${esc(r.category)}</td>` + r.vals.map(v => `<td>${fmt(v)}</td><td>${fmt(pct(v, r.total))}</td>`).join('') +
+      `<td>${fmt(r.total)}</td><td>${fmt(100)}</td></tr>`;
+  });
+  $('#areaTable').innerHTML = h;
+}
+function tsv() {
+  const m = App.tableModel(); if (!m) return '';
+  const l1 = ['구분'], l2 = [''];
+  m.cols.concat([{ label: '계' }]).forEach(c => { l1.push(c.label, ''); l2.push('면적(㎡)', '비율(%)'); });
+  const lines = [l1.join('\t'), l2.join('\t')];
+  m.rows.forEach(r => {
+    const cells = [r.category];
+    r.vals.concat([r.total]).forEach(v => { cells.push(v.toFixed(2), (r.total ? v / r.total * 100 : 0).toFixed(2)); });
+    lines.push(cells.join('\t'));
+  });
+  return lines.join('\n');
+}
+async function copyTable() {
+  const t = tsv(); if (!t) return;
+  try { await navigator.clipboard.writeText(t); }
+  catch (e) {
+    const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); ta.remove();
+  }
+  toast('표를 복사했습니다. 엑셀이나 한글에 붙여넣으세요.', 'ok');
+}
+async function saveXlsx() {
+  if (!App.area) return;
+  const f = App.fresh || {};
+  const meta = {
+    '자료 확인 시각': f.checkedAt ? new Date(f.checkedAt).toLocaleString('ko-KR') : '확인 안 됨',
+    'updateSequence': f.updateSequence || '',
+    '자료 기준일(식별번호)': f.idDate || '',
+    '생태자연도 폴리곤 수': String(App.eczmCount),
+    '주변 범위(m)': String(App.opts.range),
+    '자료 없는 지역': App.opts.rest3 ? '3등급으로 산정' : '등급 없음으로 분리',
+  };
+  try {
+    const r = await api('/api/xlsx', {
+      rows: App.area.rows, gradeKeys: App.area.gradeKeys, gradeLabels: App.area.gradeLabels,
+      remainderAs3: !!App.opts.rest3, title: $('#xlsxTitle').value || '생태자연도 등급별 면적 현황', meta,
+    }, true);
+    const blob = await r.blob();
+    downloadBlob(blob, '생태자연도_등급별면적.xlsx');
+  } catch (e) { toast('엑셀 저장 실패: ' + e.message, 'error'); }
+}
+function downloadBlob(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+}
+App.downloadBlob = downloadBlob;
+
+// ============================================================ 11. 탭 / 시작
+function switchTab(name) {
+  $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  $('#tabWork').hidden = name !== 'work';
+  $('#tabLayout').hidden = name !== 'layout';
+  $('#workMapWrap').hidden = name !== 'work';
+  $('#paperWrap').hidden = name !== 'layout';
+  if (name === 'layout') { if (App.layout) App.layout.enter(); }
+  else { if (App.layout) App.layout.leave(); App.workMap.updateSize(); }
+}
+
+async function saveConfig() {
+  const d = $('#keyData').value.trim(), v = $('#keyVworld').value.trim();
+  try {
+    App.cfg = await api('/api/config', { dataGoKrKey: d, vworldKey: v });
+    toast('인증키를 저장했습니다.', 'ok');
+    App.applyOpts();
+    checkFresh();
+  } catch (e) { toast('저장 실패: ' + e.message, 'error'); }
+}
+
+async function init() {
+  loadLocal();
+  initOptUI();
+  initCatStyles();
+  initSiteList();
+  $$('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+  $('#btnSaveCfg').addEventListener('click', saveConfig);
+  $('#btnFresh').addEventListener('click', checkFresh);
+  $('#btnCalc').addEventListener('click', calculate);
+  $('#btnXlsx').addEventListener('click', saveXlsx);
+  $('#btnCopy').addEventListener('click', copyTable);
+  try {
+    App.cfg = (await api('/api/config')) || {};
+  } catch (e) { App.cfg = {}; toast('설정을 읽지 못했습니다: ' + e.message, 'error'); }
+  $('#keyData').value = App.cfg.dataGoKrKey || '';
+  $('#keyVworld').value = App.cfg.vworldKey || '';
+  if (!App.cfg.vworldKey) toast('브이월드 키를 입력하세요. 지금은 OSM 배경을 사용합니다.', 'warn');
+  App.applyOpts();
+  api('/api/health').then(h => {
+    $('#healthInfo').textContent = '브라우저 버전 · DWG/DXF 직접 처리';
+  }).catch(() => {});
+  checkFresh();
+}
+App.switchTab = switchTab;
+App.init = init;

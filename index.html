@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>생태자연도 등급별 면적 산정 도구</title>
+<link rel="stylesheet" href="vendor/ol.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">생태자연도 등급별 면적 산정 도구</div>
+  <nav class="tabs">
+    <button class="tab active" data-tab="work" type="button">작업</button>
+    <button class="tab" data-tab="layout" type="button">도면 출력</button>
+  </nav>
+  <div class="topbar-right" id="healthInfo"></div>
+</header>
+
+<div class="app">
+  <aside class="panel" id="panel">
+    <div id="toast" class="toast" hidden></div>
+
+    <!-- ===================== 작업 탭 ===================== -->
+    <div id="tabWork" class="tabpane">
+
+      <section class="card-section">
+        <h2>1. 설정</h2>
+        <label class="field"><span>data.go.kr 인증키</span>
+          <input type="password" id="keyData" autocomplete="off" placeholder="공공데이터포털 일반 인증키"></label>
+        <label class="field"><span>브이월드 인증키</span>
+          <input type="password" id="keyVworld" autocomplete="off" placeholder="브이월드 API 키"></label>
+        <div class="row">
+          <button id="btnSaveCfg" class="btn primary" type="button">저장</button>
+        </div>
+        <div class="hint">키는 이 브라우저에만 저장됩니다. 브이월드 키가 없으면 OSM 배경으로 대체됩니다. 도면 파일은 서버로 올라가지 않고 이 PC 안에서만 처리됩니다.</div>
+      </section>
+
+      <section class="card-section">
+        <h2>2. 자료 상태</h2>
+        <div id="freshBanner" class="banner warn" hidden></div>
+        <div id="freshInfo" class="fresh-info">확인 전</div>
+        <div class="row"><button id="btnFresh" class="btn" type="button">다시 확인</button></div>
+      </section>
+
+      <section class="card-section">
+        <h2>3. 도면 추가</h2>
+        <div id="dropZone" class="dropzone">
+          <div>도면 파일을 끌어다 놓거나 선택하세요</div>
+          <div class="hint">dwg, dxf, zip(shp), geojson, gpkg, shp</div>
+          <input type="file" id="fileInput" multiple accept=".dwg,.dxf,.zip,.geojson,.json,.gpkg,.shp">
+          <button id="btnPick" class="btn" type="button">파일 선택</button>
+        </div>
+        <div id="siteList" class="site-list"></div>
+        <details class="sub">
+          <summary>구분별 선 스타일</summary>
+          <div id="catStyles" class="cat-styles"></div>
+        </details>
+      </section>
+
+      <section class="card-section">
+        <h2>4. 지도 표시</h2>
+        <div class="mapopts" id="mapOptsWork"></div>
+      </section>
+
+      <section class="card-section">
+        <h2>5. 면적 산정</h2>
+        <label class="field inline"><span>주변 표시 범위(m)</span>
+          <input type="number" id="optRange" min="0" step="50" value="500"></label>
+        <label class="check"><input type="checkbox" id="optRest3" checked> 자료 없는 지역은 3등급으로 산정</label>
+        <div class="hint">자연환경보전법 제34조상 3등급은 1·2등급 및 별도관리지역 외의 지역입니다. 해안·해상 사업이면 해제하세요.</div>
+        <div class="row"><button id="btnCalc" class="btn primary wide" type="button">생태자연도 받아서 면적 계산</button></div>
+        <div id="calcProgress" class="progress" hidden></div>
+        <div id="resultBox" hidden>
+          <div class="table-wrap"><table id="areaTable" class="area-table"></table></div>
+          <label class="field"><span>엑셀 제목</span>
+            <input type="text" id="xlsxTitle" value="생태자연도 등급별 면적 현황"></label>
+          <div class="row">
+            <button id="btnXlsx" class="btn" type="button">엑셀 저장</button>
+            <button id="btnCopy" class="btn" type="button">표 복사</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===================== 도면 출력 탭 ===================== -->
+    <div id="tabLayout" class="tabpane" hidden>
+      <section class="card-section">
+        <h2>도면 크기</h2>
+        <div class="grid2">
+          <label class="field"><span>가로(mm)</span><input type="number" id="paperW" min="30" step="1"></label>
+          <label class="field"><span>세로(mm)</span><input type="number" id="paperH" min="30" step="1"></label>
+        </div>
+        <div class="row"><button id="btnSwap" class="btn small" type="button">가로·세로 바꾸기</button></div>
+        <div class="grid2">
+          <label class="field"><span>여백(mm)</span><input type="number" id="marginMm" min="0" step="1"></label>
+          <label class="field"><span>해상도(DPI)</span>
+            <select id="dpiSel"><option value="150">150</option><option value="200">200</option><option value="300">300</option></select></label>
+        </div>
+        <label class="check"><input type="checkbox" id="frameChk"> 테두리(도곽선) 표시</label>
+      </section>
+
+      <section class="card-section">
+        <h2>지도 표시</h2>
+        <div class="mapopts" id="mapOptsLayout"></div>
+        <div class="row"><button id="btnFit" class="btn" type="button">도면에 맞추기</button></div>
+        <div class="hint">미리보기에서 마우스 휠로 확대·축소, 드래그로 이동합니다. 축척바는 자동으로 맞춰집니다.</div>
+      </section>
+
+      <section class="card-section">
+        <h2>요소</h2>
+        <div class="hint">요소는 미리보기에서 끌어서 옮길 수 있습니다. 위치는 도면 왼쪽 위 기준 mm입니다. 글꼴은 KoPub돋움체 Bold로 고정됩니다.</div>
+        <div id="elList" class="el-list"></div>
+      </section>
+
+      <section class="card-section">
+        <h2>내보내기</h2>
+        <div class="row">
+          <button id="btnPng" class="btn primary" type="button">PNG 저장</button>
+          <button id="btnPdf" class="btn primary" type="button">PDF 저장</button>
+          <button id="btnLayoutReset" class="btn" type="button">기본값으로</button>
+        </div>
+        <div id="exportProg" class="progress" hidden></div>
+      </section>
+    </div>
+  </aside>
+
+  <main class="stage" id="stage">
+    <div id="workMapWrap" class="workmap"><div id="map" class="map"></div></div>
+    <div id="paperWrap" class="paperwrap" hidden>
+      <div id="paper" class="paper">
+        <div id="paperMap" class="papermap"></div>
+        <canvas id="overlay" class="overlay"></canvas>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="vendor/ol.js"></script>
+<script src="vendor/proj4.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="vendor/jsts.min.js"></script>
+<script src="cad.js"></script>
+<script src="backend.js"></script>
+<script src="app.js"></script>
+<script src="app2.js"></script>
+</body>
+</html>

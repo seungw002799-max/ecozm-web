@@ -101,7 +101,7 @@
       return {
         w: T, h: T,
         draw(x, y) {
-          const cx = x + T / 2, cy = y + T / 2, lh = S * 0.17, R = S / 2 - lh * 1.15, ri = R * 0.36, rd = R * 0.6;
+          const cx = x + T / 2, cy = y + T / 2, lh = S * 0.105, R = S / 2 - lh * 1.35, ri = R * 0.36, rd = R * 0.6;
           const P = (a, r) => [cx + r * Math.sin(a), cy - r * Math.cos(a)];
           const D = Math.PI / 180;
           const ptsOuter = k => P(k * 45 * D, k % 2 === 0 ? R : rd);
@@ -142,7 +142,7 @@
     scalebar(ctx, cIn, env) {
       // 글자·막대 크기는 용지 크기에 비례해 자동 (A4 기준 9pt, 막대 4mm)
       const k = Math.min(env.W, env.H) / 210;
-      const c = { len: 'auto', div: 2, h: Math.max(2, 4 * k), font: Math.min(24, Math.max(6, 9 * k)) };
+      const c = { len: 'auto', div: 2, h: Math.max(2, 4 * k), font: Math.min(28, Math.max(7, 11 * k)) };
       const N = env.N, fmm = c.font * PT, pad = 2.4 * Math.max(0.7, k), gap = 1.2 * Math.max(0.7, k);
       const maxKm = env.mapRect.w * N / 1e6;
       const km = (c.len === 'auto' || c.len == null || c.len === '') ? autoLen(maxKm / 4) : (Number(c.len) || 0.5);

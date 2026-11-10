@@ -708,6 +708,7 @@ async function init() {
   $('#btnCopy').addEventListener('click', copyTable);
   try {
     App.cfg = (await api('/api/config')) || {};
+  if (window.ECO_KEYS_FROM_LINK) setTimeout(() => toast('팀 설정 링크로 인증키를 저장했습니다. 다음부터는 주소만 열면 됩니다.', 'ok'), 300);
   } catch (e) { App.cfg = {}; toast('설정을 읽지 못했습니다: ' + e.message, 'error'); }
   $('#keyData').value = App.cfg.dataGoKrKey || '';
   $('#keyVworld').value = App.cfg.vworldKey || '';

@@ -259,6 +259,20 @@
   // ---------------------------------------------------------------- 설정 저장 (브라우저 localStorage)
   const ls = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') || d; } catch (e) { return d; } };
   const DEFAULT_CFG = (window.ECO_DEFAULT_CONFIG || {});
+  // 팀 설정 링크: 주소 끝 #d=공공데이터키&v=브이월드키 로 열면 키를 이 브라우저에 저장하고 주소에서 지운다
+  // (# 뒤 내용은 서버로 전송되지 않으며, 저장소에도 키가 남지 않음)
+  try {
+    const hp = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+    const d = hp.get('d'), v = hp.get('v');
+    if (d || v) {
+      const c = ls('ecoCfg', {});
+      if (d) c.dataGoKrKey = d;
+      if (v) c.vworldKey = v;
+      localStorage.setItem('ecoCfg', JSON.stringify(c));
+      history.replaceState(null, '', location.pathname + location.search);
+      window.ECO_KEYS_FROM_LINK = true;
+    }
+  } catch (e) { /* 무시 */ }
 
   // ---------------------------------------------------------------- fetch 가로채기
   const realFetch = window.fetch.bind(window);

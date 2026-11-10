@@ -273,6 +273,8 @@
       window.ECO_KEYS_FROM_LINK = true;
     }
   } catch (e) { /* 무시 */ }
+  // 사이트를 연 상태에서 팀 링크를 붙여넣은 경우에도 적용되도록 새로고침
+  window.addEventListener('hashchange', () => { if (/(^|[#&])(d|v)=/.test(location.hash)) location.reload(); });
 
   // ---------------------------------------------------------------- fetch 가로채기
   const realFetch = window.fetch.bind(window);

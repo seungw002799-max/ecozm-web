@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>생태자연도 등급별 면적 산정 도구</title>
 <link rel="stylesheet" href="vendor/ol.css">
-<link rel="stylesheet" href="app.css?v=20261111c">
+<link rel="stylesheet" href="app.css?v=20261111d">
 </head>
 <body>
 <header class="topbar">
@@ -26,21 +26,23 @@
 
       <section class="card-section">
         <h2>1. 설정</h2>
-        <label class="field"><span>data.go.kr 인증키</span>
-          <input type="password" id="keyData" autocomplete="off" placeholder="공공데이터포털 일반 인증키"></label>
-        <label class="field"><span>브이월드 인증키</span>
-          <input type="password" id="keyVworld" autocomplete="off" placeholder="브이월드 API 키"></label>
-        <div class="row">
+        <div class="key-line"><span class="key-name">data.go.kr 인증키</span><span class="key-ok" id="keyDataOk" hidden>인증 완료</span></div>
+        <input type="password" id="keyData" class="key-input" autocomplete="off" placeholder="공공데이터포털 일반 인증키">
+        <div class="key-line"><span class="key-name">브이월드 인증키</span><span class="key-ok" id="keyVworldOk" hidden>인증 완료</span></div>
+        <input type="password" id="keyVworld" class="key-input" autocomplete="off" placeholder="브이월드 API 키">
+        <div class="row" id="keySaveRow">
           <button id="btnSaveCfg" class="btn primary" type="button">저장</button>
         </div>
-        <div class="hint">키는 이 브라우저에만 저장됩니다. 브이월드 키가 없으면 OSM 배경으로 대체됩니다. 도면 파일은 서버로 올라가지 않고 이 PC 안에서만 처리됩니다.</div>
+        <button id="btnKeyEdit" class="linkbtn" type="button" hidden>인증키 변경</button>
       </section>
 
       <section class="card-section">
         <h2>2. 자료 상태</h2>
         <div id="freshBanner" class="banner warn" hidden></div>
-        <div id="freshInfo" class="fresh-info">확인 전</div>
-        <div class="row"><button id="btnFresh" class="btn" type="button">다시 확인</button></div>
+        <div class="fresh-row">
+          <div id="freshInfo" class="fresh-info">확인 전</div>
+          <button id="btnFresh" class="btn fresh-btn" type="button">재확인</button>
+        </div>
       </section>
 
       <section class="card-section">
@@ -52,10 +54,10 @@
           <button id="btnPick" class="btn" type="button">파일 선택</button>
         </div>
         <div id="siteList" class="site-list"></div>
-        <details class="sub">
-          <summary>구분별 선 스타일</summary>
+        <div class="cat-pick">
+          <span class="key-name">선 스타일</span>
           <div id="catStyles" class="cat-styles"></div>
-        </details>
+        </div>
       </section>
 
       <section class="card-section">
@@ -68,7 +70,7 @@
         <label class="field inline"><span>주변 표시 범위(m)</span>
           <input type="number" id="optRange" min="0" step="50" value="500"></label>
         <label class="check"><input type="checkbox" id="optRest3" checked> 자료 없는 지역은 3등급으로 산정</label>
-        <div class="hint">자연환경보전법 제34조상 3등급은 1·2등급 및 별도관리지역 외의 지역입니다. 해안·해상 사업이면 해제하세요.</div>
+        <div class="hint">3등급 지역의 산정은 1,2등급, 별도관리지역을 제외한 면적으로 산정됩니다.</div>
         <div class="row"><button id="btnCalc" class="btn primary wide" type="button">생태자연도 받아서 면적 계산</button></div>
         <div id="calcProgress" class="progress" hidden></div>
         <div id="resultBox" hidden>
@@ -140,9 +142,9 @@
 <script src="vendor/proj4.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jsts.min.js"></script>
-<script src="cad.js?v=20261111c"></script>
-<script src="backend.js?v=20261111c"></script>
-<script src="app.js?v=20261111c"></script>
-<script src="app2.js?v=20261111c"></script>
+<script src="cad.js?v=20261111d"></script>
+<script src="backend.js?v=20261111d"></script>
+<script src="app.js?v=20261111d"></script>
+<script src="app2.js?v=20261111d"></script>
 </body>
 </html>

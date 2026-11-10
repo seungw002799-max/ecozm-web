@@ -165,7 +165,7 @@ async function checkFresh() {
     info.innerHTML = '<span class="bad">data.go.kr 인증키를 입력하세요.</span>';
     return null;
   }
-  info.textContent = '확인 중...';
+  info.innerHTML = '<div class="fresh-main">자료 상태 : 확인 중</div>';
   try {
     const xml = await limited(async () => {
       const r = await fetch(`${EP}/wms/getEcologyzmpWMS?ServiceKey=${dataKey()}&request=GetCapabilities`);
@@ -196,8 +196,8 @@ async function checkFresh() {
     }
     try { await api('/api/state', cur); } catch (e) { /* 저장 실패는 진행 허용 */ }
     App.fresh = cur;
-    info.innerHTML = `<span class="ok">자료 상태: 최신 확인됨</span><br>확인 시각 ${esc(new Date(cur.checkedAt).toLocaleString('ko-KR'))}<br>` +
-      `updateSequence ${esc(cur.updateSequence)} · 자료 기준일 ${esc(cur.idDate || '-')}`;
+    info.innerHTML = `<div class="fresh-main">자료 상태 : <span class="ok-blue">최신 확인 완료</span></div>` +
+      `<div class="fresh-sub">확인 시각 ${esc(new Date(cur.checkedAt).toLocaleString('ko-KR'))}<br>updateSequence ${esc(cur.updateSequence)} · 자료 기준일 ${esc(cur.idDate || '-')}</div>`;
     return cur;
   } catch (e) {
     App.fresh = null;
@@ -368,23 +368,26 @@ function initOptUI() {
 
 // ============================================================ 8. 구분별 선 스타일 UI
 function initCatStyles() {
+  // 구분(4가지) 중 하나를 골라 그 선 스타일만 편집
   const box = $('#catStyles');
-  box.innerHTML = CATS.map(c => {
-    const s = App.catStyle[c];
-    return `<div class="cat-row" data-cat="${c}"><span>${c}</span>
-      <input type="color" data-f="color" value="${s.color}">
-      <input type="number" data-f="width" min="0.5" max="12" step="0.5" value="${s.width}">
-      <select data-f="dash"><option value="solid">실선</option><option value="dashed">파선</option><option value="dotted">점선</option></select></div>`;
-  }).join('');
-  CATS.forEach(c => { $(`.cat-row[data-cat="${c}"] select`, box).value = App.catStyle[c].dash; });
+  box.innerHTML = `<div class="cat-row">
+      <select data-f="cat">${CATS.map(c => `<option value="${c}">${c}</option>`).join('')}</select>
+      <input type="color" data-f="color" title="색">
+      <input type="number" data-f="width" min="0.5" max="12" step="0.5" title="굵기">
+      <select data-f="dash" title="선 종류"><option value="solid">실선</option><option value="dashed">파선</option><option value="dotted">점선</option></select></div>`;
+  const sel = $('[data-f="cat"]', box);
+  const fill = () => { const s = App.catStyle[sel.value]; $('[data-f="color"]', box).value = s.color; $('[data-f="width"]', box).value = s.width; $('[data-f="dash"]', box).value = s.dash; };
+  fill();
   box.addEventListener('input', e => {
-    const row = e.target.closest('.cat-row'); if (!row) return;
     const f = e.target.dataset.f;
-    App.catStyle[row.dataset.cat][f] = f === 'width' ? (Number(e.target.value) || 1) : e.target.value;
+    if (f === 'cat') return fill();
+    if (!f) return;
+    App.catStyle[sel.value][f] = f === 'width' ? (Number(e.target.value) || 1) : e.target.value;
     localStorage.setItem('ecoCatStyle', JSON.stringify(App.catStyle));
     App.liveSets.forEach(s => s.sites.changed());
     App.emit();
   });
+  box.addEventListener('change', e => { if (e.target.dataset.f === 'cat') fill(); });
 }
 
 // ============================================================ 9. 도면(사이트) 카드
@@ -685,11 +688,24 @@ function switchTab(name) {
   else { if (App.layout) App.layout.leave(); App.workMap.updateSize(); }
 }
 
+// 키가 있으면 입력칸을 숨기고 "인증 완료"만 표시
+function renderKeys(edit) {
+  const has = { Data: !!App.cfg.dataGoKrKey, Vworld: !!App.cfg.vworldKey };
+  ['Data', 'Vworld'].forEach(k => {
+    const show = edit || !has[k];
+    $('#key' + k).hidden = !show;
+    $('#key' + k + 'Ok').hidden = show;
+  });
+  const any = edit || !has.Data || !has.Vworld;
+  $('#keySaveRow').hidden = !any;
+  $('#btnKeyEdit').hidden = any;
+}
 async function saveConfig() {
   const d = $('#keyData').value.trim(), v = $('#keyVworld').value.trim();
   try {
     App.cfg = await api('/api/config', { dataGoKrKey: d, vworldKey: v });
     toast('인증키를 저장했습니다.', 'ok');
+    renderKeys(false);
     App.applyOpts();
     checkFresh();
   } catch (e) { toast('저장 실패: ' + e.message, 'error'); }
@@ -702,6 +718,7 @@ async function init() {
   initSiteList();
   $$('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
   $('#btnSaveCfg').addEventListener('click', saveConfig);
+  $('#btnKeyEdit').addEventListener('click', () => renderKeys(true));
   $('#btnFresh').addEventListener('click', checkFresh);
   $('#btnCalc').addEventListener('click', calculate);
   $('#btnXlsx').addEventListener('click', saveXlsx);
@@ -712,6 +729,7 @@ async function init() {
   } catch (e) { App.cfg = {}; toast('설정을 읽지 못했습니다: ' + e.message, 'error'); }
   $('#keyData').value = App.cfg.dataGoKrKey || '';
   $('#keyVworld').value = App.cfg.vworldKey || '';
+  renderKeys(false);
   if (!App.cfg.vworldKey) toast('브이월드 키를 입력하세요. 지금은 OSM 배경을 사용합니다.', 'warn');
   App.applyOpts();
   api('/api/health').then(h => {

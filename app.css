@@ -144,3 +144,18 @@ input:focus, select:focus { outline: 2px solid var(--accent-soft); border-color:
 .el-box .el-body .field { margin: 0; }
 .el-box .el-body .field.full { grid-column: 1 / -1; }
 .el-box .el-body .check { margin: 0; align-self: end; }
+
+/* 인증키 / 자료 상태 / 선 스타일 */
+.key-line { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 3px; }
+.key-name { color: var(--muted); font-size: 12px; }
+.key-ok, .ok-blue { color: #1d4ed8; font-weight: 700; }
+.key-input { font: inherit; padding: 5px 7px; border: 1px solid var(--line); border-radius: 4px; width: 100%; margin-bottom: 4px; }
+.linkbtn { border: 0; background: none; color: var(--muted); font-size: 11.5px; padding: 2px 0; cursor: pointer; text-decoration: underline; }
+.fresh-row { display: flex; align-items: stretch; gap: 10px; }
+.fresh-row .fresh-info { flex: 1; min-width: 0; }
+.fresh-btn { align-self: stretch; min-width: 64px; display: flex; align-items: center; justify-content: center; }
+.fresh-info .fresh-main { font-size: 13px; }
+.fresh-info .fresh-sub { font-size: 11px; color: var(--muted); line-height: 1.5; }
+.cat-pick { margin-top: 10px; }
+.cat-pick .cat-row { display: grid; grid-template-columns: 92px 36px 56px 1fr; gap: 6px; align-items: center; margin-top: 4px; }
+.cat-pick .cat-row select, .cat-pick .cat-row input[type=number] { font: inherit; padding: 4px 5px; border: 1px solid var(--line); border-radius: 4px; background: #fff; min-width: 0; }

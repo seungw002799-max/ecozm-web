@@ -193,3 +193,8 @@ input:focus, select:focus { outline: 2px solid var(--accent-soft); border-color:
 .stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .pos-row .unit { color: var(--muted); font-size: 12px; }
 .el-box .el-body .check.full { grid-column: 1 / -1; }
+
+/* 면적표 (세로형) */
+.area-table tr.cat-head td { background: var(--accent-soft); color: var(--accent-dark); font-weight: 700; text-align: left; padding-left: 8px; }
+.area-table tr.sum td { font-weight: 700; border-top: 1.5px solid #9aa3ad; }
+.area-table th:first-child, .area-table td.cat { width: 34%; }

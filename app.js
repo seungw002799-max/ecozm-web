@@ -22,7 +22,7 @@ const DEFAULT_CAT_STYLE = {
 
 const App = {
   cfg: {},
-  opts: { basemap: 'base', mode: 'both', opA: 0.6, opI: 0.6, proxy: false, rest3: true, range: 500 },
+  opts: { basemap: 'base', mode: 'both', opA: 0.6, opI: 0.6, opS: 1, proxy: false, rest3: true, range: 500 },
   catStyle: JSON.parse(JSON.stringify(DEFAULT_CAT_STYLE)),
   sites: [],
   area: null,        // /api/area 응답
@@ -274,6 +274,7 @@ App.createLayerSet = function (getScale, live) {
     set.inside.setVisible(true);
     set.around.setOpacity(Number(o.opA));
     set.inside.setOpacity(Number(o.opA));
+    set.sites.setOpacity(o.opS == null ? 1 : Number(o.opS));   // 올린 도면(경계선) 투명도
     const key = [o.basemap, o.proxy ? 1 : 0, App.cfg.vworldKey || ''].join('|');
     if (key !== set.baseKey) {
       set.baseKey = key;
@@ -337,7 +338,9 @@ function buildMapOpts(el, pfx) {
     <label class="field"><span>배경지도</span><select data-opt="basemap">
       <option value="base">일반지도</option><option value="sat">위성지도</option><option value="none">흰색 배경</option></select></label>
     <div class="slider"><span>생태자연도 투명도</span><input type="range" min="0" max="1" step="0.05" data-opt="opA">
-      <span class="pct-box"><input type="number" min="0" max="100" step="5" data-pct="opA"><span>%</span></span></div>`;
+      <span class="pct-box"><input type="number" min="0" max="100" step="5" data-pct="opA"><span>%</span></span></div>
+    <div class="slider"><span>도면 투명도</span><input type="range" min="0" max="1" step="0.05" data-opt="opS">
+      <span class="pct-box"><input type="number" min="0" max="100" step="5" data-pct="opS"><span>%</span></span></div>`;
 }
 function syncOptUI() {
   $$('[data-opt]').forEach(el => {
@@ -630,11 +633,12 @@ function renderTable() {
   $('#resultBox').hidden = !m;
   if (!m) return;
   const pct = (v, t) => t ? (v / t * 100) : 0;
-  let h = '<tr><th rowspan="2">구분</th>' + m.cols.map(c => `<th colspan="2">${esc(c.label)}</th>`).join('') + '<th colspan="2">계</th></tr><tr>' +
-    m.cols.map(() => '<th>면적(㎡)</th><th>비율(%)</th>').join('') + '<th>면적(㎡)</th><th>비율(%)</th></tr>';
+  // 구분마다 블록: 등급을 세로로 나열 (가로 스크롤 없이 한눈에)
+  let h = '<tr><th>등급</th><th>면적(㎡)</th><th>비율(%)</th></tr>';
   m.rows.forEach(r => {
-    h += `<tr><td class="cat">${esc(r.category)}</td>` + r.vals.map(v => `<td>${fmt(v)}</td><td>${fmt(pct(v, r.total))}</td>`).join('') +
-      `<td>${fmt(r.total)}</td><td>${fmt(100)}</td></tr>`;
+    h += `<tr class="cat-head"><td colspan="3">${esc(r.category)}</td></tr>`;
+    m.cols.forEach((c, i) => { h += `<tr><td class="cat">${esc(c.label)}</td><td>${fmt(r.vals[i])}</td><td>${fmt(pct(r.vals[i], r.total))}</td></tr>`; });
+    h += `<tr class="sum"><td class="cat">계</td><td>${fmt(r.total)}</td><td>${fmt(100)}</td></tr>`;
   });
   $('#areaTable').innerHTML = h;
 }

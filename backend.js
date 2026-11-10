@@ -215,7 +215,7 @@
     await loadExcel();
     const as3 = !!p.remainderAs3, order = { '1': 0, '2': 1, '3': 2, '9': 3 };
     let gks = p.gradeKeys.slice(); const labels = Object.assign({}, p.gradeLabels);
-    if (as3 && !gks.includes('3')) { gks.push('3'); labels['3'] = '3등급'; }
+    ['1', '2', '3', '9'].forEach(k => { if (!gks.includes(k)) { gks.push(k); labels[k] = labels[k] || GRADE_LABEL[k]; } });   // 등급 4개 항상 표시
     gks.sort((a, b) => (order[a] ?? 9) - (order[b] ?? 9));
     let rows = p.rows;
     if (as3) rows = rows.map(r => Object.assign({}, r, { areas: Object.assign({}, r.areas, { '3': (r.areas['3'] || 0) + r.noData }), noData: 0 }));

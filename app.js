@@ -229,6 +229,16 @@ function gradeStyle(grade, s, thin) {
     });
   });
 }
+function hexA(hex, a) {
+  const h = hex.replace('#', ''); const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+function insideStyle(grade, s, a) {
+  return cached(`i|${grade}|${s.toFixed(3)}|${a.toFixed(2)}`, () => new ol.style.Style({
+    fill: new ol.style.Fill({ color: hexA(GRADE_COLOR[grade] || '#BBBBBB', a) }),
+    stroke: new ol.style.Stroke({ color: grade === '3' ? `rgba(153,153,153,${a})` : `rgba(60,60,60,${0.7 * a})`, width: Math.max(0.3, 0.8 * s) }),
+  }));
+}
 function siteStyle(cat, s) {
   const st = App.catStyle[cat] || DEFAULT_CAT_STYLE['사업지구'];
   return cached(`s|${cat}|${st.color}|${st.width}|${st.dash}|${s.toFixed(3)}`, () => {
@@ -257,7 +267,9 @@ App.createLayerSet = function (getScale, live) {
     style: f => {
       let g = String(f.get('grade'));
       if (g === 'rest') { if (!App.opts.rest3) return null; g = '3'; }
-      return gradeStyle(g, getScale(), false);
+      // 도면 내부: 3등급(흰색)은 '도면 투명도(내부)', 나머지 등급은 '생태자연도 투명도'
+      const a = g === '3' ? (App.opts.opI == null ? 0.6 : Number(App.opts.opI)) : Number(App.opts.opA);
+      return insideStyle(g, getScale(), a);
     },
   });
   set.sites = new ol.layer.Vector({
@@ -273,7 +285,7 @@ App.createLayerSet = function (getScale, live) {
     set.around.setVisible(true);
     set.inside.setVisible(true);
     set.around.setOpacity(Number(o.opA));
-    set.inside.setOpacity(Number(o.opA));
+    set.inside.setOpacity(1);   // 내부는 스타일에서 등급별로 투명도 적용
     set.sites.setOpacity(o.opS == null ? 1 : Number(o.opS));   // 올린 도면(경계선) 투명도
     const key = [o.basemap, o.proxy ? 1 : 0, App.cfg.vworldKey || ''].join('|');
     if (key !== set.baseKey) {
@@ -339,8 +351,10 @@ function buildMapOpts(el, pfx) {
       <option value="base">일반지도</option><option value="sat">위성지도</option><option value="none">흰색 배경</option></select></label>
     <div class="slider"><span>생태자연도 투명도</span><input type="range" min="0" max="1" step="0.05" data-opt="opA">
       <span class="pct-box"><input type="number" min="0" max="100" step="5" data-pct="opA"><span>%</span></span></div>
-    <div class="slider"><span>도면 투명도</span><input type="range" min="0" max="1" step="0.05" data-opt="opS">
-      <span class="pct-box"><input type="number" min="0" max="100" step="5" data-pct="opS"><span>%</span></span></div>`;
+    <div class="slider"><span>도면 투명도(선)</span><input type="range" min="0" max="1" step="0.05" data-opt="opS">
+      <span class="pct-box"><input type="number" min="0" max="100" step="5" data-pct="opS"><span>%</span></span></div>
+    <div class="slider"><span>도면 투명도(내부)</span><input type="range" min="0" max="1" step="0.05" data-opt="opI">
+      <span class="pct-box"><input type="number" min="0" max="100" step="5" data-pct="opI"><span>%</span></span></div>`;
 }
 function syncOptUI() {
   $$('[data-opt]').forEach(el => {
@@ -616,6 +630,7 @@ App.tableModel = function () {
   const r = App.area; if (!r) return null;
   const as3 = !!App.opts.rest3;
   const keys = r.gradeKeys.slice();
+  ['1', '2', '3', '9'].forEach(k => { if (!keys.includes(k)) keys.push(k); });   // 등급 4개는 항상 표시 (없으면 0)
   if (as3 && !keys.includes('3')) keys.push('3');
   const order = { '1': 0, '2': 1, '3': 2, '9': 3 };
   keys.sort((a, b) => ((order[a] != null ? order[a] : 9) - (order[b] != null ? order[b] : 9)) || a.localeCompare(b));

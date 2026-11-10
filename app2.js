@@ -16,8 +16,8 @@
       scale: 5000, center: null,          // scale: 내부 계산용(화면 확대/축소로 자동 결정, 입력란 없음)
       els: {
         north: { show: true, x: null, y: null, size: 18, buf: 0.8 },
-        scalebar: { show: true, x: null, y: null },
-        legend: { show: true, x: null, y: null, font: 9, size: 100, all: false },
+        scalebar: { show: true, x: null, y: null, buf: 2.4 },
+        legend: { show: true, x: null, y: null, font: 9, size: 100, buf: 2.2, all: false },
         areatext: { show: true, x: null, y: null, font: 9 },
       },
     };
@@ -86,7 +86,7 @@
   function legendGrades(c) {
     const m = App.tableModel();
     if (c && c.all) return [{ key: '1', label: '1등급' }, { key: '2', label: '2등급' }, { key: '3', label: '3등급' }, { key: '9', label: '별도관리지역' }];   // 자료에 없는 등급도 표시
-    const keys = m ? m.cols.filter(c => c.key !== 'none') : [{ key: '1', label: '1등급' }, { key: '2', label: '2등급' }, { key: '3', label: '3등급' }, { key: '9', label: '별도관리지역' }];
+    const keys = m ? m.cols.filter(c => c.key !== 'none' && ((App.area.gradeKeys || []).includes(c.key) || (c.key === '3' && App.opts.rest3))) : [{ key: '1', label: '1등급' }, { key: '2', label: '2등급' }, { key: '3', label: '3등급' }, { key: '9', label: '별도관리지역' }];
     return keys;
   }
 
@@ -143,7 +143,8 @@
       // 글자·막대 크기는 용지 크기에 비례해 자동 (A4 기준 9pt, 막대 4mm)
       const k = Math.min(env.W, env.H) / 210;
       const c = { len: 'auto', div: 2, h: Math.max(2, 4 * k), font: Math.min(28, Math.max(7, 11 * k)) };
-      const N = env.N, fmm = c.font * PT, pad = 2.4 * Math.max(0.7, k), gap = 1.2 * Math.max(0.7, k);
+      const bf = Number(cIn.buf);
+      const N = env.N, fmm = c.font * PT, pad = isFinite(bf) && cIn.buf !== null && cIn.buf !== '' ? Math.max(0.3, bf) : 2.4 * Math.max(0.7, k), gap = 1.2 * Math.max(0.7, k);
       const maxKm = env.mapRect.w * N / 1e6;
       const km = (c.len === 'auto' || c.len == null || c.len === '') ? autoLen(maxKm / 4) : (Number(c.len) || 0.5);
       const lenMm = km * 1e6 / N;
@@ -154,8 +155,8 @@
       const labels = [];
       for (let i = 0; i <= d; i++) labels.push(fmtKm(step * i));
       const w0 = textW(ctx, labels[0], c.font), wl = textW(ctx, labels[d], c.font), wu = textW(ctx, 'km', c.font), sp = textW(ctx, ' ', c.font);
-      const left = Math.max(pad, w0 / 2 + 1.2);
-      const right = Math.max(pad, wl / 2 + sp + wu + 1.2);
+      const left = w0 / 2 + pad;
+      const right = wl / 2 + sp + wu + pad;
       const w = left + lenMm + right, h = pad * 2 + fmm * 1.25 + gap + bh;
       return {
         w, h,
@@ -180,7 +181,8 @@
     },
     legend(ctx, c) {
       const z = Math.max(0.3, (Number(c.size) || 100) / 100);         // 범례 자체 크기(%)
-      const f = c.font, fmm = f * PT, pad = 2.2 * z, rowH = Math.max(fmm * 1.2, fmm * 1.7 * z), sw = 7 * z;
+      const lbf = Number(c.buf);
+      const f = c.font, fmm = f * PT, pad = (isFinite(lbf) && c.buf !== null && c.buf !== '' ? Math.max(0.3, lbf) : 2.2) * z, rowH = Math.max(fmm * 1.2, fmm * 1.7 * z), sw = 7 * z;
       const grades = legendGrades(c);
       const cats = App.CATS.filter(k => App.sites.some(s => s.category === k && s.geometry));
       const rows = [{ t: '범 례', head: true }];
@@ -421,8 +423,8 @@
   // ========================================================== 5. 설정 패널 UI
   const EL_UI = [
     ['north', [['size', '크기(mm)', 'number'], ['buf', '흰색 버퍼(mm)', 'number']]],
-    ['scalebar', []],
-    ['legend', [['font', '글자 크기(pt)', 'number'], ['size', '범례 크기(%)', 'number'], ['all', '자료에 없는 등급도 표시', 'check']]],
+    ['scalebar', [['buf', '흰색 버퍼(mm)', 'number']]],
+    ['legend', [['font', '글자 크기(pt)', 'number'], ['size', '범례 크기(%)', 'number'], ['buf', '흰색 버퍼(mm)', 'number'], ['all', '자료에 없는 등급도 표시', 'check']]],
     ['areatext', [['font', '글자 크기(pt)', 'number']]],
   ];
   const EL_HINT = { scalebar: ['길이·글자 크기는 도면 크기와 화면 배율에 맞춰 자동', '0.5km 미만은 0.1km 단위', '0.5km 이상은 0.5km 단위'] };

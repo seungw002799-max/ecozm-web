@@ -425,19 +425,52 @@
     ['legend', [['font', '글자 크기(pt)', 'number'], ['size', '범례 크기(%)', 'number'], ['all', '자료에 없는 등급도 표시', 'check']]],
     ['areatext', [['font', '글자 크기(pt)', 'number']]],
   ];
-  const EL_HINT = { scalebar: '길이·글자 크기는 도면 크기와 화면 배율에 맞춰 자동 (0.5km 미만 0.1km, 이상 0.5km 단위)' };
+  const EL_HINT = { scalebar: ['길이·글자 크기는 도면 크기와 화면 배율에 맞춰 자동', '0.5km 미만은 0.1km 단위', '0.5km 이상은 0.5km 단위'] };
+  // X(좌우)는 ◀ ▶, Y(위아래)는 ▲ ▼ 버튼으로 1mm씩 (Shift 누르면 10mm)
+  function posRow(key, c) {
+    const val = v => (v == null ? '' : v);
+    return `<div class="pos-row full">
+      <div class="stepper"><span class="lbl">X</span><button type="button" data-el="${key}" data-axis="x" data-step="-1" title="왼쪽">◀</button><input type="number" step="any" data-el="${key}" data-f="x" value="${val(c.x)}"><button type="button" data-el="${key}" data-axis="x" data-step="1" title="오른쪽">▶</button></div>
+      <div class="stepper"><span class="lbl">Y</span><button type="button" data-el="${key}" data-axis="y" data-step="-1" title="위">▲</button><input type="number" step="any" data-el="${key}" data-f="y" value="${val(c.y)}"><button type="button" data-el="${key}" data-axis="y" data-step="1" title="아래">▼</button></div>
+      <span class="unit">mm</span></div>`;
+  }
   function buildElUI() {
     $('#elList').innerHTML = EL_UI.map(([key, fields]) => {
       const c = L.els[key];
-      const fs = fields.concat([['x', 'X(mm)', 'number'], ['y', 'Y(mm)', 'number']]).map(([f, label, type, extra]) => {
+      const one = ([f, label, type, extra]) => {
         const v = c[f];
-        if (type === 'check') return `<label class="check"><input type="checkbox" data-el="${key}" data-f="${f}" ${v ? 'checked' : ''}> ${label}</label>`;
+        if (type === 'check') return `<label class="check full"><input type="checkbox" data-el="${key}" data-f="${f}" ${v ? 'checked' : ''}> ${label}</label>`;
         if (type === 'select') return `<label class="field"><span>${label}</span><select data-el="${key}" data-f="${f}">${extra.map(o => `<option value="${o[0]}" ${String(v) === String(o[0]) ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></label>`;
         return `<label class="field ${type === 'text' ? 'full' : ''}"><span>${label}</span><input type="${type}" ${type === 'number' ? 'step="any"' : ''} data-el="${key}" data-f="${f}" value="${v == null ? '' : String(v).replace(/"/g, '&quot;')}"></label>`;
-      }).join('');
-      const hint = EL_HINT[key] ? `<div class="hint full">${EL_HINT[key]}</div>` : '';
-      return `<details class="el-box"><summary><input type="checkbox" data-el="${key}" data-f="show" ${c.show ? 'checked' : ''}> ${EL_NAMES[key]}</summary><div class="el-body">${hint}${fs}</div></details>`;
+      };
+      const main = fields.filter(f => f[2] !== 'check').map(one).join('');
+      const checks = fields.filter(f => f[2] === 'check').map(one).join('');     // 체크박스는 맨 아래
+      const hint = EL_HINT[key] ? `<ul class="bullets full">${EL_HINT[key].map(t => `<li>${t}</li>`).join('')}</ul>` : '';
+      return `<details class="el-box"><summary><input type="checkbox" data-el="${key}" data-f="show" ${c.show ? 'checked' : ''}> ${EL_NAMES[key]}</summary><div class="el-body">${hint}${main}${posRow(key, c)}${checks}</div></details>`;
     }).join('');
+  }
+  // 위치 버튼: 누르고 있으면 계속 이동
+  function initSteppers() {
+    let timer = null;
+    const stop = () => { clearTimeout(timer); clearInterval(timer); timer = null; };
+    const bump = (btn, big) => {
+      const key = btn.dataset.el, ax = btn.dataset.axis, c = L.els[key];
+      if (c[ax] == null) redraw();                       // 기본 위치를 먼저 확정
+      const cur = Number(c[ax]) || 0, d = Number(btn.dataset.step) * (big ? 10 : 1);
+      const { W, H } = dims(), b = boxes[key] || { w: 0, h: 0 };
+      const lim = ax === 'x' ? W - b.w : H - b.h;
+      c[ax] = Math.round(Math.max(0, Math.min(lim, cur + d)) * 10) / 10;
+      const inp = $(`#elList input[data-el="${key}"][data-f="${ax}"]`); if (inp) inp.value = c[ax];
+      redraw();
+    };
+    $('#elList').addEventListener('pointerdown', e => {
+      const btn = e.target.closest('button[data-step]'); if (!btn) return;
+      e.preventDefault();
+      const big = e.shiftKey;
+      bump(btn, big);
+      timer = setTimeout(() => { timer = setInterval(() => bump(btn, big), 60); }, 350);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => document.addEventListener(ev, stop));
   }
   function syncControls() {
     $('#paperW').value = L.pw; $('#paperH').value = L.ph;
@@ -611,5 +644,6 @@
   syncControls();
   initControls();
   initDrag();
+  initSteppers();
   App.init();
 })();

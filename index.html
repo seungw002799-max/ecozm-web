@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>생태자연도 등급별 면적 산정 도구</title>
 <link rel="stylesheet" href="vendor/ol.css">
-<link rel="stylesheet" href="app.css?v=20261111d">
+<link rel="stylesheet" href="app.css?v=20261111e">
 </head>
 <body>
 <header class="topbar">
@@ -89,29 +89,32 @@
     <div id="tabLayout" class="tabpane" hidden>
       <section class="card-section">
         <h2>도면 크기</h2>
-        <div class="grid2">
-          <label class="field"><span>가로(mm)</span><input type="number" id="paperW" min="30" step="1"></label>
-          <label class="field"><span>세로(mm)</span><input type="number" id="paperH" min="30" step="1"></label>
+        <div class="size-row">
+          <label class="unit-input"><span class="lbl">가로</span><input type="number" id="paperW" min="30" step="1"><span class="unit">mm</span></label>
+          <button id="btnSwap" class="icon-btn" type="button" title="가로·세로 바꾸기">⇄</button>
+          <label class="unit-input"><span class="lbl">세로</span><input type="number" id="paperH" min="30" step="1"><span class="unit">mm</span></label>
         </div>
-        <div class="row"><button id="btnSwap" class="btn small" type="button">가로·세로 바꾸기</button></div>
-        <div class="grid2">
-          <label class="field"><span>여백(mm)</span><input type="number" id="marginMm" min="0" step="1"></label>
-          <label class="field"><span>해상도(DPI)</span>
-            <select id="dpiSel"><option value="150">150</option><option value="200">200</option><option value="300">300</option></select></label>
+        <div class="size-row">
+          <label class="unit-input"><span class="lbl">여백</span><input type="number" id="marginMm" min="0" step="1"><span class="unit">mm</span></label>
+          <span class="icon-gap"></span>
+          <label class="unit-input"><span class="lbl">해상도</span><select id="dpiSel"><option value="150">150</option><option value="200">200</option><option value="300">300</option></select><span class="unit">DPI</span></label>
         </div>
-        <label class="check"><input type="checkbox" id="frameChk"> 테두리(도곽선) 표시</label>
+        <label class="switch"><input type="checkbox" id="frameChk"><span class="track"></span> 테두리(도곽선) 표시</label>
       </section>
 
       <section class="card-section">
         <h2>지도 표시</h2>
         <div class="mapopts" id="mapOptsLayout"></div>
-        <div class="row"><button id="btnFit" class="btn" type="button">도면에 맞추기</button></div>
-        <div class="hint">미리보기에서 마우스 휠로 확대·축소, 드래그로 이동합니다. 축척바는 자동으로 맞춰집니다.</div>
+        <div class="row"><button id="btnFit" class="btn" type="button">도면 이동</button></div>
       </section>
 
       <section class="card-section">
         <h2>요소</h2>
-        <div class="hint">요소는 미리보기에서 끌어서 옮길 수 있습니다. 위치는 도면 왼쪽 위 기준 mm입니다. 글꼴은 KoPub돋움체 Bold로 고정됩니다.</div>
+        <ul class="bullets">
+          <li>미리보기에서 요소를 끌어서 옮길 수 있습니다</li>
+          <li>위치(X·Y)는 도면 왼쪽 위 기준 mm입니다</li>
+          <li>글꼴은 KoPub돋움체 Bold로 고정됩니다</li>
+        </ul>
         <div id="elList" class="el-list"></div>
       </section>
 
@@ -142,9 +145,9 @@
 <script src="vendor/proj4.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jsts.min.js"></script>
-<script src="cad.js?v=20261111d"></script>
-<script src="backend.js?v=20261111d"></script>
-<script src="app.js?v=20261111d"></script>
-<script src="app2.js?v=20261111d"></script>
+<script src="cad.js?v=20261111e"></script>
+<script src="backend.js?v=20261111e"></script>
+<script src="app.js?v=20261111e"></script>
+<script src="app2.js?v=20261111e"></script>
 </body>
 </html>

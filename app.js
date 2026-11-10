@@ -336,7 +336,8 @@ function buildMapOpts(el, pfx) {
   el.innerHTML = `
     <label class="field"><span>배경지도</span><select data-opt="basemap">
       <option value="base">일반지도</option><option value="sat">위성지도</option><option value="none">흰색 배경</option></select></label>
-    <div class="slider"><span>생태자연도 투명도</span><input type="range" min="0" max="1" step="0.05" data-opt="opA"></div>`;
+    <div class="slider"><span>생태자연도 투명도</span><input type="range" min="0" max="1" step="0.05" data-opt="opA">
+      <span class="pct-box"><input type="number" min="0" max="100" step="5" data-pct="opA"><span>%</span></span></div>`;
 }
 function syncOptUI() {
   $$('[data-opt]').forEach(el => {
@@ -345,6 +346,7 @@ function syncOptUI() {
     else if (el.type === 'radio') el.checked = el.value === String(v);
     else el.value = v;
   });
+  $$('[data-pct]').forEach(el => { if (document.activeElement !== el) el.value = Math.round(Number(App.opts[el.dataset.pct]) * 100); });
 }
 function initOptUI() {
   $('#optRest3').dataset.opt = 'rest3';
@@ -352,6 +354,14 @@ function initOptUI() {
   buildMapOpts($('#mapOptsWork'), 'w');
   buildMapOpts($('#mapOptsLayout'), 'l');
   syncOptUI();
+  // 투명도 % 직접 입력 (0~100)
+  document.addEventListener('input', e => {
+    const p = e.target.dataset && e.target.dataset.pct;
+    if (!p || e.target.value === '') return;
+    App.opts[p] = Math.max(0, Math.min(100, Number(e.target.value) || 0)) / 100;
+    App.saveOpts(); syncOptUI(); App.applyOpts();
+  });
+  document.addEventListener('change', e => { if (e.target.dataset && e.target.dataset.pct) syncOptUI(); });
   document.addEventListener('input', e => {
     const el = e.target.closest ? e.target.closest('[data-opt]') : null;
     if (!el) return;

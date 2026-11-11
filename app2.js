@@ -188,6 +188,7 @@
       const rows = [{ t: '범 례', head: true }];
       grades.forEach(g => rows.push({ t: g.label, grade: g.key }));
       cats.forEach(k => rows.push({ t: k, cat: k }));
+      (App.protLegend ? App.protLegend() : []).forEach(p => rows.push({ t: p.short, prot: p }));
       let tw = 0;
       rows.forEach(r => { tw = Math.max(tw, textW(ctx, r.t, f, !!r.head)); });
       const w = pad * 2 + (rows.length > 1 ? sw + 2 * z : 0) + tw, h = pad * 2 + rows.length * rowH;
@@ -202,7 +203,11 @@
             setFont(ctx, f, !!r.head); ctx.fillStyle = '#000'; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
             if (r.head) { ctx.fillText(r.t, x + pad, ty); return; }
             const bx = x + pad, by = ry + rowH * 0.15, bh = rowH * 0.7;
-            if (r.grade) {
+            if (r.prot) {
+              const n = parseInt(r.prot.color.slice(1), 16);
+              ctx.fillStyle = `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},0.18)`; ctx.fillRect(bx, by, sw, bh);
+              ctx.lineWidth = 0.35; ctx.strokeStyle = r.prot.color; ctx.setLineDash([1.2, 0.8]); ctx.strokeRect(bx, by, sw, bh); ctx.setLineDash([]);
+            } else if (r.grade) {
               ctx.fillStyle = App.GRADE_COLOR[r.grade] || '#bbb'; ctx.fillRect(bx, by, sw, bh);
               ctx.lineWidth = 0.15; ctx.strokeStyle = '#555'; ctx.strokeRect(bx, by, sw, bh);
             } else {

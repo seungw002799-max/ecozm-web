@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>생태자연도 등급별 면적 산정 도구</title>
 <link rel="stylesheet" href="vendor/ol.css">
-<link rel="stylesheet" href="app.css?v=20261111j">
+<link rel="stylesheet" href="app.css?v=20261111k">
 </head>
 <body>
 <header class="topbar">
@@ -83,6 +83,18 @@
           </div>
         </div>
       </section>
+
+      <section class="card-section">
+        <h2>6. 보호구역 검토</h2>
+        <div id="protList" class="prot-list"></div>
+        <div class="prot-opts">
+          <label class="unit-input prot-radius"><span class="lbl">검토 반경</span><input type="number" id="protRadius" min="0" step="1" value="5"><span class="unit">km</span></label>
+          <label class="check"><input type="checkbox" id="protLabelChk" checked> 명칭 표시</label>
+        </div>
+        <div class="row"><button id="btnProt" class="btn primary wide" type="button">보호구역 조회</button></div>
+        <div id="protMsg" class="progress" hidden></div>
+        <div class="table-wrap"><table id="protTable" class="area-table" hidden></table></div>
+      </section>
     </div>
 
     <!-- ===================== 도면 출력 탭 ===================== -->
@@ -145,9 +157,10 @@
 <script src="vendor/proj4.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jsts.min.js"></script>
-<script src="cad.js?v=20261111j"></script>
-<script src="backend.js?v=20261111j"></script>
-<script src="app.js?v=20261111j"></script>
-<script src="app2.js?v=20261111j"></script>
+<script src="cad.js?v=20261111k"></script>
+<script src="backend.js?v=20261111k"></script>
+<script src="app.js?v=20261111k"></script>
+<script src="prot.js?v=20261111k"></script>
+<script src="app2.js?v=20261111k"></script>
 </body>
 </html>

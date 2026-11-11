@@ -204,3 +204,12 @@ input:focus, select:focus { outline: 2px solid var(--accent-soft); border-color:
 .outline-opt .check { margin: 0; font-size: 12.5px; }
 .gap-box { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
 .gap-box input { width: 56px; font: inherit; padding: 2px 4px; border: 1px solid var(--line); border-radius: 4px; text-align: right; }
+
+/* 보호구역 검토 */
+.prot-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.prot-item { display: flex; align-items: flex-start; gap: 8px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; font-size: 12.5px; line-height: 1.35; }
+.prot-item small { color: var(--muted); font-size: 11px; }
+.prot-item .swatch { flex: 0 0 18px; height: 12px; margin-top: 2px; border: 2px dashed; border-radius: 2px; }
+.prot-opts { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.prot-radius { flex: 0 0 170px; }
+#protTable td { font-size: 11.5px; }

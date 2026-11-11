@@ -35,6 +35,7 @@ const App = {
     around: new ol.source.Vector(),
     inside: new ol.source.Vector(),
     sites: new ol.source.Vector(),
+    prot: new ol.source.Vector(),     // 보호구역 검토 레이어 (prot.js)
   },
 };
 App.emit = () => App.listeners.forEach(fn => { try { fn(); } catch (e) { console.error(e); } });
@@ -281,7 +282,11 @@ App.createLayerSet = function (getScale, live) {
     source: App.src.sites, zIndex: 4,
     style: f => siteStyle(f.get('category'), getScale()),
   });
-  set.layers = [set.base, set.label, set.around, set.inside, set.sites];
+  set.prot = new ol.layer.Vector({
+    source: App.src.prot, zIndex: 3.5,
+    style: f => (App.protStyle ? App.protStyle(f, getScale()) : null),
+  });
+  set.layers = [set.base, set.label, set.around, set.inside, set.prot, set.sites];
   set.errors = 0;
   set.refresh = function (over) {
     const o = Object.assign({}, App.opts, over || {});
@@ -314,7 +319,7 @@ App.createLayerSet = function (getScale, live) {
       });
     }
   };
-  set.changed = () => { set.around.changed(); set.inside.changed(); set.sites.changed(); };
+  set.changed = () => { set.around.changed(); set.inside.changed(); set.prot.changed(); set.sites.changed(); };
   set.tileSources = () => [set.base.getSource(), set.label.getSource()].filter(Boolean);
   if (live) App.liveSets.push(set);
   return set;

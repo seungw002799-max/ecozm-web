@@ -52,8 +52,11 @@
     GRADES.forEach(G => { const d = (G.rgb[0] - r) ** 2 + (G.rgb[1] - g) ** 2 + (G.rgb[2] - b) ** 2; if (d < bd) { bd = d; best = G.key; } });
     return bd < 2500 ? best : null;   // 안티앨리어싱 등 애매한 색은 제외
   }
-  function loadImg(url) {
-    return new Promise((ok, no) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = () => no(new Error('타일 실패')); i.src = url; });
+  function loadImg1(url) {
+    return new Promise((ok, no) => { const i = new Image(); i.crossOrigin = 'anonymous'; const tm = setTimeout(() => no(new Error('시간 초과')), 25000); i.onload = () => { clearTimeout(tm); ok(i); }; i.onerror = () => { clearTimeout(tm); no(new Error('타일 실패')); }; i.src = url; });
+  }
+  async function loadImg(url) {   // 3번까지 재시도
+    for (let a = 0; a < 3; a++) { try { return await loadImg1(url + (a ? '&_r=' + a : '')); } catch (e) { if (a === 2) throw e; } }
   }
 
   async function calc() {
@@ -67,7 +70,7 @@
       const cats = {};
       sites.forEach(s => { (cats[s.category] = cats[s.category] || []).push(s); });
       const rows = [];
-      let used = 0;
+      let used = 0, failedAll = 0;
       for (const [cat, list] of Object.entries(cats)) {
         // 구분별 합친 도형 (5186) -> 정확한 면적, 3857 도형 -> 픽셀 마스크
         const rd = new jsts.io.GeoJSONReader();
@@ -76,18 +79,19 @@
         const g3857 = gj.readGeometry(new jsts.io.GeoJSONWriter().write(u), { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' });
         const ext = g3857.getExtent();
         // 줌: 타일 수 200장 이하에서 가장 세밀하게 (최대 18)
-        let z = 18;
+        let z = 17;
         const count = zz => { const s = 2 * R / 2 ** zz; return (Math.floor((ext[2] + R) / s) - Math.floor((ext[0] + R) / s) + 1) * (Math.floor((R - ext[1]) / s) - Math.floor((R - ext[3]) / s) + 1); };
-        while (z > 8 && count(z) > 200) z--;
+        while (z > 8 && count(z) > 120) z--;
         const s = 2 * R / 2 ** z;
         const x0 = Math.floor((ext[0] + R) / s), x1 = Math.floor((ext[2] + R) / s), y0 = Math.floor((R - ext[3]) / s), y1 = Math.floor((R - ext[1]) / s);
         const tiles = []; for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) tiles.push([x, y]);
         const cnt = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 }; let none = 0, inside = 0;
-        const cv = document.createElement('canvas'); cv.width = cv.height = 256; const ctx = cv.getContext('2d', { willReadFrequently: true });
-        const mk = document.createElement('canvas'); mk.width = mk.height = 256; const mctx = mk.getContext('2d', { willReadFrequently: true });
+        let failed = 0;
         const polys = g3857.getType() === 'MultiPolygon' ? g3857.getCoordinates() : [g3857.getCoordinates()];
         let done = 0;
         const work = async ([x, y]) => {
+          const cv = document.createElement('canvas'); cv.width = cv.height = 256; const ctx = cv.getContext('2d', { willReadFrequently: true });
+          const mk = document.createElement('canvas'); mk.width = mk.height = 256; const mctx = mk.getContext('2d', { willReadFrequently: true });
           const b = tileBBox(z, x, y), px = (b[2] - b[0]) / 256;
           // 마스크
           mctx.clearRect(0, 0, 256, 256); mctx.fillStyle = '#000'; mctx.beginPath();
@@ -96,7 +100,7 @@
           const m = mctx.getImageData(0, 0, 256, 256).data;
           let any = false; for (let i = 3; i < m.length; i += 4) if (m[i] > 127) { any = true; break; }
           if (!any) return;
-          let img; try { img = await loadImg(tileUrl(lid, z, x, y)); } catch (e) { img = null; }
+          let img; try { img = await loadImg(tileUrl(lid, z, x, y)); } catch (e) { img = null; failed++; }
           ctx.clearRect(0, 0, 256, 256); if (img) ctx.drawImage(img, 0, 0);
           const d = ctx.getImageData(0, 0, 256, 256).data;
           for (let i = 0; i < d.length; i += 4) {
@@ -106,7 +110,10 @@
             if (k) cnt[k]++; else none++;
           }
         };
-        for (const t of tiles) { await work(t); done++; if (done % 10 === 0) msg.textContent = `${cat}: 타일 ${done}/${tiles.length}`; }
+        // 6장씩 동시에
+        let qi = 0;
+        await Promise.all(Array.from({ length: 6 }, async () => { while (qi < tiles.length) { const t = tiles[qi++]; await work(t); done++; msg.textContent = `${cat}: 타일 ${done}/${tiles.length}`; } }));
+        failedAll += failed;
         used += tiles.length;
         // 픽셀 수 비율 x 정확한 면적
         const areas = {}; GRADES.forEach(G => { areas[G.key] = inside ? exact * cnt[G.key] / inside : 0; });
@@ -115,7 +122,7 @@
       const order = (App.CATS || []).concat(Object.keys(cats));
       rows.sort((a, b) => order.indexOf(a.category) - order.indexOf(b.category));
       result = { rows, layer: lid, layerLabel: (LAYERS.find(l => l.id === lid) || {}).label };
-      msg.textContent = `완료: ${result.layerLabel} · 타일 ${used}장 · 해상도 약 ${rows.map(r => r.px).join('/')}m/픽셀`;
+      msg.textContent = `완료: ${result.layerLabel} · 타일 ${used}장 · 해상도 약 ${rows.map(r => r.px).join('/')}m/픽셀` + (failedAll ? ` · 받지 못한 타일 ${failedAll}장(자료 없음으로 집계, 다시 계산해 보세요)` : '');
     } catch (e) {
       msg.textContent = '계산 실패: ' + e.message;
     } finally {

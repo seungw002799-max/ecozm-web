@@ -42,14 +42,14 @@
     { cat: 'bio', group: 'wet', id: 'wetland_c', label: '연안 습지보호지역 (해양수산부)', short: '연안 습지보호지역', src: 'vworld', data: 'LT_C_WGISARWET', name: p => p.uname || p.name || p.wet_name || '습지보호지역', color: '#006064', note: VW },
     { cat: 'bio', id: 'inland_wet', label: '내륙습지', short: '내륙습지', src: 'egis', typename: 'me:na_plg_wetland', name: p => p.wl_nm || '내륙습지', color: '#26A69A', note: Object.assign({}, EG, { extra: '국가 내륙습지 목록 (인공습지 포함)' }) },
     // 수질·수자원
-    { cat: 'water', id: 'riverside', label: '수변구역', short: '수변구역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='수변구역'", name: () => '수변구역', color: '#039BE5', note: EG },
+    { cat: 'water', id: 'riverside', label: '수변구역', short: '수변구역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='수변구역'", name: () => '수변구역', color: '#29B6F6', note: EG },
     { cat: 'water', id: 'discharge', label: '폐수배출시설 설치제한지역', short: '폐수배출시설 설치제한지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='배출시설설치제한지역'", name: () => '폐수배출시설 설치제한지역', color: '#F4511E', note: Object.assign({}, EG, { extra: '물환경보전법 제33조' }) },
     { cat: 'water', id: 'wq_special', label: '상수원 수질보전 특별대책지역', short: '상수원 수질보전 특별대책지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='수질보전특별대책지역'", name: () => '특별대책지역', nameG: (p, g) => { let y = null; const w = c => { if (y !== null) return; if (typeof c[0] === 'number') y = c[1]; else c.forEach(w); }; w(g.coordinates); return (y > 37 ? '팔당호' : '대청호') + ' 특별대책지역'; }, color: '#00897B', note: Object.assign({}, EG, { extra: '팔당·대청호 2곳' }) },
     { cat: 'water', id: 'water', label: '상수원보호구역', short: '상수원보호구역', src: 'vworld', data: 'LT_C_UM710', name: p => p.alias || [p.sigg_name, p.uname || '상수원보호구역'].filter(Boolean).join(' '), color: '#1565C0', note: VW },
-    { cat: 'water', id: 'tmdl', label: '수질오염총량 관리지역 (단위유역)', short: '수질오염총량 단위유역', src: 'nier', typename: 'water_new:tmdl_polygon', name: p => (p.tm_unit_nm || '') + ' 단위유역', overlapOnly: true, color: '#5C6BC0', note: NIER },
-    { cat: 'water', id: 'fishery', label: '수산자원보호구역', short: '수산자원보호구역', src: 'vworld', data: 'LT_C_UQ141', attr: 'uname:like:수산자원', name: sg, color: '#0277BD', note: Object.assign({}, VW, { extra: '국토계획 용도구역' }) },
+    { cat: 'water', id: 'tmdl', label: '수질오염총량 관리지역 (단위유역)', short: '수질오염총량 단위유역', src: 'nier', typename: 'water_new:tmdl_polygon', name: p => (p.tm_unit_nm || '') + ' 단위유역', overlapOnly: true, color: '#546E7A', note: NIER },
+    { cat: 'water', id: 'fishery', label: '수산자원보호구역', short: '수산자원보호구역', src: 'vworld', data: 'LT_C_UQ141', attr: 'uname:like:수산자원', name: sg, color: '#D81B60', note: Object.assign({}, VW, { extra: '국토계획 용도구역' }) },
     // 대기
-    { cat: 'air', id: 'air', label: '대기환경규제지역', short: '대기환경규제지역', src: 'vworld', data: 'LT_C_UM301', name: p => sg(p) || '대기환경규제지역', color: '#7E57C2', note: Object.assign({}, VW, { extra: ['대기관리권역 등', '전국 5건, 세부 구분 없음'] }) },
+    { cat: 'air', id: 'air', label: '대기환경규제지역', short: '대기환경규제지역', src: 'vworld', data: 'LT_C_UM301', name: p => sg(p) || '대기환경규제지역', color: '#FFB300', note: Object.assign({}, VW, { extra: ['대기관리권역 등', '전국 5건, 세부 구분 없음'] }) },
   ];
   const BY_ID = Object.fromEntries(PROT.map(p => [p.id, p]));
   App.PROT = PROT;

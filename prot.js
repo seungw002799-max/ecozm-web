@@ -170,6 +170,10 @@
           App.src.prot.addFeature(of);
         });
       }
+      // 같은 구분·명칭이 여러 조각이면 한 줄로 (최근접 거리 = 가장 가까운 조각, 중첩 = 합)
+      const merged = new Map();
+      rows.forEach(r => { const k = r.kind + '|' + r.name.trim(); const m = merged.get(k); if (!m) merged.set(k, Object.assign({}, r, { name: r.name.trim() })); else { m.dist = Math.min(m.dist, r.dist); m.over += r.over; } });
+      rows = [...merged.values()];
       rows.sort((a, b) => a.dist - b.dist);
       msg.textContent = (rows.length ? `완료: 반경 ${fmt(radius / 1000)}km 안에 ${rows.length}곳 (사업지구 경계 기준 최근접 거리)` : `반경 ${fmt(radius / 1000)}km 안에 해당 보호구역이 없습니다.`) + ` · 자료: ${srcs.join(', ')}` + (errs.length ? ` · 오류: ${errs.join(' / ')}` : '');
     } catch (e) {

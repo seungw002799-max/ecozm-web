@@ -5,37 +5,50 @@
   const $ = (s, r) => (r || document).querySelector(s);
 
   // 레이어 목록 (나중에 브이월드 자연공원·상수원보호구역 등을 같은 형식으로 추가)
-  const VW_NOTE = '브이월드 2D데이터 API (실시간)';
-  const EG_NOTE = '환경공간정보서비스 API (실시간, 중계) · 기후에너지환경부';
+  // 출처 표기: src = 기관/서비스명, tags = 연결 방식, extra = 보충 설명(아랫줄)
   const PROXY = 'https://ecozm-proxy.seungw002799.workers.dev/?url=';
-  const KEI_NOTE = 'KEI 지역환경정보시스템 API (실시간, 중계) · 신산경표 산줄기 (박성태, 2010)';   // Cloudflare Workers 중계 (CORS 우회)
+  const VW = { src: '브이월드 2D데이터 API', tags: ['실시간'] };
+  const EG = { src: '환경공간정보서비스 API', tags: ['실시간', '중계'], extra: '기후에너지환경부' };
+  const KEI = { src: 'KEI 지역환경정보시스템 API', tags: ['실시간', '중계'], extra: '신산경표 산줄기 (박성태, 2010)' };
+  const NIER = { src: '물환경정보시스템 API', tags: ['실시간'], extra: ['국립환경과학원 수질오염총량 단위유역', '사업지구가 속한 단위유역만 표시'] };
+  const EIA = { src: 'EIAGIS API', tags: ['실시간', '중계'], extra: ['환경영향평가 지리정보서비스', '국립생물자원관 2014년 자료'] };
+  const sg = p => [p.sigg_name, p.uname].filter(Boolean).join(' ');
+  // 묶음(group)은 목록에서 한 칸으로 보이고, 안의 항목을 각각 켜고 끌 수 있다. cat 은 비슷한 것끼리 모으는 구분
+  const GROUPS = {
+    park: { label: '자연공원', note: VW },
+    ridge: { label: '백두대간 및 산줄기 (정맥·기맥·지맥)', note: KEI },
+    wild: { label: '야생생물 보호구역', note: VW },
+    wet: { label: '습지보호지역', note: VW },
+  };
+  const CATS = { eco: '자연·생태', bio: '야생생물·습지', water: '수질·수자원', air: '대기' };
   const PROT = [
-    { id: 'ridge1', label: '산줄기 - 백두대간', short: '백두대간(산줄기)', src: 'kei', typename: 'keilocal:mtridge_l1_pl', name: p => p.mbsnnm || '백두대간', color: '#4E342E', line: true, note: KEI_NOTE },
-    { id: 'ridge2', label: '산줄기 - 정맥', short: '정맥', src: 'kei', typename: 'keilocal:mtridge_l2_pl', name: p => p.mbsnnm || '정맥', color: '#795548', line: true, note: KEI_NOTE },
-    { id: 'ridge3', label: '산줄기 - 기맥', short: '기맥', src: 'kei', typename: 'keilocal:mtridge_l3_pl', name: p => p.sbsnnm || '기맥', color: '#A1887F', line: true, note: KEI_NOTE },
-    { id: 'ridge4', label: '산줄기 - 지맥', short: '지맥', src: 'kei', typename: 'keilocal:mtridge_l4_pl', name: p => p.sbsnnm || '지맥', color: '#8D6E63', line: true, note: KEI_NOTE },
-    { id: 'np_nat', label: '국립공원', short: '국립공원', src: 'vworld', data: 'LT_C_WGISNPGUG', name: p => p.park_name, color: '#1B7F3B', note: VW_NOTE },
-    { id: 'np_do', label: '도립공원', short: '도립공원', src: 'vworld', data: 'LT_C_WGISNPDO', name: p => p.park_name, color: '#5E9E1F', note: VW_NOTE },
-    { id: 'np_gun', label: '군립공원', short: '군립공원', src: 'vworld', data: 'LT_C_WGISNPGUN', name: p => p.park_name, color: '#A08A00', note: VW_NOTE },
-    { id: 'wild', label: '야생생물(동·식물) 보호구역', short: '야생생물보호구역', src: 'vworld', data: 'LT_C_UM221', keep: p => !/특별/.test(p.uname || ''), name: p => [p.sigg_name, p.uname].filter(Boolean).join(' '), color: '#C62828', note: VW_NOTE },
-    { id: 'wild_sp', label: '야생생물 특별보호구역', short: '야생생물특별보호구역', src: 'vworld', data: 'LT_C_UM221', attr: 'uname:like:특별', name: p => [p.sigg_name, p.uname].filter(Boolean).join(' '), color: '#8E0000', note: VW_NOTE },
-    { id: 'forest_gen', label: '산림유전자원 보호구역', short: '산림유전자원보호구역', src: 'vworld', data: 'LT_C_UF151', attr: 'uname:like:산림유전자원', name: p => [p.sigg_name, p.uname].filter(Boolean).join(' '), color: '#33691E', note: VW_NOTE + ' · 산림보호구역 중 산림유전자원보호구역' },
-    { id: 'baekdu', label: '백두대간보호지역', short: '백두대간보호지역', src: 'vworld', data: 'LT_C_UF901', name: p => '백두대간보호지역 ' + (p.uname && p.uname !== '백두대간보호지역' ? '(' + p.uname + ')' : ''), color: '#6D4C41', note: VW_NOTE + ' · 핵심/완충구역' },
-    { id: 'wetland_c', label: '습지보호지역 (연안·지정명칭)', short: '습지보호지역(연안)', src: 'vworld', data: 'LT_C_WGISARWET', name: p => p.uname || p.name || p.wet_name || '습지보호지역', color: '#006064', note: VW_NOTE + ' · 해양수산부' },
-    { id: 'wetland', label: '습지보호지역', short: '습지보호지역', src: 'vworld', data: 'LT_C_UM901', name: p => [p.sigg_name, p.uname].filter(Boolean).join(' '), color: '#00838F', note: VW_NOTE },
-    { id: 'fishery', label: '수산자원보호구역', short: '수산자원보호구역', src: 'vworld', data: 'LT_C_UQ141', attr: 'uname:like:수산자원', name: p => [p.sigg_name, p.uname].filter(Boolean).join(' '), color: '#0277BD', note: VW_NOTE + ' · 국토계획 용도구역' },
-    { id: 'air', label: '대기환경규제지역 (대기관리권역 등)', short: '대기환경규제지역', src: 'vworld', data: 'LT_C_UM301', name: p => [p.sigg_name, p.uname].filter(Boolean).join(' ') || '대기환경규제지역', color: '#7E57C2', note: VW_NOTE + ' · 전국 5건, 세부 구분 없음' },
-    { id: 'riverside', label: '수변구역', short: '수변구역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='수변구역'", name: () => '수변구역', color: '#039BE5', note: EG_NOTE },
-    { id: 'wq_special', label: '수질보전 특별대책지역', short: '수질보전특별대책지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='수질보전특별대책지역'", name: () => '수질보전특별대책지역', color: '#00897B', note: EG_NOTE },
-    { id: 'discharge', label: '배출시설 설치제한지역', short: '배출시설설치제한지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='배출시설설치제한지역'", name: () => '배출시설설치제한지역', color: '#F4511E', note: EG_NOTE },
-    { id: 'eco_land', label: '생태·경관보전지역', short: '생태경관보전지역', src: 'egis', typename: 'me:na_plg_conservation', cql: "type_code IN ('ESCA','SCAW')", name: p => p.name || '생태·경관보전지역', color: '#2E7D32', note: EG_NOTE },
-    { id: 'water', label: '상수원보호구역', short: '상수원보호구역', src: 'vworld', data: 'LT_C_UM710', name: p => p.alias || [p.sigg_name, p.uname || '상수원보호구역'].filter(Boolean).join(' '), color: '#1565C0', note: VW_NOTE },
-    {
-      id: 'winter_bird', label: '겨울철 조류 동시센서스 조사지역', short: '조류 조사지역',
-      src: 'eiagis', typename: 'WINTER_BIRD', nameField: 'name',
-      color: '#7B3FA0', note: 'EIAGIS 환경영향평가 지리정보서비스 API (실시간, 중계) · 국립생물자원관 2014년 자료',
-      local: 'data/winter_bird.geojson',   // EIAGIS 서버가 외부 사이트 접속(CORS)을 막아 둔 경우 쓰는 사본
-    },
+    // 자연·생태
+    { cat: 'eco', group: 'park', id: 'np_nat', label: '국립공원', short: '국립공원', src: 'vworld', data: 'LT_C_WGISNPGUG', name: p => p.park_name, color: '#1B7F3B', note: VW },
+    { cat: 'eco', group: 'park', id: 'np_do', label: '도립공원', short: '도립공원', src: 'vworld', data: 'LT_C_WGISNPDO', name: p => p.park_name, color: '#5E9E1F', note: VW },
+    { cat: 'eco', group: 'park', id: 'np_gun', label: '군립공원', short: '군립공원', src: 'vworld', data: 'LT_C_WGISNPGUN', name: p => p.park_name, color: '#A08A00', note: VW },
+    { cat: 'eco', id: 'forest_gen', label: '산림유전자원보호구역', short: '산림유전자원보호구역', src: 'vworld', data: 'LT_C_UF151', attr: 'uname:like:산림유전자원', name: sg, color: '#33691E', note: Object.assign({}, VW, { extra: '산림보호구역 중 산림유전자원보호구역' }) },
+    { cat: 'eco', id: 'eco_land', label: '생태·경관보전지역', short: '생태·경관보전지역', src: 'egis', typename: 'me:na_plg_conservation', cql: "type_code IN ('ESCA','SCAW')", name: p => p.name || '생태·경관보전지역', color: '#2E7D32', note: EG },
+    { cat: 'eco', group: 'ridge', id: 'ridge1', label: '백두대간', short: '백두대간', src: 'kei', typename: 'keilocal:mtridge_l1_pl', name: p => p.mbsnnm || '백두대간', color: '#4E342E', line: true, note: KEI },
+    { cat: 'eco', group: 'ridge', id: 'ridge2', label: '정맥', short: '정맥', src: 'kei', typename: 'keilocal:mtridge_l2_pl', name: p => p.mbsnnm || '정맥', color: '#795548', line: true, note: KEI },
+    { cat: 'eco', group: 'ridge', id: 'ridge3', label: '기맥', short: '기맥', src: 'kei', typename: 'keilocal:mtridge_l3_pl', name: p => p.sbsnnm || '기맥', color: '#A1887F', line: true, note: KEI },
+    { cat: 'eco', group: 'ridge', id: 'ridge4', label: '지맥', short: '지맥', src: 'kei', typename: 'keilocal:mtridge_l4_pl', name: p => p.sbsnnm || '지맥', color: '#8D6E63', line: true, note: KEI },
+    // 야생생물·습지
+    { cat: 'bio', group: 'wild', id: 'wild', label: '야생생물 보호구역', short: '야생생물 보호구역', src: 'vworld', data: 'LT_C_UM221', keep: p => !/특별/.test(p.uname || ''), name: sg, color: '#C62828', note: VW },
+    { cat: 'bio', group: 'wild', id: 'wild_sp', label: '야생생물 특별보호구역', short: '야생생물 특별보호구역', src: 'vworld', data: 'LT_C_UM221', attr: 'uname:like:특별', name: sg, color: '#8E0000', note: VW },
+    { cat: 'bio', id: 'winter_bird', label: '겨울철 조류 동시센서스 조사지역', short: '조류 조사지역', src: 'eiagis', typename: 'WINTER_BIRD', nameField: 'name', color: '#7B3FA0', note: EIA,
+      local: 'data/winter_bird.geojson' },   // EIAGIS 서버가 외부 사이트 접속(CORS)을 막아 둔 경우 쓰는 사본
+    { cat: 'bio', group: 'wet', id: 'wetland', label: '습지보호지역 (내륙)', short: '습지보호지역', src: 'vworld', data: 'LT_C_UM901', name: sg, color: '#00838F', note: VW },
+    { cat: 'bio', group: 'wet', id: 'wetland_c', label: '연안 습지보호지역 (해양수산부)', short: '연안 습지보호지역', src: 'vworld', data: 'LT_C_WGISARWET', name: p => p.uname || p.name || p.wet_name || '습지보호지역', color: '#006064', note: VW },
+    { cat: 'bio', id: 'inland_wet', label: '내륙습지', short: '내륙습지', src: 'egis', typename: 'me:na_plg_wetland', name: p => p.wl_nm || '내륙습지', color: '#26A69A', note: Object.assign({}, EG, { extra: '국가 내륙습지 목록 (인공습지 포함)' }) },
+    // 수질·수자원
+    { cat: 'water', id: 'riverside', label: '수변구역', short: '수변구역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='수변구역'", name: () => '수변구역', color: '#039BE5', note: EG },
+    { cat: 'water', id: 'discharge', label: '폐수배출시설 설치제한지역', short: '폐수배출시설 설치제한지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='배출시설설치제한지역'", name: () => '폐수배출시설 설치제한지역', color: '#F4511E', note: Object.assign({}, EG, { extra: '물환경보전법 제33조' }) },
+    { cat: 'water', id: 'wq_special', label: '상수원 수질보전 특별대책지역', short: '상수원 수질보전 특별대책지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='수질보전특별대책지역'", name: () => '특별대책지역', nameG: (p, g) => { let y = null; const w = c => { if (y !== null) return; if (typeof c[0] === 'number') y = c[1]; else c.forEach(w); }; w(g.coordinates); return (y > 37 ? '팔당호' : '대청호') + ' 특별대책지역'; }, color: '#00897B', note: Object.assign({}, EG, { extra: '팔당·대청호 2곳' }) },
+    { cat: 'water', id: 'water', label: '상수원보호구역', short: '상수원보호구역', src: 'vworld', data: 'LT_C_UM710', name: p => p.alias || [p.sigg_name, p.uname || '상수원보호구역'].filter(Boolean).join(' '), color: '#1565C0', note: VW },
+    { cat: 'water', id: 'tmdl', label: '수질오염총량 관리지역 (단위유역)', short: '수질오염총량 단위유역', src: 'nier', typename: 'water_new:tmdl_polygon', name: p => (p.tm_unit_nm || '') + ' 단위유역', overlapOnly: true, color: '#5C6BC0', note: NIER },
+    { cat: 'water', id: 'fishery', label: '수산자원보호구역', short: '수산자원보호구역', src: 'vworld', data: 'LT_C_UQ141', attr: 'uname:like:수산자원', name: sg, color: '#0277BD', note: Object.assign({}, VW, { extra: '국토계획 용도구역' }) },
+    // 대기
+    { cat: 'air', id: 'air', label: '대기환경규제지역', short: '대기환경규제지역', src: 'vworld', data: 'LT_C_UM301', name: p => sg(p) || '대기환경규제지역', color: '#7E57C2', note: Object.assign({}, VW, { extra: ['대기관리권역 등', '전국 5건, 세부 구분 없음'] }) },
   ];
   const BY_ID = Object.fromEntries(PROT.map(p => [p.id, p]));
   App.PROT = PROT;
@@ -170,7 +183,7 @@
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const j = await r.json();
       return { type: 'FeatureCollection', _src: '환경공간정보 실시간',
-        features: (j.features || []).filter(f => f.geometry).map(f => ({ type: 'Feature', geometry: f.geometry, properties: { name: p.name(f.properties || {}) } })) };
+        features: (j.features || []).filter(f => f.geometry).map(f => ({ type: 'Feature', geometry: f.geometry, properties: { name: p.nameG ? p.nameG(f.properties || {}, f.geometry) : p.name(f.properties || {}) } })) };
     } catch (e) {
       throw new Error(`${p.short} 자료를 받지 못했습니다 (${e.name === 'AbortError' ? '시간 초과' : e.message})`);
     } finally { clearTimeout(tm); }
@@ -197,6 +210,22 @@
     }
     const inBox = g => { let hit = false; const walk = c => { if (hit) return; if (typeof c[0] === 'number') { if (c[0] >= b[0] && c[0] <= b[2] && c[1] >= b[1] && c[1] <= b[3]) hit = true; } else c.forEach(walk); }; walk(g.coordinates); return hit; };
     return { type: 'FeatureCollection', _src: 'KEI 산줄기 사본(' + (keiCache[layer].fetched || '') + ')', features: mapF(keiCache[layer].features.filter(f => f.geometry && inBox(f.geometry))) };
+  }
+
+  // 물환경정보시스템 GeoServer WFS (이 사이트 주소에서 직접 받기 허용됨)
+  async function fetchNier(p, b) {
+    const u = 'https://water.nier.go.kr/geoserver/ows?service=WFS&version=1.0.0&request=GetFeature&outputFormat=application/json&srsName=EPSG:4326' +
+      `&typeName=${p.typename}&bbox=${b.join(',')},EPSG:4326`;
+    const ac = new AbortController(); const tm = setTimeout(() => ac.abort(), 30000);
+    let j;
+    try {
+      let r; try { r = await fetch(u, { signal: ac.signal }); } catch (e) { r = await fetch(PROXY + encodeURIComponent(u), { signal: ac.signal }); }
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      j = await r.json();
+    } catch (e) { throw new Error(`${p.short} 자료를 받지 못했습니다 (${e.name === 'AbortError' ? '시간 초과' : e.message})`); }
+    finally { clearTimeout(tm); }
+    return { type: 'FeatureCollection', _src: '물환경정보시스템 실시간',
+      features: (j.features || []).filter(f => f.geometry).map(f => ({ type: 'Feature', geometry: f.geometry, properties: { name: p.name(f.properties || {}) } })) };
   }
 
   // 사업지구(전체) 범위 + 반경 -> EPSG:4326 bbox [minLon,minLat,maxLon,maxLat]
@@ -234,7 +263,7 @@
       for (const p of chosen) {
         msg.textContent = `${p.short} 받는 중...`;
         let fc;
-        try { fc = p.src === 'vworld' ? await fetchVworld(p, q.b4326) : p.src === 'egis' ? await fetchEgis(p, q.b4326) : p.src === 'kei' ? await fetchKei(p, q.b4326) : await fetchEiagis(p, q.b4326); }
+        try { fc = p.src === 'vworld' ? await fetchVworld(p, q.b4326) : p.src === 'egis' ? await fetchEgis(p, q.b4326) : p.src === 'kei' ? await fetchKei(p, q.b4326) : p.src === 'nier' ? await fetchNier(p, q.b4326) : await fetchEiagis(p, q.b4326); }
         catch (e) { errs.push(e.message); continue; }
         if (!srcs.includes(fc._src)) srcs.push(fc._src);
         (fc.features || []).forEach((f, i) => {
@@ -245,6 +274,7 @@
           let jg; try { jg = rd.read(g5); if (!jg.isValid()) jg = jg.buffer(0); } catch (e) { return; }
           const dist = jg.distance(site);
           if (dist > radius) return;                         // 반경 밖은 제외
+          if (p.overlapOnly && dist > 0) return;             // 단위유역: 사업지구가 속한 유역만
           let over = 0; try { over = dist === 0 ? jg.intersection(site).getArea() : 0; } catch (e) { over = 0; }
           const name = (f.properties || {})[p.nameField || 'name'] || `(이름 없음 ${i + 1})`;
           let np = null; try { if (dist > 0) np = jsts.operation.distance.DistanceOp.nearestPoints(site, jg).map(c => [c.x, c.y]); } catch (e) { np = null; }
@@ -291,25 +321,45 @@
   function build() {
     App.opts.protOn = App.opts.protOn || {};
     App.opts.protShow = App.opts.protShow || {};
-    // 출처 표시: "기관 API (실시간, 중계) · 추가설명" -> 기관 한 줄 + 태그 + 추가설명 줄
-    const noteHtml = n => {
-      const parts = String(n || '').split(' · ');
-      const m = parts[0].match(/^(.*?)\s*\(([^)]*)\)\s*$/);
-      const src = m ? m[1] : parts[0], tags = m ? m[2].split(/,\s*/) : [];
-      return `<span class="src-line">${src}${tags.map(t => `<span class="tag ${/중계|사본/.test(t) ? 'tag-gray' : ''}">${t}</span>`).join('')}</span>` +
-        parts.slice(1).map(x => `<span class="src-extra">${x}</span>`).join('');
-    };
-    $('#protList').innerHTML = PROT.map(p => `
-      <label class="prot-item"><input type="checkbox" data-prot="${p.id}" ${App.opts.protOn[p.id] !== false ? 'checked' : ''}>
-        <span class="swatch${p.line ? ' swatch-line' : ''}" style="border-color:${p.color};background:${p.line ? 'transparent' : hexA(p.color, 0.18)}"></span>
-        <span class="prot-text"><b>${p.label}</b>${noteHtml(p.note)}</span></label>`).join('');
-    $('#protRadius').value = App.opts.protRadius || 5;
-    $('#protLabelChk').checked = App.opts.protLabel !== false;
+    const noteHtml = (n, withSrc) => (withSrc ? `<span class="src-line">${n.src}<span class="tags">${(n.tags || []).map(t => `<span class="tag ${/중계|사본/.test(t) ? 'tag-gray' : ''}">${t}</span>`).join('')}</span></span>` : '') +
+      [].concat(n.extra || []).map(x => `<span class="src-extra">${x}</span>`).join('');
+    const on = id => App.opts.protOn[id] !== false;
+    const sw = p => `<span class="swatch${p.line ? ' swatch-line' : ''}" style="border-color:${p.color};background:${p.line ? 'transparent' : hexA(p.color, 0.18)}"></span>`;
+    let html = '', lastCat = null; const done = new Set();
+    PROT.forEach(p => {
+      if (p.cat !== lastCat) { html += `<div class="prot-cat">${CATS[p.cat]}</div>`; lastCat = p.cat; }
+      if (!p.group) {
+        html += `<label class="prot-item"><input type="checkbox" data-prot="${p.id}" ${on(p.id) ? 'checked' : ''}>${sw(p)}
+          <span class="prot-text"><b>${p.label}</b>${noteHtml(p.note, true)}</span></label>`;
+        return;
+      }
+      if (done.has(p.group)) return; done.add(p.group);
+      const g = GROUPS[p.group], kids = PROT.filter(x => x.group === p.group);
+      html += `<div class="prot-item prot-group" data-group="${p.group}">
+        <label class="prot-ghead"><input type="checkbox" data-pgroup="${p.group}">
+          <span class="prot-text"><b>${g.label}</b>${noteHtml(g.note, true)}</span></label>
+        <div class="prot-kids">${kids.map(k => `<label class="prot-kid"><input type="checkbox" data-prot="${k.id}" ${on(k.id) ? 'checked' : ''}>${sw(k)}<span>${k.label}</span></label>`).join('')}</div></div>`;
+    });
+    $('#protList').innerHTML = html;
+    const syncGroups = () => document.querySelectorAll('#protList [data-pgroup]').forEach(cb => {
+      const ids = PROT.filter(x => x.group === cb.dataset.pgroup).map(x => x.id), n = ids.filter(on).length;
+      cb.checked = n === ids.length; cb.indeterminate = n > 0 && n < ids.length;
+    });
+    syncGroups();
     $('#protList').addEventListener('change', e => {
-      const id = e.target.dataset.prot; if (!id) return;
-      App.opts.protOn[id] = e.target.checked; App.opts.protShow[id] = e.target.checked; App.saveOpts();
+      const gid = e.target.dataset.pgroup;
+      if (gid) {
+        PROT.filter(x => x.group === gid).forEach(x => { App.opts.protOn[x.id] = e.target.checked; App.opts.protShow[x.id] = e.target.checked; });
+        document.querySelectorAll(`#protList [data-group="${gid}"] [data-prot]`).forEach(c => { c.checked = e.target.checked; });
+      } else {
+        const id = e.target.dataset.prot; if (!id) return;
+        App.opts.protOn[id] = e.target.checked; App.opts.protShow[id] = e.target.checked;
+      }
+      syncGroups(); App.saveOpts();
       App.liveSets.forEach(s => s.changed()); App.emit();
     });
+    $('#protRadius').value = App.opts.protRadius || 5;
+    $('#protLabelChk').checked = App.opts.protLabel !== false;
     $('#protLabelChk').addEventListener('change', e => { App.opts.protLabel = e.target.checked; App.saveOpts(); cache.clear(); App.liveSets.forEach(s => s.changed()); App.emit(); });
     $('#btnProt').addEventListener('click', run);
     $('#protTable').addEventListener('change', e => {

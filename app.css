@@ -243,3 +243,15 @@ body { word-break: keep-all; overflow-wrap: anywhere; }
 body[data-theme=ecvam] #mapOptsLayout .slider[data-row=opE] { display: flex; }
 body[data-theme=prot] #mapOptsLayout .slider[data-row=opA], body[data-theme=prot] #mapOptsLayout .slider[data-row=opI],
 body[data-theme=ecvam] #mapOptsLayout .slider[data-row=opA], body[data-theme=ecvam] #mapOptsLayout .slider[data-row=opI] { display: none; }
+
+/* 보호구역 목록: 구분 제목, 묶음, 출처 태그 */
+.prot-cat { margin: 10px 2px 2px; font-size: 11.5px; font-weight: 700; color: var(--accent-dark); letter-spacing: .02em; }
+.prot-cat:first-child { margin-top: 0; }
+.src-line { display: block; }
+.src-line .tags { display: inline-flex; gap: 3px; margin-left: 4px; white-space: nowrap; vertical-align: 1px; }
+.prot-group { flex-direction: column; gap: 6px; cursor: default; }
+.prot-ghead { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
+.prot-kids { display: flex; flex-direction: column; gap: 4px; margin-left: 22px; padding-left: 8px; border-left: 2px solid var(--line); }
+.prot-kid { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12.5px; }
+.prot-kid .swatch { margin-top: 0 !important; }
+.prot-kid .swatch-line { margin-top: 0 !important; }

@@ -10,8 +10,14 @@
     { id: 'np_nat', label: '국립공원', short: '국립공원', src: 'vworld', data: 'LT_C_WGISNPGUG', name: p => p.park_name, color: '#1B7F3B', note: VW_NOTE },
     { id: 'np_do', label: '도립공원', short: '도립공원', src: 'vworld', data: 'LT_C_WGISNPDO', name: p => p.park_name, color: '#5E9E1F', note: VW_NOTE },
     { id: 'np_gun', label: '군립공원', short: '군립공원', src: 'vworld', data: 'LT_C_WGISNPGUN', name: p => p.park_name, color: '#A08A00', note: VW_NOTE },
-    { id: 'wild', label: '야생생물(동·식물) 보호구역', short: '야생생물보호구역', src: 'vworld', data: 'LT_C_UM221', name: p => [p.sigg_name, p.uname].filter(Boolean).join(' '), color: '#C62828', note: VW_NOTE },
+    { id: 'wild', label: '야생생물(동·식물) 보호구역', short: '야생생물보호구역', src: 'vworld', data: 'LT_C_UM221', keep: p => !/특별/.test(p.uname || ''), name: p => [p.sigg_name, p.uname].filter(Boolean).join(' '), color: '#C62828', note: VW_NOTE },
+    { id: 'wild_sp', label: '야생생물 특별보호구역', short: '야생생물특별보호구역', src: 'vworld', data: 'LT_C_UM221', attr: 'uname:like:특별', name: p => [p.sigg_name, p.uname].filter(Boolean).join(' '), color: '#8E0000', note: VW_NOTE },
+    { id: 'forest_gen', label: '산림유전자원 보호구역', short: '산림유전자원보호구역', src: 'vworld', data: 'LT_C_UF151', attr: 'uname:like:산림유전자원', name: p => [p.sigg_name, p.uname].filter(Boolean).join(' '), color: '#33691E', note: VW_NOTE + ' · 산림보호구역 중 산림유전자원보호구역' },
+    { id: 'baekdu', label: '백두대간보호지역', short: '백두대간보호지역', src: 'vworld', data: 'LT_C_UF901', name: p => '백두대간보호지역 ' + (p.uname && p.uname !== '백두대간보호지역' ? '(' + p.uname + ')' : ''), color: '#6D4C41', note: VW_NOTE + ' · 핵심/완충구역' },
+    { id: 'wetland_c', label: '습지보호지역 (연안·지정명칭)', short: '습지보호지역(연안)', src: 'vworld', data: 'LT_C_WGISARWET', name: p => p.uname || p.name || p.wet_name || '습지보호지역', color: '#006064', note: VW_NOTE + ' · 해양수산부' },
     { id: 'wetland', label: '습지보호지역', short: '습지보호지역', src: 'vworld', data: 'LT_C_UM901', name: p => [p.sigg_name, p.uname].filter(Boolean).join(' '), color: '#00838F', note: VW_NOTE },
+    { id: 'fishery', label: '수산자원보호구역', short: '수산자원보호구역', src: 'vworld', data: 'LT_C_UQ141', attr: 'uname:like:수산자원', name: p => [p.sigg_name, p.uname].filter(Boolean).join(' '), color: '#0277BD', note: VW_NOTE + ' · 국토계획 용도구역' },
+    { id: 'air', label: '대기환경규제지역 (대기관리권역 등)', short: '대기환경규제지역', src: 'vworld', data: 'LT_C_UM301', name: p => [p.sigg_name, p.uname].filter(Boolean).join(' ') || '대기환경규제지역', color: '#7E57C2', note: VW_NOTE + ' · 전국 5건, 세부 구분 없음' },
     { id: 'water', label: '상수원보호구역', short: '상수원보호구역', src: 'vworld', data: 'LT_C_UM710', name: p => p.alias || [p.sigg_name, p.uname || '상수원보호구역'].filter(Boolean).join(' '), color: '#1565C0', note: VW_NOTE },
     {
       id: 'winter_bird', label: '겨울철 조류 동시센서스 조사지역', short: '조류 조사지역',
@@ -97,14 +103,14 @@
     const feats = [];
     for (let page = 1; page <= 20; page++) {
       const u = 'https://api.vworld.kr/req/data?service=data&request=GetFeature&format=json&crs=EPSG:4326&geometry=true&attribute=true&size=1000' +
-        `&page=${page}&data=${p.data}&key=${key}&domain=${encodeURIComponent(location.origin)}&geomFilter=BOX(${bbox4326.join(',')})`;
+        `&page=${page}&data=${p.data}${p.attr ? '&attrFilter=' + encodeURIComponent(p.attr) : ''}&key=${key}&domain=${encodeURIComponent(location.origin)}&geomFilter=BOX(${bbox4326.join(',')})`;
       let j;
       try { j = await jsonp(u); } catch (e) { throw new Error(`${p.short} 자료를 받지 못했습니다 (${e.message})`); }
       const r = j.response || {};
       if (r.status === 'NOT_FOUND') break;
       if (r.status !== 'OK') throw new Error(`${p.short}: ${(r.error && r.error.text) || r.status}${/인증키/.test((r.error && r.error.text) || '') ? ' (브이월드 키가 이 사이트 주소로 등록됐는지 확인)' : ''}`);
       const fs = (r.result && r.result.featureCollection && r.result.featureCollection.features) || [];
-      fs.forEach(f => feats.push({ type: 'Feature', geometry: f.geometry, properties: { name: p.name(f.properties || {}) || p.short } }));
+      fs.filter(f => !p.keep || p.keep(f.properties || {})).forEach(f => feats.push({ type: 'Feature', geometry: f.geometry, properties: { name: p.name(f.properties || {}) || p.short } }));
       const total = Number(r.record && r.record.total) || 0;
       if (feats.length >= total || !fs.length) break;
     }

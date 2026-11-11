@@ -94,7 +94,26 @@
   }
 
   // 선택 레이어 -> 폴리곤 (닫힌 선, 면, 흩어진 선 polygonize) 후 합치기. 좌표는 원본 * scale
-  function siteGeom(fid, layers, scale) {
+  // 외곽선 모드: 선택한 모든 선·면을 gap 만큼 부풀려 합치고, 구멍을 메운 뒤 다시 gap 만큼 줄여 가장 바깥 윤곽만 남김
+  function outlineGeom(sel, gap) {
+    const J0 = jst(), gs = [];
+    sel.forEach(it => {
+      if (it.type === 'Point') return;
+      try { gs.push(J0.read(toGJ(it))); } catch (e) { /* 무시 */ }
+    });
+    if (!gs.length) throw new Error('선택한 레이어에 선이나 면이 없습니다.');
+    const bp = new jsts.operation.buffer.BufferParameters(); bp.setQuadrantSegments(4);
+    const grown = jsts.operation.buffer.BufferOp.bufferOp(J0.fac.createGeometryCollection(gs), gap, bp);
+    const shells = polys(grown).map(p => J0.fac.createPolygon(p.getExteriorRing().getCoordinates()));
+    const out = jsts.operation.buffer.BufferOp.bufferOp(J0.union(shells), -gap, bp);
+    const parts = polys(out);
+    if (!parts.length) throw new Error('외곽선을 만들지 못했습니다. 틈 메우기 값을 늘려 보세요.');
+    const maxA = Math.max(...parts.map(p => p.getArea()));
+    const keep = parts.filter(p => p.getArea() >= maxA * 0.01);       // 가장 큰 조각의 1% 미만 잔조각은 제외
+    return { geom: J0.union(keep.map(p => J0.fac.createPolygon(p.getExteriorRing().getCoordinates()))), parts: keep.length, dropped: parts.length - keep.length };
+  }
+
+  function siteGeom(fid, layers, scale, opt) {
     const up = UP[fid];
     if (!up) throw new Error('업로드 정보가 없습니다. 파일을 다시 올려 주세요.');
     const J0 = jst();
@@ -103,6 +122,13 @@
     let b = [Infinity, Infinity, -Infinity, -Infinity];
     sel.forEach(it => { const cs = it.type === 'Polygon' ? it.coords[0] : (it.type === 'Point' ? [it.coords] : it.coords); cs.forEach(p => { b[0] = Math.min(b[0], p[0]); b[1] = Math.min(b[1], p[1]); b[2] = Math.max(b[2], p[0]); b[3] = Math.max(b[3], p[1]); }); });
     const tol = Math.max(Math.max(b[2] - b[0], b[3] - b[1]) * 1e-7, 1e-6);
+    if (opt && opt.outline) {
+      const gapOrig = Math.max(0.01, Number(opt.gap) || 5) / (scale || 1);   // m -> 도면 단위
+      const o = outlineGeom(sel, gapOrig);
+      let gj0 = J0.write(o.geom);
+      if (scale !== 1) gj0 = mapCoords(gj0, p => [p[0] * scale, p[1] * scale]);
+      return { gj: gj0, nOpen: 0, outline: { parts: o.parts, dropped: o.dropped } };
+    }
     const parts = [], open = [];
     sel.forEach(it => {
       if (it.type === 'Polygon') { try { parts.push(...polys(J0.fix(J0.read(toGJ(it))))); } catch (e) { /* 무시 */ } }
@@ -130,9 +156,9 @@
     return { gj, nOpen };
   }
 
-  function crsCandidates(fid, layers) {
+  function crsCandidates(fid, layers, opt) {
     const J0 = jst();
-    const { gj } = siteGeom(fid, layers, 1);
+    const { gj } = siteGeom(fid, layers, 1, opt);
     const pt = J0.read(gj).getInteriorPoint().getCoordinate();
     const x = pt.x, y = pt.y, out = [];
     const scales = [1]; if (Math.abs(x) > 2e6 || Math.abs(y) > 5e6) scales.push(0.001);   // mm 단위 도면
@@ -150,14 +176,14 @@
     return { candidates: out, rawCenter: [x, y] };
   }
 
-  function buildSite(fid, layers, key, scale) {
+  function buildSite(fid, layers, key, scale, opt) {
     const J0 = jst();
-    const { gj, nOpen } = siteGeom(fid, layers, scale);
+    const { gj, nOpen, outline } = siteGeom(fid, layers, scale, opt);
     const def = CRS_BY[key][2];
     const g5 = def === TARGET ? gj : mapCoords(gj, p => tr(def, TARGET).forward(p));
     const g = polyOnly(J0.union(polys(J0.fix(J0.read(g5)))));
     const e = g.getEnvelopeInternal();
-    return { geometry: J0.write(g), area: g.getArea(), bbox: [e.getMinX(), e.getMinY(), e.getMaxX(), e.getMaxY()], polygonizedFromLines: nOpen };
+    return { geometry: J0.write(g), area: g.getArea(), bbox: [e.getMinX(), e.getMinY(), e.getMaxX(), e.getMaxY()], polygonizedFromLines: nOpen, outline: outline || null };
   }
 
   // ---------------------------------------------------------------- 면적 산정 (server.py compute_area 와 같은 규칙)
@@ -300,8 +326,8 @@
           const f = opts.body instanceof File ? opts.body : new File([opts.body], name);
           return json(await upload(name, f));
         }
-        case '/api/crs': return json(crsCandidates(body.fileId, body.layers));
-        case '/api/site': return json(buildSite(body.fileId, body.layers, body.crs, Number(body.scale || 1)));
+        case '/api/crs': return json(crsCandidates(body.fileId, body.layers, body));
+        case '/api/site': return json(buildSite(body.fileId, body.layers, body.crs, Number(body.scale || 1), body));
         case '/api/area': return json(computeArea(body.sites, body.eczm));
         case '/api/xlsx': return new Response(await makeXlsx(body), { status: 200 });
       }

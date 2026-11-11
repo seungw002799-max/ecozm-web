@@ -198,3 +198,9 @@ input:focus, select:focus { outline: 2px solid var(--accent-soft); border-color:
 .area-table tr.cat-head td { background: var(--accent-soft); color: var(--accent-dark); font-weight: 700; text-align: left; padding-left: 8px; }
 .area-table tr.sum td { font-weight: 700; border-top: 1.5px solid #9aa3ad; }
 .area-table th:first-child, .area-table td.cat { width: 34%; }
+
+/* 외곽선 모드 */
+.outline-opt { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0; padding: 6px 8px; background: #f6f7f9; border-radius: 5px; flex-wrap: wrap; }
+.outline-opt .check { margin: 0; font-size: 12.5px; }
+.gap-box { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+.gap-box input { width: 56px; font: inherit; padding: 2px 4px; border: 1px solid var(--line); border-radius: 4px; text-align: right; }

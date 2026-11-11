@@ -464,10 +464,15 @@ function renderCard(s) {
     ${s.converter ? `<div class="note">DWG→DXF 변환: ${esc(s.converter)}</div>` : ''}
     <label class="field"><span>구분</span><select data-act="cat">${CATS.map(c => `<option ${c === s.category ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
     ${s.layers ? `<div class="layer-list">${layers || '<div class="note">레이어 없음</div>'}</div>` : ''}
+    ${s.layers ? `<div class="outline-opt">
+      <label class="check"><input type="checkbox" data-act="outline" ${s.outline ? 'checked' : ''}> 외곽선만 사용 (복잡한 도면)</label>
+      <label class="gap-box" ${s.outline ? '' : 'hidden'}>틈 메우기 <input type="number" data-act="gap" min="0.5" max="100" step="0.5" value="${s.gap}"> m</label>
+    </div>` : ''}
     ${crs}
     ${s.busy ? `<div class="busy">${esc(s.busy)}</div>` : ''}
     ${s.area != null ? `<div class="area">면적 ${fmt(s.area)} ㎡</div>` : ''}
     ${s.poly > 0 ? `<div class="note">흩어진 선 ${s.poly}개 영역을 면으로 합성했습니다.</div>` : ''}
+    ${s.outlineInfo ? `<div class="note">외곽선 ${s.outlineInfo.parts}개 영역으로 정리${s.outlineInfo.dropped ? ` (작은 조각 ${s.outlineInfo.dropped}개 제외)` : ''}. 선이 끊겨 안쪽이 비면 틈 메우기 값을 늘리세요.</div>` : ''}
     ${s.error ? `<div class="note err">${esc(s.error)}</div>` : ''}`;
 }
 
@@ -485,6 +490,11 @@ async function addFile(file) {
     s.converter = j.converter || '';
     s.layers = (j.layers || []).map(l => ({ name: l.name, count: l.count, types: l.types, closed: l.closed || 0, checked: false }));
     autoLayers(s.layers);
+    // 도형이 많은 복잡한 도면은 외곽선 모드로 시작 (선/면이 있는 레이어 전부 선택)
+    const total = s.layers.reduce((a, l) => a + l.count, 0);
+    s.gap = 5;
+    s.outline = total > 500;
+    if (s.outline) s.layers.forEach(l => { l.checked = Object.keys(l.types || {}).some(t => t !== 'Point'); });
     s.bounds = j.bounds;
     await reprocess(s);
   } catch (e) {
@@ -502,7 +512,7 @@ async function reprocess(s, keepCrs) {
   try {
     if (!keepCrs) {
       s.busy = '좌표계 판정 중...'; renderCard(s);
-      const j = await api('/api/crs', { fileId: s.fileId, layers: names });
+      const j = await api('/api/crs', { fileId: s.fileId, layers: names, outline: !!s.outline, gap: s.gap });
       if (my !== s.seq) return;
       const cands = j.candidates || [];
       if (!cands.length) throw new Error('좌표계 후보를 찾지 못했습니다. 도면 좌표를 확인하세요.');
@@ -526,9 +536,9 @@ async function reprocess(s, keepCrs) {
     }
     s.busy = '도형 생성 중...'; renderCard(s);
     const c = s.cands[s.crsIdx];
-    const j = await api('/api/site', { fileId: s.fileId, layers: names, crs: c.key, scale: c.scale == null ? 1 : c.scale });
+    const j = await api('/api/site', { fileId: s.fileId, layers: names, crs: c.key, scale: c.scale == null ? 1 : c.scale, outline: !!s.outline, gap: s.gap });
     if (my !== s.seq) return;
-    s.geometry = j.geometry; s.area = j.area; s.bbox = j.bbox; s.poly = j.polygonizedFromLines || 0;
+    s.geometry = j.geometry; s.area = j.area; s.bbox = j.bbox; s.poly = j.polygonizedFromLines || 0; s.outlineInfo = j.outline || null;
     const first = !App.sitesExtent();
     setSiteFeature(s);
     s.busy = '';
@@ -578,6 +588,12 @@ function initSiteList() {
       s.layers[Number(t.dataset.i)].checked = t.checked;
       clearTimeout(s.layerTimer);
       s.layerTimer = setTimeout(() => reprocess(s), 450);
+    } else if (act === 'outline') {
+      s.outline = t.checked;
+      reprocess(s, true);
+    } else if (act === 'gap') {
+      s.gap = Math.max(0.5, Number(t.value) || 5);
+      if (s.outline) reprocess(s, true);
     } else if (act === 'crs') {
       s.crsIdx = Number(t.value);
       reprocess(s, true);

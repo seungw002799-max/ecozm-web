@@ -191,8 +191,9 @@
   function decodeText(buf) {
     const u8 = new Uint8Array(buf);
     const head = new TextDecoder('latin1').decode(u8.subarray(0, Math.min(u8.length, 20000)));
-    if (/\$DWGCODEPAGE\s*\r?\n\s*3\s*\r?\n\s*ANSI_949/i.test(head)) return new TextDecoder('euc-kr').decode(u8);
-    try { return new TextDecoder('utf-8', { fatal: true }).decode(u8); } catch (e) { return new TextDecoder('euc-kr').decode(u8); }
+    // 올바른 UTF-8 이면 UTF-8 로 읽음 (코드페이지가 ANSI_949 로 적혀 있어도 실제로는 UTF-8 로 저장된 도면이 많음)
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(u8); } catch (e) { /* CP949 */ }
+    return new TextDecoder('euc-kr').decode(u8);
   }
   async function readDxf(buf) {
     await loadScript(CDN.dxf);

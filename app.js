@@ -233,10 +233,10 @@ function hexA(hex, a) {
   const h = hex.replace('#', ''); const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
-function insideStyle(grade, s, a) {
-  return cached(`i|${grade}|${s.toFixed(3)}|${a.toFixed(2)}`, () => new ol.style.Style({
+function insideStyle(grade, s, a, thin) {
+  return cached(`i|${grade}|${s.toFixed(3)}|${a.toFixed(2)}|${thin ? 1 : 0}`, () => new ol.style.Style({
     fill: new ol.style.Fill({ color: hexA(GRADE_COLOR[grade] || '#BBBBBB', a) }),
-    stroke: new ol.style.Stroke({ color: grade === '3' ? `rgba(153,153,153,${a})` : `rgba(60,60,60,${0.7 * a})`, width: Math.max(0.3, 0.8 * s) }),
+    stroke: new ol.style.Stroke({ color: grade === '3' ? `rgba(153,153,153,${a})` : `rgba(60,60,60,${0.7 * a})`, width: Math.max(0.3, (thin ? 0.5 : 0.8) * s) }),
   }));
 }
 function siteStyle(cat, s) {
@@ -260,7 +260,12 @@ App.createLayerSet = function (getScale, live) {
   set.label = new ol.layer.Tile({ visible: false, zIndex: 1 });
   set.around = new ol.layer.Vector({
     source: App.src.around, zIndex: 2,
-    style: f => gradeStyle(String(f.get('eczm_grad')), getScale(), true),
+    // 주변 생태자연도: 3등급(흰색)은 '흰색(3등급) 투명도', 나머지는 '생태자연도 투명도'
+    style: f => {
+      const g = String(f.get('eczm_grad'));
+      const a = g === '3' ? (App.opts.opI == null ? 0.6 : Number(App.opts.opI)) : Number(App.opts.opA);
+      return insideStyle(g, getScale(), a, true);
+    },
   });
   set.inside = new ol.layer.Vector({
     source: App.src.inside, zIndex: 3,
@@ -284,7 +289,7 @@ App.createLayerSet = function (getScale, live) {
     if (!['base', 'sat', 'none'].includes(o.basemap)) o.basemap = App.opts.basemap = 'base';
     set.around.setVisible(true);
     set.inside.setVisible(true);
-    set.around.setOpacity(Number(o.opA));
+    set.around.setOpacity(1);   // 등급별 투명도는 스타일에서 적용
     set.inside.setOpacity(1);   // 내부는 스타일에서 등급별로 투명도 적용
     set.sites.setOpacity(o.opS == null ? 1 : Number(o.opS));   // 올린 도면(경계선) 투명도
     const key = [o.basemap, o.proxy ? 1 : 0, App.cfg.vworldKey || ''].join('|');
@@ -353,7 +358,7 @@ function buildMapOpts(el, pfx) {
       <span class="pct-box"><input type="number" min="0" max="100" step="5" data-pct="opA"><span>%</span></span></div>
     <div class="slider"><span>도면 투명도(선)</span><input type="range" min="0" max="1" step="0.05" data-opt="opS">
       <span class="pct-box"><input type="number" min="0" max="100" step="5" data-pct="opS"><span>%</span></span></div>
-    <div class="slider"><span>도면 투명도(내부)</span><input type="range" min="0" max="1" step="0.05" data-opt="opI">
+    <div class="slider"><span>흰색(3등급) 투명도</span><input type="range" min="0" max="1" step="0.05" data-opt="opI">
       <span class="pct-box"><input type="number" min="0" max="100" step="5" data-pct="opI"><span>%</span></span></div>`;
 }
 function syncOptUI() {

@@ -176,20 +176,27 @@
     } finally { clearTimeout(tm); }
   }
 
-  // KEI 산줄기 WFS (중계 서버 경유)
+  // KEI 산줄기: 중계 서버로 실시간 요청(12초) -> 실패/잘린 응답이면 사이트에 포함된 같은 자료(신산경표, 고정 자료)를 사용
+  const keiCache = {};
   async function fetchKei(p, b) {
+    const layer = p.typename.split(':')[1];
+    const mapF = fs => fs.filter(f => f.geometry).map(f => ({ type: 'Feature', geometry: f.geometry, properties: { name: p.name(f.properties || {}) } }));
     const u = 'https://eiaresearch.kei.re.kr/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&outputFormat=application/json&srsName=EPSG:4326' +
       `&typename=${p.typename}&bbox=${b.join(',')},EPSG:4326`;
-    const ac = new AbortController(); const tm = setTimeout(() => ac.abort(), 40000);
+    const ac = new AbortController(); const tm = setTimeout(() => ac.abort(), 12000);
     try {
       const r = await fetch(PROXY + encodeURIComponent(u), { signal: ac.signal });
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      const j = await r.json();
-      return { type: 'FeatureCollection', _src: 'KEI 산줄기 실시간',
-        features: (j.features || []).filter(f => f.geometry).map(f => ({ type: 'Feature', geometry: f.geometry, properties: { name: p.name(f.properties || {}) } })) };
-    } catch (e) {
-      throw new Error(`${p.short} 자료를 받지 못했습니다 (${e.name === 'AbortError' ? '시간 초과' : e.message})`);
-    } finally { clearTimeout(tm); }
+      const j = JSON.parse(await r.text());          // 응답이 잘리면 여기서 실패
+      return { type: 'FeatureCollection', _src: 'KEI 산줄기 실시간', features: mapF(j.features || []) };
+    } catch (e) { /* 사본 사용 */ } finally { clearTimeout(tm); }
+    if (!keiCache[layer]) {
+      const r = await fetch(`data/${layer}.geojson?v=1`);
+      if (!r.ok) throw new Error(`${p.short} 자료를 받지 못했습니다 (HTTP ${r.status})`);
+      keiCache[layer] = await r.json();
+    }
+    const inBox = g => { let hit = false; const walk = c => { if (hit) return; if (typeof c[0] === 'number') { if (c[0] >= b[0] && c[0] <= b[2] && c[1] >= b[1] && c[1] <= b[3]) hit = true; } else c.forEach(walk); }; walk(g.coordinates); return hit; };
+    return { type: 'FeatureCollection', _src: 'KEI 산줄기 사본(' + (keiCache[layer].fetched || '') + ')', features: mapF(keiCache[layer].features.filter(f => f.geometry && inBox(f.geometry))) };
   }
 
   // 사업지구(전체) 범위 + 반경 -> EPSG:4326 bbox [minLon,minLat,maxLon,maxLat]

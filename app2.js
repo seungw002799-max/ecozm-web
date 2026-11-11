@@ -221,6 +221,9 @@
             if (r.ecolor) {
               ctx.fillStyle = r.ecolor; ctx.fillRect(bx, by, sw, bh);
               ctx.lineWidth = 0.15; ctx.strokeStyle = '#555'; ctx.strokeRect(bx, by, sw, bh);
+            } else if (r.prot && r.prot.line) {
+              ctx.strokeStyle = r.prot.color; ctx.lineWidth = Math.max(0.4, bh * 0.35); ctx.setLineDash([]);
+              ctx.beginPath(); ctx.moveTo(bx, by + bh / 2); ctx.lineTo(bx + sw, by + bh / 2); ctx.stroke();
             } else if (r.prot) {
               const n = parseInt(r.prot.color.slice(1), 16);
               ctx.fillStyle = `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},0.18)`; ctx.fillRect(bx, by, sw, bh);

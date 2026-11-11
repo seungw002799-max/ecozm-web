@@ -7,8 +7,13 @@
   // 레이어 목록 (나중에 브이월드 자연공원·상수원보호구역 등을 같은 형식으로 추가)
   const VW_NOTE = '브이월드 2D데이터 API (실시간)';
   const EG_NOTE = '환경공간정보서비스(기후에너지환경부) API (실시간, 중계)';
-  const PROXY = 'https://ecozm-proxy.seungw002799.workers.dev/?url=';   // Cloudflare Workers 중계 (CORS 우회)
+  const PROXY = 'https://ecozm-proxy.seungw002799.workers.dev/?url=';
+  const KEI_NOTE = 'KEI 지역환경정보시스템 산줄기(신산경표) API (실시간, 중계)';   // Cloudflare Workers 중계 (CORS 우회)
   const PROT = [
+    { id: 'ridge1', label: '산줄기 - 백두대간', short: '백두대간(산줄기)', src: 'kei', typename: 'keilocal:mtridge_l1_pl', name: p => p.mbsnnm || '백두대간', color: '#4E342E', line: true, note: KEI_NOTE },
+    { id: 'ridge2', label: '산줄기 - 정맥', short: '정맥', src: 'kei', typename: 'keilocal:mtridge_l2_pl', name: p => p.mbsnnm || '정맥', color: '#795548', line: true, note: KEI_NOTE },
+    { id: 'ridge3', label: '산줄기 - 기맥', short: '기맥', src: 'kei', typename: 'keilocal:mtridge_l3_pl', name: p => p.sbsnnm || '기맥', color: '#A1887F', line: true, note: KEI_NOTE },
+    { id: 'ridge4', label: '산줄기 - 지맥', short: '지맥', src: 'kei', typename: 'keilocal:mtridge_l4_pl', name: p => p.sbsnnm || '지맥', color: '#8D6E63', line: true, note: KEI_NOTE },
     { id: 'np_nat', label: '국립공원', short: '국립공원', src: 'vworld', data: 'LT_C_WGISNPGUG', name: p => p.park_name, color: '#1B7F3B', note: VW_NOTE },
     { id: 'np_do', label: '도립공원', short: '도립공원', src: 'vworld', data: 'LT_C_WGISNPDO', name: p => p.park_name, color: '#5E9E1F', note: VW_NOTE },
     { id: 'np_gun', label: '군립공원', short: '군립공원', src: 'vworld', data: 'LT_C_WGISNPGUN', name: p => p.park_name, color: '#A08A00', note: VW_NOTE },
@@ -63,7 +68,7 @@
       if (!part.isEmpty()) {
         // 가장 큰 조각 안쪽 점
         let big = part, ba = -1;
-        for (let i = 0; i < part.getNumGeometries(); i++) { const q = part.getGeometryN(i); if (q.getArea() > ba) { ba = q.getArea(); big = q; } }
+        for (let i = 0; i < part.getNumGeometries(); i++) { const q = part.getGeometryN(i); const sz = q.getArea() || q.getLength(); if (sz > ba) { ba = sz; big = q; } }
         const c = big.getInteriorPoint().getCoordinate(); pt = [c.x, c.y];
       }
     } catch (e) { pt = null; }
@@ -78,10 +83,12 @@
     const key = p.id + '|' + s.toFixed(3);
     let st = cache.get(key);
     if (!st) {
-      st = new ol.style.Style({
-        fill: new ol.style.Fill({ color: hexA(p.color, 0.18) }),
-        stroke: new ol.style.Stroke({ color: p.color, width: Math.max(0.8, 2 * s), lineDash: [6 * s, 4 * s] }),
-      });
+      st = p.line
+        ? new ol.style.Style({ stroke: new ol.style.Stroke({ color: p.color, width: Math.max(1, 3 * s) }) })
+        : new ol.style.Style({
+          fill: new ol.style.Fill({ color: hexA(p.color, 0.18) }),
+          stroke: new ol.style.Stroke({ color: p.color, width: Math.max(0.8, 2 * s), lineDash: [6 * s, 4 * s] }),
+        });
       if (cache.size > 500) cache.clear();
       cache.set(key, st);
     }
@@ -169,6 +176,22 @@
     } finally { clearTimeout(tm); }
   }
 
+  // KEI 산줄기 WFS (중계 서버 경유)
+  async function fetchKei(p, b) {
+    const u = 'https://eiaresearch.kei.re.kr/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&outputFormat=application/json&srsName=EPSG:4326' +
+      `&typename=${p.typename}&bbox=${b.join(',')},EPSG:4326`;
+    const ac = new AbortController(); const tm = setTimeout(() => ac.abort(), 40000);
+    try {
+      const r = await fetch(PROXY + encodeURIComponent(u), { signal: ac.signal });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      return { type: 'FeatureCollection', _src: 'KEI 산줄기 실시간',
+        features: (j.features || []).filter(f => f.geometry).map(f => ({ type: 'Feature', geometry: f.geometry, properties: { name: p.name(f.properties || {}) } })) };
+    } catch (e) {
+      throw new Error(`${p.short} 자료를 받지 못했습니다 (${e.name === 'AbortError' ? '시간 초과' : e.message})`);
+    } finally { clearTimeout(tm); }
+  }
+
   // 사업지구(전체) 범위 + 반경 -> EPSG:4326 bbox [minLon,minLat,maxLon,maxLat]
   function queryBox(radiusM) {
     const bs = App.sites.filter(s => s.bbox).map(s => s.bbox);
@@ -204,7 +227,7 @@
       for (const p of chosen) {
         msg.textContent = `${p.short} 받는 중...`;
         let fc;
-        try { fc = p.src === 'vworld' ? await fetchVworld(p, q.b4326) : p.src === 'egis' ? await fetchEgis(p, q.b4326) : await fetchEiagis(p, q.b4326); }
+        try { fc = p.src === 'vworld' ? await fetchVworld(p, q.b4326) : p.src === 'egis' ? await fetchEgis(p, q.b4326) : p.src === 'kei' ? await fetchKei(p, q.b4326) : await fetchEiagis(p, q.b4326); }
         catch (e) { errs.push(e.message); continue; }
         if (!srcs.includes(fc._src)) srcs.push(fc._src);
         (fc.features || []).forEach((f, i) => {

@@ -137,9 +137,9 @@
     const t = $('#protTable');
     if (!rows.length) { t.innerHTML = ''; t.hidden = true; return; }
     t.hidden = false;
-    t.innerHTML = '<tr><th>구분</th><th>명칭</th><th>최단거리(m)</th><th>중첩</th></tr>' + rows.map(r =>
-      `<tr><td class="cat">${r.kindLabel}</td><td style="text-align:left">${r.name}</td><td>${r.dist === 0 ? '0' : fmt(r.dist)}</td>` +
-      `<td>${r.over > 0 ? `<b class="ok-blue">중첩 ${fmt(r.over)}㎡</b>` : '-'}</td></tr>`).join('');
+    t.innerHTML = '<tr><th>명칭</th><th>거리(m)</th><th>중첩(㎡)</th></tr>' + rows.map(r =>
+      `<tr><td style="text-align:left" title="${r.kindLabel}">${r.name}</td><td>${r.dist === 0 ? '0' : fmt(r.dist)}</td>` +
+      `<td>${r.over > 0 ? `<b class="ok-blue">${fmt(r.over)}</b>` : '-'}</td></tr>`).join('');
   }
   App.protRows = () => rows;
 

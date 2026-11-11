@@ -45,6 +45,13 @@
   }
   // 하단 면적 문구 줄 (사업지구 등 구분별 한 줄)
   function areaLines() {
+    if (App.theme === 'prot') {          // 보호구역 도면: 최근접 거리
+      const rs = App.protRows ? App.protRows() : [];
+      if (!rs.length) return ['최근접 거리 : -'];
+      const parts = rs.map(r => `${r.name} ${(r.dist / 1000).toFixed(1)}km`);
+      const out = []; for (let i = 0; i < parts.length; i += 4) out.push((i ? '' : '최근접 거리 : ') + parts.slice(i, i + 4).join('   '));
+      return out;
+    }
     const m = App.tableModel();
     const G = [['1', '1등급'], ['2', '2등급'], ['3', '3등급'], ['9', '별도관리지역']];
     const f = v => Math.round(v).toLocaleString('en-US') + '㎡';
@@ -183,12 +190,12 @@
       const z = Math.max(0.3, (Number(c.size) || 100) / 100);         // 범례 자체 크기(%)
       const lbf = Number(c.buf);
       const f = c.font, fmm = f * PT, pad = (isFinite(lbf) && c.buf !== null && c.buf !== '' ? Math.max(0.3, lbf) : 2.2) * z, rowH = Math.max(fmm * 1.2, fmm * 1.7 * z), sw = 7 * z;
-      const grades = legendGrades(c);
+      const grades = App.theme === 'prot' ? [] : legendGrades(c);
       const cats = App.CATS.filter(k => App.sites.some(s => s.category === k && s.geometry));
       const rows = [{ t: '범 례', head: true }];
       grades.forEach(g => rows.push({ t: g.label, grade: g.key }));
       cats.forEach(k => rows.push({ t: k, cat: k }));
-      (App.protLegend ? App.protLegend() : []).forEach(p => rows.push({ t: p.short, prot: p }));
+      (App.theme === 'prot' && App.protLegend ? App.protLegend() : []).forEach(p => rows.push({ t: p.short, prot: p }));
       let tw = 0;
       rows.forEach(r => { tw = Math.max(tw, textW(ctx, r.t, f, !!r.head)); });
       const w = pad * 2 + (rows.length > 1 ? sw + 2 * z : 0) + tw, h = pad * 2 + rows.length * rowH;
@@ -240,7 +247,7 @@
   };
   const POS_ORDER = ['north', 'scalebar', 'legend', 'areatext'];
   const Z_ORDER = ['legend', 'scalebar', 'north', 'areatext'];
-  const EL_NAMES = { north: '방위표', scalebar: '축척바', legend: '범례', areatext: '하단 면적 표기' };
+  const EL_NAMES = { north: '방위표', scalebar: '축척바', legend: '범례', areatext: '하단 표기 (면적·거리)' };
 
   function defaultPos(key, b, W, H, m) {
     const g = 3, mr = mapRectMm();
@@ -487,6 +494,7 @@
   function resetPositions() { Object.values(L.els).forEach(c => { c.x = null; c.y = null; }); buildElUI(); }
 
   function initControls() {
+    $('#layoutTheme').addEventListener('change', e => { App.setTheme(e.target.value); L.els.areatext.x = null; L.els.areatext.y = null; layoutPaper(); });
     $('#btnFit').addEventListener('click', fitToSites);
 
     const onPaper = () => {
@@ -643,7 +651,7 @@
     },
     leave() { active = false; },
   };
-  App.listeners.push(() => { if (active) { layoutPaper(); if (set) set.changed(); } });
+  App.listeners.push(() => { if (active) { const ts = document.getElementById('layoutTheme'); if (ts) ts.value = App.theme; layoutPaper(); if (set) set.changed(); } });
 
   if (document.fonts && document.fonts.load) document.fonts.load('12px EcoFont').then(() => { if (active) redraw(); }).catch(() => {});
   loadLayout();

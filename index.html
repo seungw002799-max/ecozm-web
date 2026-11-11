@@ -5,13 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>생태자연도 등급별 면적 산정 도구</title>
 <link rel="stylesheet" href="vendor/ol.css">
-<link rel="stylesheet" href="app.css?v=20261111l">
+<link rel="stylesheet" href="app.css?v=20261111m">
 </head>
 <body>
 <header class="topbar">
   <div class="brand">생태자연도 등급별 면적 산정 도구</div>
   <nav class="tabs">
-    <button class="tab active" data-tab="work" type="button">작업</button>
+    <button class="tab active" data-tab="work" type="button">도면</button>
+    <button class="tab" data-tab="eco" type="button">생태자연도</button>
+    <button class="tab" data-tab="prot" type="button">보호구역</button>
     <button class="tab" data-tab="layout" type="button">도면 출력</button>
   </nav>
   <div class="topbar-right" id="healthInfo"></div>
@@ -23,7 +25,6 @@
 
     <!-- ===================== 작업 탭 ===================== -->
     <div id="tabWork" class="tabpane">
-
       <section class="card-section">
         <h2>1. 설정</h2>
         <div class="key-line"><span class="key-name">data.go.kr 인증키</span><span class="key-ok" id="keyDataOk" hidden>인증 완료</span></div>
@@ -37,16 +38,7 @@
       </section>
 
       <section class="card-section">
-        <h2>2. 자료 상태</h2>
-        <div id="freshBanner" class="banner warn" hidden></div>
-        <div class="fresh-row">
-          <div id="freshInfo" class="fresh-info">확인 전</div>
-          <button id="btnFresh" class="btn fresh-btn" type="button">재확인</button>
-        </div>
-      </section>
-
-      <section class="card-section">
-        <h2>3. 도면 추가</h2>
+        <h2>2. 도면 추가</h2>
         <div id="dropZone" class="dropzone">
           <div>도면 파일을 끌어다 놓거나 선택하세요</div>
           <div class="hint">dwg, dxf, zip(shp), geojson, gpkg, shp</div>
@@ -61,12 +53,29 @@
       </section>
 
       <section class="card-section">
-        <h2>4. 지도 표시</h2>
+        <h2>3. 지도 표시</h2>
         <div class="mapopts" id="mapOptsWork"></div>
+      </section>
+    </div>
+
+    <!-- ===================== 생태자연도 탭 ===================== -->
+    <div id="tabEco" class="tabpane" hidden>
+      <section class="card-section">
+        <h2>1. 자료 상태</h2>
+        <div id="freshBanner" class="banner warn" hidden></div>
+        <div class="fresh-row">
+          <div id="freshInfo" class="fresh-info">확인 전</div>
+          <button id="btnFresh" class="btn fresh-btn" type="button">재확인</button>
+        </div>
       </section>
 
       <section class="card-section">
-        <h2>5. 면적 산정</h2>
+        <h2>2. 생태자연도 표시</h2>
+        <div class="mapopts" id="ecoOpts"></div>
+      </section>
+
+      <section class="card-section">
+        <h2>3. 면적 산정</h2>
         <label class="field inline"><span>주변 표시 범위(m)</span>
           <input type="number" id="optRange" min="0" step="50" value="500"></label>
         <label class="check"><input type="checkbox" id="optRest3" checked> 자료 없는 지역은 3등급으로 산정</label>
@@ -83,9 +92,12 @@
           </div>
         </div>
       </section>
+    </div>
 
+    <!-- ===================== 보호구역 탭 ===================== -->
+    <div id="tabProt" class="tabpane" hidden>
       <section class="card-section">
-        <h2>6. 보호구역 검토</h2>
+        <h2>보호구역 최근접 거리</h2>
         <div id="protList" class="prot-list"></div>
         <div class="prot-opts">
           <label class="unit-input prot-radius"><span class="lbl">검토 반경</span><input type="number" id="protRadius" min="0" step="1" value="5"><span class="unit">km</span></label>
@@ -116,6 +128,7 @@
 
       <section class="card-section">
         <h2>지도 표시</h2>
+        <label class="field"><span>도면 주제</span><select id="layoutTheme"><option value="eco">생태자연도</option><option value="prot">보호구역 (최근접 거리)</option></select></label>
         <div class="mapopts" id="mapOptsLayout"></div>
         <div class="row"><button id="btnFit" class="btn" type="button">도면 이동</button></div>
       </section>
@@ -157,10 +170,10 @@
 <script src="vendor/proj4.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jsts.min.js"></script>
-<script src="cad.js?v=20261111l"></script>
-<script src="backend.js?v=20261111l"></script>
-<script src="app.js?v=20261111l"></script>
-<script src="prot.js?v=20261111l"></script>
-<script src="app2.js?v=20261111l"></script>
+<script src="cad.js?v=20261111m"></script>
+<script src="backend.js?v=20261111m"></script>
+<script src="app.js?v=20261111m"></script>
+<script src="prot.js?v=20261111m"></script>
+<script src="app2.js?v=20261111m"></script>
 </body>
 </html>

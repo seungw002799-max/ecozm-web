@@ -122,7 +122,7 @@
         });
       }
       rows.sort((a, b) => a.dist - b.dist);
-      msg.textContent = (rows.length ? `완료: 반경 ${fmt(radius / 1000)}km 안에 ${rows.length}곳` : `반경 ${fmt(radius / 1000)}km 안에 해당 보호구역이 없습니다.`) + ` · 자료: ${srcs.join(', ')}`;
+      msg.textContent = (rows.length ? `완료: 반경 ${fmt(radius / 1000)}km 안에 ${rows.length}곳 (사업지구 경계 기준 최근접 거리)` : `반경 ${fmt(radius / 1000)}km 안에 해당 보호구역이 없습니다.`) + ` · 자료: ${srcs.join(', ')}`;
     } catch (e) {
       msg.textContent = e.message;
     } finally {
@@ -137,8 +137,8 @@
     const t = $('#protTable');
     if (!rows.length) { t.innerHTML = ''; t.hidden = true; return; }
     t.hidden = false;
-    t.innerHTML = '<tr><th>명칭</th><th>거리(m)</th><th>중첩(㎡)</th></tr>' + rows.map(r =>
-      `<tr><td style="text-align:left" title="${r.kindLabel}">${r.name}</td><td>${r.dist === 0 ? '0' : fmt(r.dist)}</td>` +
+    t.innerHTML = '<tr><th>명칭</th><th>최근접 거리(km)</th><th>중첩(㎡)</th></tr>' + rows.map(r =>
+      `<tr><td style="text-align:left" title="${r.kindLabel}">${r.name}</td><td>${(r.dist / 1000).toFixed(1)}</td>` +
       `<td>${r.over > 0 ? `<b class="ok-blue">${fmt(r.over)}</b>` : '-'}</td></tr>`).join('');
   }
   App.protRows = () => rows;

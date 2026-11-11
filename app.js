@@ -292,8 +292,11 @@ App.createLayerSet = function (getScale, live) {
     const o = Object.assign({}, App.opts, over || {});
     // 표시 방식은 '주변 전체 + 사업지구 내부' 하나로 고정, 투명도는 하나로 통일
     if (!['base', 'sat', 'none'].includes(o.basemap)) o.basemap = App.opts.basemap = 'base';
-    set.around.setVisible(true);
-    set.inside.setVisible(true);
+    // 주제(생태자연도 / 보호구역)에 따라 레이어 표시
+    const eco = App.theme !== 'prot';
+    set.around.setVisible(eco);
+    set.inside.setVisible(eco);
+    if (set.prot) set.prot.setVisible(!eco);
     set.around.setOpacity(1);   // 등급별 투명도는 스타일에서 적용
     set.inside.setOpacity(1);   // 내부는 스타일에서 등급별로 투명도 적용
     set.sites.setOpacity(o.opS == null ? 1 : Number(o.opS));   // 올린 도면(경계선) 투명도
@@ -355,16 +358,16 @@ function fitSites(sitesOnly) {
 }
 
 // ============================================================ 7. 옵션 UI (두 탭 공유)
-function buildMapOpts(el, pfx) {
-  el.innerHTML = `
-    <label class="field"><span>배경지도</span><select data-opt="basemap">
-      <option value="base">일반지도</option><option value="sat">위성지도</option><option value="none">흰색 배경</option></select></label>
-    <div class="slider"><span>생태자연도 투명도</span><input type="range" min="0" max="1" step="0.05" data-opt="opA">
-      <span class="pct-box"><input type="number" min="0" max="100" step="5" data-pct="opA"><span>%</span></span></div>
-    <div class="slider"><span>도면 투명도(선)</span><input type="range" min="0" max="1" step="0.05" data-opt="opS">
-      <span class="pct-box"><input type="number" min="0" max="100" step="5" data-pct="opS"><span>%</span></span></div>
-    <div class="slider"><span>흰색(3등급) 투명도</span><input type="range" min="0" max="1" step="0.05" data-opt="opI">
-      <span class="pct-box"><input type="number" min="0" max="100" step="5" data-pct="opI"><span>%</span></span></div>`;
+const SLD = (lab, k) => `<div class="slider"><span>${lab}</span><input type="range" min="0" max="1" step="0.05" data-opt="${k}">
+      <span class="pct-box"><input type="number" min="0" max="100" step="5" data-pct="${k}"><span>%</span></span></div>`;
+// parts: 'base' = 배경지도 + 도면 선, 'eco' = 생태자연도·흰색, 'all' = 둘 다
+function buildMapOpts(el, parts) {
+  let h = '';
+  if (parts !== 'eco') h += `<label class="field"><span>배경지도</span><select data-opt="basemap">
+      <option value="base">일반지도</option><option value="sat">위성지도</option><option value="none">흰색 배경</option></select></label>`;
+  if (parts !== 'base') h += SLD('생태자연도 투명도', 'opA') + SLD('흰색(3등급) 투명도', 'opI');
+  if (parts !== 'eco') h += SLD('도면 투명도(선)', 'opS');
+  el.innerHTML = h;
 }
 function syncOptUI() {
   $$('[data-opt]').forEach(el => {
@@ -378,8 +381,9 @@ function syncOptUI() {
 function initOptUI() {
   $('#optRest3').dataset.opt = 'rest3';
   $('#optRange').dataset.opt = 'range';
-  buildMapOpts($('#mapOptsWork'), 'w');
-  buildMapOpts($('#mapOptsLayout'), 'l');
+  buildMapOpts($('#mapOptsWork'), 'base');
+  buildMapOpts($('#ecoOpts'), 'eco');
+  buildMapOpts($('#mapOptsLayout'), 'all');
   syncOptUI();
   // 투명도 % 직접 입력 (0~100)
   document.addEventListener('input', e => {
@@ -736,8 +740,11 @@ App.downloadBlob = downloadBlob;
 function switchTab(name) {
   $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   $('#tabWork').hidden = name !== 'work';
+  $('#tabEco').hidden = name !== 'eco';
+  $('#tabProt').hidden = name !== 'prot';
   $('#tabLayout').hidden = name !== 'layout';
-  $('#workMapWrap').hidden = name !== 'work';
+  $('#workMapWrap').hidden = name === 'layout';
+  if (name === 'eco' || name === 'prot') App.setTheme(name);
   $('#paperWrap').hidden = name !== 'layout';
   if (name === 'layout') { if (App.layout) App.layout.enter(); }
   else { if (App.layout) App.layout.leave(); App.workMap.updateSize(); }
@@ -793,4 +800,11 @@ async function init() {
   checkFresh();
 }
 App.switchTab = switchTab;
+App.theme = 'eco';
+App.setTheme = function (t) {
+  App.theme = t === 'prot' ? 'prot' : 'eco';
+  const sel = document.getElementById('layoutTheme'); if (sel) sel.value = App.theme;
+  App.liveSets.forEach(s => { s.refresh(); s.changed(); });
+  App.emit();
+};
 App.init = init;

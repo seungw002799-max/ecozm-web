@@ -23,6 +23,7 @@
   const CATS = { eco: '자연·생태', bio: '야생생물·습지', water: '수질·수자원', air: '대기' };
   const PROT = [
     // 자연·생태
+    { cat: 'eco', id: 'eco1', label: '생태자연도 1등급', short: '생태자연도 1등급', src: 'eco1', name: () => '생태자연도 1등급', noLabel: true, color: '#1AA800', note: { src: '생태자연도 API (data.go.kr)', tags: ['실시간'], extra: ['국립생태원 · 1등급 권역만 표시', '반경이 크면 받는 데 시간이 걸립니다'] } },
     { cat: 'eco', group: 'park', id: 'np_nat', label: '국립공원', short: '국립공원', src: 'vworld', data: 'LT_C_WGISNPGUG', name: p => p.park_name, color: '#1B7F3B', note: VW },
     { cat: 'eco', group: 'park', id: 'np_do', label: '도립공원', short: '도립공원', src: 'vworld', data: 'LT_C_WGISNPDO', name: p => p.park_name, color: '#5E9E1F', note: VW },
     { cat: 'eco', group: 'park', id: 'np_gun', label: '군립공원', short: '군립공원', src: 'vworld', data: 'LT_C_WGISNPGUN', name: p => p.park_name, color: '#A08A00', note: VW },
@@ -98,6 +99,8 @@
     if (!st) {
       st = p.line
         ? new ol.style.Style({ stroke: new ol.style.Stroke({ color: p.color, width: Math.max(1, 3 * s) }) })
+        : p.id === 'eco1'
+        ? new ol.style.Style({ fill: new ol.style.Fill({ color: hexA(p.color, 0.45) }), stroke: new ol.style.Stroke({ color: p.color, width: Math.max(0.5, 1 * s) }) })
         : new ol.style.Style({
           fill: new ol.style.Fill({ color: hexA(p.color, 0.18) }),
           stroke: new ol.style.Stroke({ color: p.color, width: Math.max(0.8, 2 * s), lineDash: [6 * s, 4 * s] }),
@@ -105,6 +108,7 @@
       if (cache.size > 500) cache.clear();
       cache.set(key, st);
     }
+    if (p.noLabel) return st;
     const label = App.opts.protLabel !== false ? (f.get('name') || '') : '';
     if (!label) return st;
     const lp = labelPoint(f, set);
@@ -228,6 +232,23 @@
       features: (j.features || []).filter(f => f.geometry).map(f => ({ type: 'Feature', geometry: f.geometry, properties: { name: p.name(f.properties || {}) } })) };
   }
 
+  // 생태자연도 1등급: 생태자연도 탭에서 받아 둔 자료가 범위를 덮으면 재사용, 아니면 새로 받기 (EPSG:5186)
+  async function fetchEco1(p, b, msg) {
+    if (!App.cfg.dataGoKrKey) throw new Error('생태자연도 1등급: data.go.kr 인증키가 없습니다.');
+    const c = App.eczmCache;
+    let feats;
+    if (c && c.bbox[0] <= b[0] && c.bbox[1] <= b[1] && c.bbox[2] >= b[2] && c.bbox[3] >= b[3]) feats = c.features;
+    else {
+      try {
+        const got = await App.collectEczm(b, (calls, n) => { msg.textContent = `생태자연도 1등급 받는 중... 호출 ${calls}회, 폴리곤 ${n.toLocaleString()}개`; });
+        feats = got.features;
+        App.eczmCache = { bbox: b, features: feats };
+      } catch (e) { throw new Error(`생태자연도 1등급 자료를 받지 못했습니다 (${e.message})`); }
+    }
+    return { type: 'FeatureCollection', _src: '생태자연도 실시간', _crs5186: true,
+      features: feats.filter(f => f.geometry && String((f.properties || {}).eczm_grad) === '1').map(f => ({ type: 'Feature', geometry: f.geometry, properties: { name: p.name() } })) };
+  }
+
   // 사업지구(전체) 범위 + 반경 -> EPSG:4326 bbox [minLon,minLat,maxLon,maxLat]
   function queryBox(radiusM) {
     const bs = App.sites.filter(s => s.bbox).map(s => s.bbox);
@@ -263,13 +284,13 @@
       for (const p of chosen) {
         msg.textContent = `${p.short} 받는 중...`;
         let fc;
-        try { fc = p.src === 'vworld' ? await fetchVworld(p, q.b4326) : p.src === 'egis' ? await fetchEgis(p, q.b4326) : p.src === 'kei' ? await fetchKei(p, q.b4326) : p.src === 'nier' ? await fetchNier(p, q.b4326) : await fetchEiagis(p, q.b4326); }
+        try { fc = p.src === 'vworld' ? await fetchVworld(p, q.b4326) : p.src === 'egis' ? await fetchEgis(p, q.b4326) : p.src === 'kei' ? await fetchKei(p, q.b4326) : p.src === 'nier' ? await fetchNier(p, q.b4326) : p.src === 'eco1' ? await fetchEco1(p, q.b5186, msg) : await fetchEiagis(p, q.b4326); }
         catch (e) { errs.push(e.message); continue; }
         if (!srcs.includes(fc._src)) srcs.push(fc._src);
         (fc.features || []).forEach((f, i) => {
           if (!f.geometry) return;
           // 4326 -> 5186 (Z 제거)
-          const tf = c => (typeof c[0] === 'number') ? proj4('EPSG:4326', 'EPSG:5186', [c[0], c[1]]) : c.map(tf);
+          const tf = c => (typeof c[0] === 'number') ? (fc._crs5186 ? [c[0], c[1]] : proj4('EPSG:4326', 'EPSG:5186', [c[0], c[1]])) : c.map(tf);
           const g5 = { type: f.geometry.type, coordinates: tf(f.geometry.coordinates) };
           let jg; try { jg = rd.read(g5); if (!jg.isValid()) jg = jg.buffer(0); } catch (e) { return; }
           const dist = jg.distance(site);

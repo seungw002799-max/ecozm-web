@@ -697,6 +697,7 @@ async function calculate() {
     App.src.inside.addFeatures(geojson.readFeatures(res.clipped, readOpts));
     renderTable();
     prog.textContent = `완료: 호출 ${got.calls}회, 생태자연도 폴리곤 ${App.eczmCount.toLocaleString()}개`;
+    App.eczmCache = { bbox, features: got.features };
     eco1Nearest(got.features, ready);
     App.emit();
   } catch (e) {
@@ -852,6 +853,7 @@ async function init() {
   checkFresh();
 }
 App.switchTab = switchTab;
+App.collectEczm = collectEczm;
 // 생태자연도 1등급: 사업지구 경계에서 가장 가까운 1등급까지 거리 + 화살표
 function eco1Nearest(feats, sites) {
   const box = document.getElementById('eco1Info');

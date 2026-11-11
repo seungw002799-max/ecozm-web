@@ -48,9 +48,15 @@
     if (App.theme === 'prot') {          // 보호구역 도면: 최근접 거리
       const rs = App.protRows ? App.protRows() : [];
       if (!rs.length) return ['최근접 거리 : -'];
-      const parts = rs.map(r => `${r.name} ${(r.dist / 1000).toFixed(1)}km`);
+      const parts = rs.map(r => `${r.name} ${App.fmtDist(r.dist)}`);
       const out = []; for (let i = 0; i < parts.length; i += 4) out.push((i ? '' : '최근접 거리 : ') + parts.slice(i, i + 4).join('   '));
       return out;
+    }
+    if (App.theme === 'ecvam') {         // 국토환경성평가지도: 등급별 면적
+      const er = App.ecvamResult && App.ecvamResult();
+      const GE = App.ECVAM_GRADES || [];
+      if (!er) return [GE.map(g => g.label + ' 면적 : -').join('   ')];
+      return er.rows.map(r => (er.rows.length > 1 ? '[' + r.category + ']  ' : '') + GE.map(g => g.label + ' 면적 : ' + Math.round(r.areas[g.key]).toLocaleString('en-US') + '㎡').join('   '));
     }
     const m = App.tableModel();
     const G = [['1', '1등급'], ['2', '2등급'], ['3', '3등급'], ['9', '별도관리지역']];
@@ -190,10 +196,12 @@
       const z = Math.max(0.3, (Number(c.size) || 100) / 100);         // 범례 자체 크기(%)
       const lbf = Number(c.buf);
       const f = c.font, fmm = f * PT, pad = (isFinite(lbf) && c.buf !== null && c.buf !== '' ? Math.max(0.3, lbf) : 2.2) * z, rowH = Math.max(fmm * 1.2, fmm * 1.7 * z), sw = 7 * z;
-      const grades = App.theme === 'prot' ? [] : legendGrades(c);
+      const grades = App.theme === 'eco' ? legendGrades(c) : [];
+      const egrades = App.theme === 'ecvam' ? (App.ECVAM_GRADES || []) : [];
       const cats = App.CATS.filter(k => App.sites.some(s => s.category === k && s.geometry));
       const rows = [{ t: '범 례', head: true }];
       grades.forEach(g => rows.push({ t: g.label, grade: g.key }));
+      egrades.forEach(g => rows.push({ t: g.label, ecolor: g.color }));
       cats.forEach(k => rows.push({ t: k, cat: k }));
       (App.theme === 'prot' && App.protLegend ? App.protLegend() : []).forEach(p => rows.push({ t: p.short, prot: p }));
       let tw = 0;
@@ -210,7 +218,10 @@
             setFont(ctx, f, !!r.head); ctx.fillStyle = '#000'; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
             if (r.head) { ctx.fillText(r.t, x + pad, ty); return; }
             const bx = x + pad, by = ry + rowH * 0.15, bh = rowH * 0.7;
-            if (r.prot) {
+            if (r.ecolor) {
+              ctx.fillStyle = r.ecolor; ctx.fillRect(bx, by, sw, bh);
+              ctx.lineWidth = 0.15; ctx.strokeStyle = '#555'; ctx.strokeRect(bx, by, sw, bh);
+            } else if (r.prot) {
               const n = parseInt(r.prot.color.slice(1), 16);
               ctx.fillStyle = `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},0.18)`; ctx.fillRect(bx, by, sw, bh);
               ctx.lineWidth = 0.35; ctx.strokeStyle = r.prot.color; ctx.setLineDash([1.2, 0.8]); ctx.strokeRect(bx, by, sw, bh); ctx.setLineDash([]);

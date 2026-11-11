@@ -22,7 +22,7 @@ const DEFAULT_CAT_STYLE = {
 
 const App = {
   cfg: {},
-  opts: { basemap: 'base', mode: 'both', opA: 0.6, opI: 0.6, opS: 1, proxy: false, rest3: true, range: 500 },
+  opts: { basemap: 'base', mode: 'both', opA: 0.6, opI: 0.6, opS: 1, opE: 0.7, proxy: false, rest3: true, range: 500 },
   catStyle: JSON.parse(JSON.stringify(DEFAULT_CAT_STYLE)),
   sites: [],
   area: null,        // /api/area 응답
@@ -282,21 +282,26 @@ App.createLayerSet = function (getScale, live) {
     source: App.src.sites, zIndex: 4,
     style: f => siteStyle(f.get('category'), getScale()),
   });
+  set.ecvam = new ol.layer.Tile({ zIndex: 2.5, visible: false });   // 국토환경성평가지도 (ecvam.js)
   set.prot = new ol.layer.Vector({
     source: App.src.prot, zIndex: 3.5,
     style: f => (App.protStyle ? App.protStyle(f, getScale()) : null),
   });
-  set.layers = [set.base, set.label, set.around, set.inside, set.prot, set.sites];
+  set.layers = [set.base, set.label, set.ecvam, set.around, set.inside, set.prot, set.sites];
   set.errors = 0;
   set.refresh = function (over) {
     const o = Object.assign({}, App.opts, over || {});
     // 표시 방식은 '주변 전체 + 사업지구 내부' 하나로 고정, 투명도는 하나로 통일
     if (!['base', 'sat', 'none'].includes(o.basemap)) o.basemap = App.opts.basemap = 'base';
     // 주제(생태자연도 / 보호구역)에 따라 레이어 표시
-    const eco = App.theme !== 'prot';
+    const eco = App.theme === 'eco';
     set.around.setVisible(eco);
     set.inside.setVisible(eco);
-    if (set.prot) set.prot.setVisible(!eco);
+    if (set.prot) set.prot.setVisible(App.theme === 'prot');
+    const ev = App.theme === 'ecvam' && !!App.ecvamSource;
+    if (ev) { const src = App.ecvamSource(); if (set.ecvam.getSource() !== src) set.ecvam.setSource(src); }
+    set.ecvam.setVisible(ev);
+    set.ecvam.setOpacity(o.opE == null ? 0.7 : Number(o.opE));
     set.around.setOpacity(1);   // 등급별 투명도는 스타일에서 적용
     set.inside.setOpacity(1);   // 내부는 스타일에서 등급별로 투명도 적용
     set.sites.setOpacity(o.opS == null ? 1 : Number(o.opS));   // 올린 도면(경계선) 투명도
@@ -383,6 +388,7 @@ function initOptUI() {
   $('#optRange').dataset.opt = 'range';
   buildMapOpts($('#mapOptsWork'), 'base');
   buildMapOpts($('#ecoOpts'), 'eco');
+  $('#ecvamOpts').innerHTML = SLD('국토환경성평가지도 투명도', 'opE');
   buildMapOpts($('#mapOptsLayout'), 'all');
   syncOptUI();
   // 투명도 % 직접 입력 (0~100)
@@ -742,9 +748,10 @@ function switchTab(name) {
   $('#tabWork').hidden = name !== 'work';
   $('#tabEco').hidden = name !== 'eco';
   $('#tabProt').hidden = name !== 'prot';
+  $('#tabEcvam').hidden = name !== 'ecvam';
   $('#tabLayout').hidden = name !== 'layout';
   $('#workMapWrap').hidden = name === 'layout';
-  if (name === 'eco' || name === 'prot') App.setTheme(name);
+  if (name === 'eco' || name === 'prot' || name === 'ecvam') App.setTheme(name);
   $('#paperWrap').hidden = name !== 'layout';
   if (name === 'layout') { if (App.layout) App.layout.enter(); }
   else { if (App.layout) App.layout.leave(); App.workMap.updateSize(); }
@@ -800,9 +807,11 @@ async function init() {
   checkFresh();
 }
 App.switchTab = switchTab;
+// 거리 표기: 1km 미만은 소수 둘째 자리, 이상은 첫째 자리, 측정 오차를 감안해 "약"
+App.fmtDist = (m, unit = true) => { const km = m / 1000; const v = km < 1 ? km.toFixed(2) : km.toFixed(1); return '약 ' + v + (unit ? 'km' : ''); };
 App.theme = 'eco';
 App.setTheme = function (t) {
-  App.theme = t === 'prot' ? 'prot' : 'eco';
+  App.theme = ['prot', 'ecvam'].includes(t) ? t : 'eco';
   const sel = document.getElementById('layoutTheme'); if (sel) sel.value = App.theme;
   App.liveSets.forEach(s => { s.refresh(); s.changed(); });
   App.emit();

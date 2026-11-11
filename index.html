@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>생태자연도 등급별 면적 산정 도구</title>
 <link rel="stylesheet" href="vendor/ol.css">
-<link rel="stylesheet" href="app.css?v=20261111q">
+<link rel="stylesheet" href="app.css?v=20261111r">
 </head>
 <body>
 <header class="topbar">
@@ -14,6 +14,7 @@
     <button class="tab active" data-tab="work" type="button">도면</button>
     <button class="tab" data-tab="eco" type="button">생태자연도</button>
     <button class="tab" data-tab="prot" type="button">보호구역</button>
+    <button class="tab" data-tab="ecvam" type="button">국토환경성평가</button>
     <button class="tab" data-tab="layout" type="button">도면 출력</button>
   </nav>
   <div class="topbar-right" id="healthInfo"></div>
@@ -109,6 +110,30 @@
       </section>
     </div>
 
+    <!-- ===================== 국토환경성평가 탭 ===================== -->
+    <div id="tabEcvam" class="tabpane" hidden>
+      <section class="card-section">
+        <h2>1. 국토환경성평가지도 표시</h2>
+        <label class="field"><span>평가 지도</span><select id="ecvamLayerSel"></select></label>
+        <div class="mapopts" id="ecvamOpts"></div>
+        <div class="ecvam-legend" id="ecvamLegend"></div>
+        <ul class="bullets">
+          <li>국토환경성평가지도 오픈API (한국환경연구원) 실시간 연결</li>
+          <li>1등급이 보전 가치가 가장 높고 5등급이 가장 낮습니다</li>
+        </ul>
+      </section>
+      <section class="card-section">
+        <h2>2. 등급별 면적 산정</h2>
+        <div class="row"><button id="btnEcvam" class="btn primary wide" type="button">국토환경성평가 면적 계산</button></div>
+        <div id="ecvamMsg" class="progress" hidden></div>
+        <div class="table-wrap"><table id="ecvamTable" class="area-table" hidden></table></div>
+        <ul class="bullets">
+          <li>평가지도 이미지의 등급 색을 사업지구 안에서 집계한 면적입니다 (근사값)</li>
+          <li>합계는 도면의 정확한 면적에 맞춰 나눕니다</li>
+        </ul>
+      </section>
+    </div>
+
     <!-- ===================== 도면 출력 탭 ===================== -->
     <div id="tabLayout" class="tabpane" hidden>
       <section class="card-section">
@@ -128,7 +153,7 @@
 
       <section class="card-section">
         <h2>지도 표시</h2>
-        <label class="field"><span>도면 주제</span><select id="layoutTheme"><option value="eco">생태자연도</option><option value="prot">보호구역 (최근접 거리)</option></select></label>
+        <label class="field"><span>도면 주제</span><select id="layoutTheme"><option value="eco">생태자연도</option><option value="prot">보호구역 (최근접 거리)</option><option value="ecvam">국토환경성평가지도</option></select></label>
         <div class="mapopts" id="mapOptsLayout"></div>
         <div class="row"><button id="btnFit" class="btn" type="button">도면 이동</button></div>
       </section>
@@ -170,10 +195,11 @@
 <script src="vendor/proj4.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jsts.min.js"></script>
-<script src="cad.js?v=20261111q"></script>
-<script src="backend.js?v=20261111q"></script>
-<script src="app.js?v=20261111q"></script>
-<script src="prot.js?v=20261111q"></script>
-<script src="app2.js?v=20261111q"></script>
+<script src="cad.js?v=20261111r"></script>
+<script src="backend.js?v=20261111r"></script>
+<script src="app.js?v=20261111r"></script>
+<script src="ecvam.js?v=20261111r"></script>
+<script src="prot.js?v=20261111r"></script>
+<script src="app2.js?v=20261111r"></script>
 </body>
 </html>

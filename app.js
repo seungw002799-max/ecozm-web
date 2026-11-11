@@ -313,7 +313,17 @@ App.createLayerSet = function (getScale, live) {
   set.ecvam = new ol.layer.Tile({ zIndex: 2.5, visible: false });   // 국토환경성평가지도 (ecvam.js)
   set.prot = new ol.layer.Vector({
     source: App.src.prot, zIndex: 3.5,
-    style: f => (App.protStyle ? App.protStyle(f, getScale()) : null),
+    style: f => (App.protStyle ? App.protStyle(f, getScale(), set) : null),
+  });
+  set.id = (App._setSeq = (App._setSeq || 0) + 1);
+  // 화면 범위가 바뀌면 보호구역 명칭 위치를 다시 계산
+  set.prot.on('prerender', e => {
+    const ex = e.frameState.extent, o = set.viewExtent;
+    const tol = o ? (o[2] - o[0]) * 0.02 : 0;
+    if (!o || Math.abs(ex[0] - o[0]) > tol || Math.abs(ex[1] - o[1]) > tol || Math.abs(ex[2] - o[2]) > tol || Math.abs(ex[3] - o[3]) > tol) {
+      set.viewExtent = ex.slice();
+      setTimeout(() => set.prot.changed(), 0);
+    }
   });
   set.arrows = new ol.layer.Vector({
     source: App.src.arrows, zIndex: 6, declutter: false,

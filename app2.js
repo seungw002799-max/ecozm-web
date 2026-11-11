@@ -413,6 +413,17 @@
     const r = overlay.getBoundingClientRect();
     return [(e.clientX - r.left) / ppm, (e.clientY - r.top) / ppm];
   }
+  // 미리보기 지도에서 보호구역 명칭 위치 근처(20px)를 눌렀는지
+  function labelHit(e) {
+    if (!map || App.theme !== 'prot' || App.opts.protLabel === false || !App.protLabelPoint) return null;
+    const px = map.getEventPixel(e); let best = null, bd = 22;
+    App.src.prot.getFeatures().forEach(f => {
+      const lp = App.protLabelPoint(f, set); if (!lp) return;
+      const q = map.getPixelFromCoordinate(lp); if (!q) return;
+      const d = Math.hypot(q[0] - px[0], q[1] - px[1]); if (d < bd) { bd = d; best = f; }
+    });
+    return best;
+  }
   function initDrag() {
     let drag = null;
     // 캡처 단계에서 요소 위 클릭만 가로채고, 그 외에는 OL 이 지도 이동을 처리하도록 둔다
@@ -420,7 +431,12 @@
       if (!active || e.button !== 0) return;
       const [mx, my] = mmFromEvent(e);
       const k = hit(mx, my);
-      if (!k) { if (selected) { selected = null; redraw(); } return; }
+      if (!k) {
+        // 보호구역 명칭 끌기 (명칭 근처를 누른 경우)
+        const lf = labelHit(e);
+        if (lf) { e.stopPropagation(); e.preventDefault(); drag = { label: lf }; return; }
+        if (selected) { selected = null; redraw(); } return;
+      }
       e.stopPropagation(); e.preventDefault();
       selected = k;
       const b = boxes[k];
@@ -428,6 +444,10 @@
       redraw();
     }, true);
     window.addEventListener('pointermove', e => {
+      if (drag && drag.label) {
+        const px = map.getEventPixel(e); drag.label.set('labelPos', map.getCoordinateFromPixel(px));
+        App.liveSets.forEach(s => s.changed()); e.preventDefault(); return;
+      }
       if (drag) {
         const { W, H } = dims(); const [mx, my] = mmFromEvent(e); const b = boxes[drag.k]; if (!b) return;
         const c = L.els[drag.k];
@@ -437,7 +457,7 @@
         e.preventDefault();
       } else if (active && e.target && paper.contains(e.target)) {
         const [mx, my] = mmFromEvent(e);
-        paper.style.cursor = hit(mx, my) ? 'move' : '';
+        paper.style.cursor = (hit(mx, my) || labelHit(e)) ? 'move' : '';
       }
     });
     window.addEventListener('pointerup', () => { drag = null; });
@@ -536,6 +556,7 @@
       const center = L.center; L = defaults(); L.center = center;
       syncControls(); buildElUI(); selected = null; layoutPaper();
     });
+    $('#btnLabelReset').addEventListener('click', () => { App.src.prot.getFeatures().forEach(f => f.unset('labelPos')); App.liveSets.forEach(s => s.changed()); });
     $('#btnPng').addEventListener('click', () => doExport('png'));
     $('#btnPdf').addEventListener('click', () => doExport('pdf'));
     if (window.ResizeObserver) new ResizeObserver(() => layoutPaper()).observe(wrap);
@@ -567,6 +588,7 @@
     });
     try {
       emap.setSize([sw, sh]);
+      eset.viewExtent = emap.getView().calculateExtent([sw, sh]);   // 명칭 위치를 출력 범위 기준으로
       await new Promise((ok, no) => {
         const to = setTimeout(() => no(new Error('지도 렌더링 시간 초과(60초)')), 60000);
         emap.once('rendercomplete', () => { clearTimeout(to); ok(); });

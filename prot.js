@@ -43,26 +43,55 @@
 
   // ------------------------------------------------------------ 지도 스타일
   const cache = new Map();
-  App.protStyle = function (f, s) {
+  const gjf = new ol.format.GeoJSON();
+  // 명칭 위치: 직접 옮긴 위치(labelPos)가 있으면 그것, 없으면 "지금 보이는 화면 안에 들어온 부분"의 가운데
+  function labelPoint(f, set) {
+    const manual = f.get('labelPos'); if (manual) return manual;
+    const ext = set && set.viewExtent;
+    const k = '__lp_' + (set ? set.id : 0);
+    if (!ext) return null;
+    const ek = ext.map(v => Math.round(v)).join(',');
+    if (f[k + 'key'] === ek) return f[k];
+    let pt = null;
+    try {
+      const w = ext[2] - ext[0], h = ext[3] - ext[1], m = 0.06;
+      const box = [ext[0] + w * m, ext[1] + h * m, ext[2] - w * m, ext[3] - h * m];
+      const rd = new jsts.io.GeoJSONReader();
+      const g = rd.read(gjf.writeGeometryObject(f.getGeometry()));
+      const b = rd.read({ type: 'Polygon', coordinates: [[[box[0], box[1]], [box[2], box[1]], [box[2], box[3]], [box[0], box[3]], [box[0], box[1]]]] });
+      let part = g.intersection(b);
+      if (!part.isEmpty()) {
+        // 가장 큰 조각 안쪽 점
+        let big = part, ba = -1;
+        for (let i = 0; i < part.getNumGeometries(); i++) { const q = part.getGeometryN(i); if (q.getArea() > ba) { ba = q.getArea(); big = q; } }
+        const c = big.getInteriorPoint().getCoordinate(); pt = [c.x, c.y];
+      }
+    } catch (e) { pt = null; }
+    f[k + 'key'] = ek; f[k] = pt;
+    return pt;
+  }
+  App.protLabelPoint = labelPoint;
+  App.protStyle = function (f, s, set) {
     const p = BY_ID[f.get('kind')]; if (!p) return null;
     const show = (App.opts.protShow || {})[p.id] !== false;
     if (!show) return null;
-    const label = App.opts.protLabel !== false ? (f.get('name') || '') : '';
-    const key = p.id + '|' + s.toFixed(3) + '|' + label;
+    const key = p.id + '|' + s.toFixed(3);
     let st = cache.get(key);
     if (!st) {
       st = new ol.style.Style({
         fill: new ol.style.Fill({ color: hexA(p.color, 0.18) }),
         stroke: new ol.style.Stroke({ color: p.color, width: Math.max(0.8, 2 * s), lineDash: [6 * s, 4 * s] }),
-        text: label ? new ol.style.Text({
-          text: label, font: `bold ${Math.round(12 * s)}px "EcoFont","Malgun Gothic",sans-serif`,
-          fill: new ol.style.Fill({ color: p.color }), stroke: new ol.style.Stroke({ color: '#fff', width: 3 * s }), overflow: true,
-        }) : undefined,
       });
       if (cache.size > 500) cache.clear();
       cache.set(key, st);
     }
-    return st;
+    const label = App.opts.protLabel !== false ? (f.get('name') || '') : '';
+    if (!label) return st;
+    const lp = labelPoint(f, set);
+    if (!lp) return st;
+    return [st, new ol.style.Style({ geometry: new ol.geom.Point(lp), text: new ol.style.Text({
+      text: label, font: `bold ${Math.round(12 * s)}px "EcoFont","Malgun Gothic",sans-serif`,
+      fill: new ol.style.Fill({ color: p.color }), stroke: new ol.style.Stroke({ color: '#fff', width: 3 * s }), overflow: true }) })];
   };
 
   // ------------------------------------------------------------ 자료 받기

@@ -280,7 +280,7 @@
     t.hidden = false;
     t.innerHTML = '<tr><th title="최근접 거리 화살표">↔</th><th>구분</th><th>명칭</th><th>거리(km)</th><th>중첩(㎡)</th></tr>' + rows.map(r =>
       `<tr><td>${r.np ? `<input type="checkbox" data-arrow="${r.key}" ${r.arrow ? 'checked' : ''}>` : ''}</td><td class="cat">${r.kindLabel}</td><td style="text-align:left">${r.name}</td><td>${r.dist === 0 ? '0.00' : App.fmtDist(r.dist, false)}</td>` +
-      `<td>${r.over > 0 ? `<b class="ok-blue">${fmt(r.over)}</b>` : '-'}</td></tr>`).join('');
+      `<td>${r.over > 0 ? `<b class="ok-blue">${fmt(r.over)}</b>` : (r.dist === 0 ? '<b class="ok-blue">통과</b>' : '-')}</td></tr>`).join('');
   }
   App.protRows = () => rows;
   function syncArrows() {

@@ -5,7 +5,14 @@
   const $ = (s, r) => (r || document).querySelector(s);
 
   // 레이어 목록 (나중에 브이월드 자연공원·상수원보호구역 등을 같은 형식으로 추가)
+  const VW_NOTE = '브이월드 2D데이터 API (실시간)';
   const PROT = [
+    { id: 'np_nat', label: '국립공원', short: '국립공원', src: 'vworld', data: 'LT_C_WGISNPGUG', name: p => p.park_name, color: '#1B7F3B', note: VW_NOTE },
+    { id: 'np_do', label: '도립공원', short: '도립공원', src: 'vworld', data: 'LT_C_WGISNPDO', name: p => p.park_name, color: '#5E9E1F', note: VW_NOTE },
+    { id: 'np_gun', label: '군립공원', short: '군립공원', src: 'vworld', data: 'LT_C_WGISNPGUN', name: p => p.park_name, color: '#A08A00', note: VW_NOTE },
+    { id: 'wild', label: '야생생물(동·식물) 보호구역', short: '야생생물보호구역', src: 'vworld', data: 'LT_C_UM221', name: p => [p.sigg_name, p.uname].filter(Boolean).join(' '), color: '#C62828', note: VW_NOTE },
+    { id: 'wetland', label: '습지보호지역', short: '습지보호지역', src: 'vworld', data: 'LT_C_UM901', name: p => [p.sigg_name, p.uname].filter(Boolean).join(' '), color: '#00838F', note: VW_NOTE },
+    { id: 'water', label: '상수원보호구역', short: '상수원보호구역', src: 'vworld', data: 'LT_C_UM710', name: p => p.alias || [p.sigg_name, p.uname || '상수원보호구역'].filter(Boolean).join(' '), color: '#1565C0', note: VW_NOTE },
     {
       id: 'winter_bird', label: '겨울철 조류 동시센서스 조사지역', short: '조류 조사지역',
       src: 'eiagis', typename: 'WINTER_BIRD', nameField: 'name',
@@ -71,6 +78,39 @@
     return { type: 'FeatureCollection', features: all.features.filter(f => f.geometry && inBox(f.geometry)), _src: 'EIAGIS 사본(' + (all.fetched || '') + ')' };
   }
 
+  // 브이월드 2D데이터 API (브라우저 직접 요청이 막혀 있어 JSONP 사용), 1000건씩 페이지
+  function jsonp(url) {
+    return new Promise((ok, no) => {
+      const cb = 'vw_' + Math.random().toString(36).slice(2);
+      const s = document.createElement('script');
+      const tm = setTimeout(() => { cleanup(); no(new Error('시간 초과')); }, 30000);
+      const cleanup = () => { clearTimeout(tm); delete window[cb]; s.remove(); };
+      window[cb] = d => { cleanup(); ok(d); };
+      s.onerror = () => { cleanup(); no(new Error('요청 실패')); };
+      s.src = url + '&callback=' + cb;
+      document.head.appendChild(s);
+    });
+  }
+  async function fetchVworld(p, bbox4326) {
+    const key = App.cfg.vworldKey;
+    if (!key) throw new Error('브이월드 인증키가 없습니다.');
+    const feats = [];
+    for (let page = 1; page <= 20; page++) {
+      const u = 'https://api.vworld.kr/req/data?service=data&request=GetFeature&format=json&crs=EPSG:4326&geometry=true&attribute=true&size=1000' +
+        `&page=${page}&data=${p.data}&key=${key}&domain=${encodeURIComponent(location.origin)}&geomFilter=BOX(${bbox4326.join(',')})`;
+      let j;
+      try { j = await jsonp(u); } catch (e) { throw new Error(`${p.short} 자료를 받지 못했습니다 (${e.message})`); }
+      const r = j.response || {};
+      if (r.status === 'NOT_FOUND') break;
+      if (r.status !== 'OK') throw new Error(`${p.short}: ${(r.error && r.error.text) || r.status}${/인증키/.test((r.error && r.error.text) || '') ? ' (브이월드 키가 이 사이트 주소로 등록됐는지 확인)' : ''}`);
+      const fs = (r.result && r.result.featureCollection && r.result.featureCollection.features) || [];
+      fs.forEach(f => feats.push({ type: 'Feature', geometry: f.geometry, properties: { name: p.name(f.properties || {}) || p.short } }));
+      const total = Number(r.record && r.record.total) || 0;
+      if (feats.length >= total || !fs.length) break;
+    }
+    return { type: 'FeatureCollection', features: feats, _src: '브이월드 실시간' };
+  }
+
   // 사업지구(전체) 범위 + 반경 -> EPSG:4326 bbox [minLon,minLat,maxLon,maxLat]
   function queryBox(radiusM) {
     const bs = App.sites.filter(s => s.bbox).map(s => s.bbox);
@@ -101,10 +141,13 @@
       let site = siteGeoms[0];
       for (let i = 1; i < siteGeoms.length; i++) site = site.union(siteGeoms[i]);
       const fmt3857 = new ol.format.GeoJSON();
-      const srcs = [];
+      const srcs = [], errs = [];
       for (const p of chosen) {
-        const fc = await fetchEiagis(p, q.b4326);
-        srcs.push(p.short + ': ' + (fc._src || ''));
+        msg.textContent = `${p.short} 받는 중...`;
+        let fc;
+        try { fc = p.src === 'vworld' ? await fetchVworld(p, q.b4326) : await fetchEiagis(p, q.b4326); }
+        catch (e) { errs.push(e.message); continue; }
+        if (!srcs.includes(fc._src)) srcs.push(fc._src);
         (fc.features || []).forEach((f, i) => {
           if (!f.geometry) return;
           // 4326 -> 5186 (Z 제거)
@@ -114,7 +157,7 @@
           const dist = jg.distance(site);
           if (dist > radius) return;                         // 반경 밖은 제외
           let over = 0; try { over = dist === 0 ? jg.intersection(site).getArea() : 0; } catch (e) { over = 0; }
-          const name = (f.properties || {})[p.nameField] || `(이름 없음 ${i + 1})`;
+          const name = (f.properties || {})[p.nameField || 'name'] || `(이름 없음 ${i + 1})`;
           rows.push({ kind: p.id, kindLabel: p.short, name, dist, over, area: jg.getArea() });
           const of = fmt3857.readFeature({ type: 'Feature', geometry: g5, properties: {} }, { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' });
           of.set('kind', p.id); of.set('name', name);
@@ -122,7 +165,7 @@
         });
       }
       rows.sort((a, b) => a.dist - b.dist);
-      msg.textContent = (rows.length ? `완료: 반경 ${fmt(radius / 1000)}km 안에 ${rows.length}곳 (사업지구 경계 기준 최근접 거리)` : `반경 ${fmt(radius / 1000)}km 안에 해당 보호구역이 없습니다.`) + ` · 자료: ${srcs.join(', ')}`;
+      msg.textContent = (rows.length ? `완료: 반경 ${fmt(radius / 1000)}km 안에 ${rows.length}곳 (사업지구 경계 기준 최근접 거리)` : `반경 ${fmt(radius / 1000)}km 안에 해당 보호구역이 없습니다.`) + ` · 자료: ${srcs.join(', ')}` + (errs.length ? ` · 오류: ${errs.join(' / ')}` : '');
     } catch (e) {
       msg.textContent = e.message;
     } finally {
@@ -137,8 +180,8 @@
     const t = $('#protTable');
     if (!rows.length) { t.innerHTML = ''; t.hidden = true; return; }
     t.hidden = false;
-    t.innerHTML = '<tr><th>명칭</th><th>최근접 거리(km)</th><th>중첩(㎡)</th></tr>' + rows.map(r =>
-      `<tr><td style="text-align:left" title="${r.kindLabel}">${r.name}</td><td>${(r.dist / 1000).toFixed(1)}</td>` +
+    t.innerHTML = '<tr><th>구분</th><th>명칭</th><th>거리(km)</th><th>중첩(㎡)</th></tr>' + rows.map(r =>
+      `<tr><td class="cat">${r.kindLabel}</td><td style="text-align:left">${r.name}</td><td>${(r.dist / 1000).toFixed(1)}</td>` +
       `<td>${r.over > 0 ? `<b class="ok-blue">${fmt(r.over)}</b>` : '-'}</td></tr>`).join('');
   }
   App.protRows = () => rows;

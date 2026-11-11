@@ -6,6 +6,8 @@
 
   // 레이어 목록 (나중에 브이월드 자연공원·상수원보호구역 등을 같은 형식으로 추가)
   const VW_NOTE = '브이월드 2D데이터 API (실시간)';
+  const EG_NOTE = '환경공간정보서비스(기후에너지환경부) API (실시간, 중계)';
+  const PROXY = 'https://ecozm-proxy.seungw002799.workers.dev/?url=';   // Cloudflare Workers 중계 (CORS 우회)
   const PROT = [
     { id: 'np_nat', label: '국립공원', short: '국립공원', src: 'vworld', data: 'LT_C_WGISNPGUG', name: p => p.park_name, color: '#1B7F3B', note: VW_NOTE },
     { id: 'np_do', label: '도립공원', short: '도립공원', src: 'vworld', data: 'LT_C_WGISNPDO', name: p => p.park_name, color: '#5E9E1F', note: VW_NOTE },
@@ -18,11 +20,15 @@
     { id: 'wetland', label: '습지보호지역', short: '습지보호지역', src: 'vworld', data: 'LT_C_UM901', name: p => [p.sigg_name, p.uname].filter(Boolean).join(' '), color: '#00838F', note: VW_NOTE },
     { id: 'fishery', label: '수산자원보호구역', short: '수산자원보호구역', src: 'vworld', data: 'LT_C_UQ141', attr: 'uname:like:수산자원', name: p => [p.sigg_name, p.uname].filter(Boolean).join(' '), color: '#0277BD', note: VW_NOTE + ' · 국토계획 용도구역' },
     { id: 'air', label: '대기환경규제지역 (대기관리권역 등)', short: '대기환경규제지역', src: 'vworld', data: 'LT_C_UM301', name: p => [p.sigg_name, p.uname].filter(Boolean).join(' ') || '대기환경규제지역', color: '#7E57C2', note: VW_NOTE + ' · 전국 5건, 세부 구분 없음' },
+    { id: 'riverside', label: '수변구역', short: '수변구역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='수변구역'", name: () => '수변구역', color: '#039BE5', note: EG_NOTE },
+    { id: 'wq_special', label: '수질보전 특별대책지역', short: '수질보전특별대책지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='수질보전특별대책지역'", name: () => '수질보전특별대책지역', color: '#00897B', note: EG_NOTE },
+    { id: 'discharge', label: '배출시설 설치제한지역', short: '배출시설설치제한지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='배출시설설치제한지역'", name: () => '배출시설설치제한지역', color: '#F4511E', note: EG_NOTE },
+    { id: 'eco_land', label: '생태·경관보전지역', short: '생태경관보전지역', src: 'egis', typename: 'me:na_plg_conservation', cql: "type_code IN ('ESCA','SCAW')", name: p => p.name || '생태·경관보전지역', color: '#2E7D32', note: EG_NOTE },
     { id: 'water', label: '상수원보호구역', short: '상수원보호구역', src: 'vworld', data: 'LT_C_UM710', name: p => p.alias || [p.sigg_name, p.uname || '상수원보호구역'].filter(Boolean).join(' '), color: '#1565C0', note: VW_NOTE },
     {
       id: 'winter_bird', label: '겨울철 조류 동시센서스 조사지역', short: '조류 조사지역',
       src: 'eiagis', typename: 'WINTER_BIRD', nameField: 'name',
-      color: '#7B3FA0', note: 'EIAGIS(환경영향평가 지리정보서비스), 국립생물자원관 2014년 자료',
+      color: '#7B3FA0', note: 'EIAGIS(환경영향평가 지리정보서비스) API (실시간, 중계) · 국립생물자원관 2014년 자료',
       local: 'data/winter_bird.geojson',   // EIAGIS 서버가 외부 사이트 접속(CORS)을 막아 둔 경우 쓰는 사본
     },
   ];
@@ -65,9 +71,9 @@
   async function fetchEiagis(p, bbox4326) {
     const u = 'https://eiagissv.eiass.go.kr/EIASS/wfs?SERVICE=WFS&VERSION=1.0.0&REQUEST=GetFeature' +
       `&TYPENAME=${p.typename}&outputFormat=application/json&SRSNAME=EPSG:4326&BBOX=${bbox4326.join(',')}`;
-    const ac = new AbortController(); const tm = setTimeout(() => ac.abort(), 8000);
+    const ac = new AbortController(); const tm = setTimeout(() => ac.abort(), 15000);
     try {
-      const r = await fetch(u, { signal: ac.signal });
+      const r = await fetch(PROXY + encodeURIComponent(u), { signal: ac.signal });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const j = await r.json(); j._src = 'EIAGIS 실시간'; return j;
     } catch (e) {
@@ -117,6 +123,23 @@
     return { type: 'FeatureCollection', features: feats, _src: '브이월드 실시간' };
   }
 
+  // 환경공간정보서비스 GeoServer WFS (중계 서버 경유), 조건 + 범위 필터
+  async function fetchEgis(p, b) {
+    const cql = (p.cql ? p.cql + ' AND ' : '') + `BBOX(geom,${b.join(',')},'EPSG:4326')`;
+    const u = 'https://api.mcee.go.kr/geoserver/me/wfs?service=WFS&version=1.0.0&request=GetFeature&outputFormat=application/json&srsName=EPSG:4326' +
+      `&typeName=${p.typename}&CQL_FILTER=${encodeURIComponent(cql)}`;
+    const ac = new AbortController(); const tm = setTimeout(() => ac.abort(), 40000);
+    try {
+      const r = await fetch(PROXY + encodeURIComponent(u), { signal: ac.signal });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      return { type: 'FeatureCollection', _src: '환경공간정보 실시간',
+        features: (j.features || []).filter(f => f.geometry).map(f => ({ type: 'Feature', geometry: f.geometry, properties: { name: p.name(f.properties || {}) } })) };
+    } catch (e) {
+      throw new Error(`${p.short} 자료를 받지 못했습니다 (${e.name === 'AbortError' ? '시간 초과' : e.message})`);
+    } finally { clearTimeout(tm); }
+  }
+
   // 사업지구(전체) 범위 + 반경 -> EPSG:4326 bbox [minLon,minLat,maxLon,maxLat]
   function queryBox(radiusM) {
     const bs = App.sites.filter(s => s.bbox).map(s => s.bbox);
@@ -151,7 +174,7 @@
       for (const p of chosen) {
         msg.textContent = `${p.short} 받는 중...`;
         let fc;
-        try { fc = p.src === 'vworld' ? await fetchVworld(p, q.b4326) : await fetchEiagis(p, q.b4326); }
+        try { fc = p.src === 'vworld' ? await fetchVworld(p, q.b4326) : p.src === 'egis' ? await fetchEgis(p, q.b4326) : await fetchEiagis(p, q.b4326); }
         catch (e) { errs.push(e.message); continue; }
         if (!srcs.includes(fc._src)) srcs.push(fc._src);
         (fc.features || []).forEach((f, i) => {

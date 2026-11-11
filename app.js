@@ -248,24 +248,23 @@ function arrowStyle(f, s) {
   const head = (p, rot) => new ol.style.Style({ geometry: new ol.geom.Point(p),
     image: new ol.style.RegularShape({ points: 3, radius: 7 * s, rotation: rot, fill: new ol.style.Fill({ color: '#000' }) }) });
   const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-  // 글자: 화살표와 겹치지 않게 선의 수직 방향(위쪽 또는 오른쪽)으로 글자 상자 크기만큼 띄움 + 흰 바탕
+  // 글자: 화살표와 겹치지 않게 선의 수직 방향(위쪽 또는 오른쪽)으로 글자 크기만큼 띄움 (흰 테두리 글자)
   const label = f.get('label') || '';
   const fpx = Math.round(14 * s);
   const font = `${fpx}px "EcoFont","Malgun Gothic",sans-serif`;
   arrowStyle.ctx = arrowStyle.ctx || document.createElement('canvas').getContext('2d');
   arrowStyle.ctx.font = font;
-  const pad = 2 * s, tw = arrowStyle.ctx.measureText(label).width + pad * 4, th = fpx + pad * 2;
+  const pad = 2 * s, tw = arrowStyle.ctx.measureText(label).width + pad * 2, th = fpx + pad;
   let nx = -Math.sin(ang), ny = Math.cos(ang);              // 선에 수직 (지도 좌표, y 위쪽)
   if (ny < 0 || (Math.abs(ny) < 1e-6 && nx < 0)) { nx = -nx; ny = -ny; }   // 위쪽/오른쪽으로
-  const d = 6 * s + Math.abs(nx) * tw / 2 + Math.abs(ny) * th / 2;
+  const d = 4 * s + Math.abs(nx) * tw / 2 + Math.abs(ny) * th / 2;
   return [
     new ol.style.Style({ stroke: new ol.style.Stroke({ color: '#fff', width: 5 * s }) }),
     new ol.style.Style({ stroke: new ol.style.Stroke({ color: '#000', width: 2.2 * s }) }),
     head(b, Math.PI / 2 - ang), head(a, -Math.PI / 2 - ang),
     new ol.style.Style({ geometry: new ol.geom.Point(mid), text: new ol.style.Text({
       text: label, font, textAlign: 'center', textBaseline: 'middle', offsetX: nx * d, offsetY: -ny * d,
-      fill: new ol.style.Fill({ color: '#000' }), backgroundFill: new ol.style.Fill({ color: 'rgba(255,255,255,0.9)' }),
-      padding: [pad, pad * 2, pad, pad * 2], overflow: true }) }),
+      fill: new ol.style.Fill({ color: '#000' }), stroke: new ol.style.Stroke({ color: '#fff', width: 4 * s }), overflow: true }) }),
   ];
 }
 // 화살표 추가/교체: pts = [[x,y],[x,y]] (EPSG:5186)

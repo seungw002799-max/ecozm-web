@@ -48,7 +48,7 @@
     if (App.theme === 'prot') {          // 보호구역 도면: 최근접 거리
       const rs = App.protRows ? App.protRows() : [];
       if (!rs.length) return ['최근접 거리 : -'];
-      const parts = rs.map(r => `${r.name} ${App.fmtDist(r.dist)}`);
+      const parts = rs.map(r => `${r.name} ${r.dist === 0 ? '0.00km(중첩)' : App.fmtDist(r.dist)}`);
       const out = []; for (let i = 0; i < parts.length; i += 4) out.push((i ? '' : '최근접 거리 : ') + parts.slice(i, i + 4).join('   '));
       return out;
     }

@@ -214,7 +214,7 @@
     if (!rows.length) { t.innerHTML = ''; t.hidden = true; return; }
     t.hidden = false;
     t.innerHTML = '<tr><th>구분</th><th>명칭</th><th>거리(km)</th><th>중첩(㎡)</th></tr>' + rows.map(r =>
-      `<tr><td class="cat">${r.kindLabel}</td><td style="text-align:left">${r.name}</td><td>${App.fmtDist(r.dist, false)}</td>` +
+      `<tr><td class="cat">${r.kindLabel}</td><td style="text-align:left">${r.name}</td><td>${r.dist === 0 ? '0.00' : App.fmtDist(r.dist, false)}</td>` +
       `<td>${r.over > 0 ? `<b class="ok-blue">${fmt(r.over)}</b>` : '-'}</td></tr>`).join('');
   }
   App.protRows = () => rows;

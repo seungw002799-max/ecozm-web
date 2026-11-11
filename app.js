@@ -35,7 +35,8 @@ const App = {
     around: new ol.source.Vector(),
     inside: new ol.source.Vector(),
     sites: new ol.source.Vector(),
-    prot: new ol.source.Vector(),     // 보호구역 검토 레이어 (prot.js)
+    prot: new ol.source.Vector(),
+    arrows: new ol.source.Vector(),   // 최근접 거리 화살표 (theme 별)     // 보호구역 검토 레이어 (prot.js)
   },
 };
 App.emit = () => App.listeners.forEach(fn => { try { fn(); } catch (e) { console.error(e); } });
@@ -240,6 +241,33 @@ function insideStyle(grade, s, a, thin) {
     stroke: new ol.style.Stroke({ color: grade === '3' ? `rgba(153,153,153,${a})` : `rgba(60,60,60,${0.7 * a})`, width: Math.max(0.3, (thin ? 0.5 : 0.8) * s) }),
   }));
 }
+// 최근접 거리 화살표: 양쪽 화살촉 + "약 4.7km 이격" 글자
+function arrowStyle(f, s) {
+  const c = f.getGeometry().getCoordinates(); if (c.length < 2) return null;
+  const [a, b] = c, ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+  const head = (p, rot) => new ol.style.Style({ geometry: new ol.geom.Point(p),
+    image: new ol.style.RegularShape({ points: 3, radius: 7 * s, rotation: rot, fill: new ol.style.Fill({ color: '#000' }) }) });
+  const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  return [
+    new ol.style.Style({ stroke: new ol.style.Stroke({ color: '#fff', width: 5 * s }) }),
+    new ol.style.Style({ stroke: new ol.style.Stroke({ color: '#000', width: 2.2 * s }) }),
+    head(b, Math.PI / 2 - ang), head(a, -Math.PI / 2 - ang),
+    new ol.style.Style({ geometry: new ol.geom.Point(mid), text: new ol.style.Text({
+      text: f.get('label') || '', font: `${Math.round(14 * s)}px "EcoFont","Malgun Gothic",sans-serif`, textAlign: 'left', offsetX: 10 * s,
+      fill: new ol.style.Fill({ color: '#000' }), stroke: new ol.style.Stroke({ color: '#fff', width: 4 * s }), overflow: true }) }),
+  ];
+}
+// 화살표 추가/교체: pts = [[x,y],[x,y]] (EPSG:5186)
+App.setArrows = function (theme, list) {
+  App.src.arrows.getFeatures().filter(f => f.get('theme') === theme).forEach(f => App.src.arrows.removeFeature(f));
+  list.forEach(it => {
+    const g = new ol.geom.LineString(it.pts.map(p => ol.proj.transform(p, 'EPSG:5186', 'EPSG:3857')));
+    const f = new ol.Feature({ geometry: g });
+    f.set('theme', theme); f.set('label', it.label); f.set('on', it.on !== false); f.set('key', it.key);
+    App.src.arrows.addFeature(f);
+  });
+  App.emit();
+};
 function siteStyle(cat, s) {
   const st = App.catStyle[cat] || DEFAULT_CAT_STYLE['사업지구'];
   return cached(`s|${cat}|${st.color}|${st.width}|${st.dash}|${s.toFixed(3)}`, () => {
@@ -287,7 +315,11 @@ App.createLayerSet = function (getScale, live) {
     source: App.src.prot, zIndex: 3.5,
     style: f => (App.protStyle ? App.protStyle(f, getScale()) : null),
   });
-  set.layers = [set.base, set.label, set.ecvam, set.around, set.inside, set.prot, set.sites];
+  set.arrows = new ol.layer.Vector({
+    source: App.src.arrows, zIndex: 6, declutter: false,
+    style: (f, res) => (f.get('theme') === App.theme && f.get('on') !== false ? arrowStyle(f, getScale()) : null),
+  });
+  set.layers = [set.base, set.label, set.ecvam, set.around, set.inside, set.prot, set.sites, set.arrows];
   set.errors = 0;
   set.refresh = function (over) {
     const o = Object.assign({}, App.opts, over || {});
@@ -327,7 +359,7 @@ App.createLayerSet = function (getScale, live) {
       });
     }
   };
-  set.changed = () => { set.around.changed(); set.inside.changed(); set.prot.changed(); set.sites.changed(); };
+  set.changed = () => { set.around.changed(); set.inside.changed(); set.prot.changed(); set.sites.changed(); set.arrows.changed(); };
   set.tileSources = () => [set.base.getSource(), set.label.getSource()].filter(Boolean);
   if (live) App.liveSets.push(set);
   return set;
@@ -654,6 +686,7 @@ async function calculate() {
     App.src.inside.addFeatures(geojson.readFeatures(res.clipped, readOpts));
     renderTable();
     prog.textContent = `완료: 호출 ${got.calls}회, 생태자연도 폴리곤 ${App.eczmCount.toLocaleString()}개`;
+    eco1Nearest(got.features, ready);
     App.emit();
   } catch (e) {
     prog.textContent = '실패: ' + e.message;
@@ -790,6 +823,7 @@ async function init() {
   $('#btnKeyEdit').addEventListener('click', () => renderKeys(true));
   $('#btnFresh').addEventListener('click', checkFresh);
   $('#btnCalc').addEventListener('click', calculate);
+  $('#eco1Chk').addEventListener('change', e => { App.src.arrows.getFeatures().filter(f => f.get('theme') === 'eco').forEach(f => f.set('on', e.target.checked)); App.liveSets.forEach(s => s.changed()); App.emit(); });
   $('#btnXlsx').addEventListener('click', saveXlsx);
   $('#btnCopy').addEventListener('click', copyTable);
   try {
@@ -807,6 +841,28 @@ async function init() {
   checkFresh();
 }
 App.switchTab = switchTab;
+// 생태자연도 1등급: 사업지구 경계에서 가장 가까운 1등급까지 거리 + 화살표
+function eco1Nearest(feats, sites) {
+  const box = document.getElementById('eco1Info');
+  try {
+    const rd = new jsts.io.GeoJSONReader();
+    const ss = (sites || App.sites.filter(s => s.geometry)).map(s => rd.read(s.geometry));
+    let site = ss[0]; for (let i = 1; i < ss.length; i++) site = site.union(ss[i]);
+    let best = null;
+    feats.filter(f => String((f.properties || {}).eczm_grad) === '1').forEach(f => {
+      let g; try { g = rd.read(f.geometry); } catch (e) { return; }
+      const d = g.distance(site);
+      if (!best || d < best.d) best = { d, g };
+    });
+    App.eco1 = best ? { dist: best.d } : null;
+    if (!best) { App.setArrows('eco', []); box.innerHTML = '주변 표시 범위 안에 1등급이 없습니다. 범위를 넓혀 다시 계산해 보세요.'; return; }
+    if (best.d === 0) { App.setArrows('eco', []); box.innerHTML = '1등급 최근접 거리 : <b class="ok-blue">0.00km (사업지구와 중첩)</b>'; return; }
+    const np = jsts.operation.distance.DistanceOp.nearestPoints(site, best.g).map(c => [c.x, c.y]);
+    const on = document.getElementById('eco1Chk').checked;
+    App.setArrows('eco', [{ key: 'eco1', pts: np, on, label: `1등급 ${App.fmtDist(best.d)} 이격` }]);
+    box.innerHTML = `1등급 최근접 거리 : <b class="ok-blue">${App.fmtDist(best.d)}</b>`;
+  } catch (e) { box.textContent = '1등급 거리 계산 실패: ' + e.message; }
+}
 // 거리 표기: 1km 미만은 소수 둘째 자리, 이상은 첫째 자리, 측정 오차를 감안해 "약"
 App.fmtDist = (m, unit = true) => { const km = m / 1000; const v = km < 1 ? km.toFixed(2) : km.toFixed(1); return '약 ' + v + (unit ? 'km' : ''); };
 App.theme = 'eco';

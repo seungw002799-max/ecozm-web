@@ -218,3 +218,6 @@ input:focus, select:focus { outline: 2px solid var(--accent-soft); border-color:
 .ecvam-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 6px 0; font-size: 12px; }
 .ecvam-legend .lg { display: flex; align-items: center; gap: 4px; }
 .sw { display: inline-block; width: 14px; height: 10px; border: 1px solid #777; margin-right: 4px; vertical-align: -1px; }
+
+.eco1-box { margin: 8px 0; padding: 7px 8px; background: #f6f7f9; border-radius: 5px; font-size: 12.5px; }
+.eco1-box .hint { margin-top: 3px; font-size: 12px; color: var(--text); }

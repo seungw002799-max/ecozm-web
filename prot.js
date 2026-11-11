@@ -162,6 +162,7 @@
     const q = queryBox(radius);
     btn.disabled = true; msg.hidden = false; msg.textContent = '보호구역 자료를 받는 중...';
     App.src.prot.clear();
+    App.setArrows('prot', []);
     rows = [];
     try {
       // 사업지구 합치기 (EPSG:5186)
@@ -187,7 +188,8 @@
           if (dist > radius) return;                         // 반경 밖은 제외
           let over = 0; try { over = dist === 0 ? jg.intersection(site).getArea() : 0; } catch (e) { over = 0; }
           const name = (f.properties || {})[p.nameField || 'name'] || `(이름 없음 ${i + 1})`;
-          rows.push({ kind: p.id, kindLabel: p.short, name, dist, over, area: jg.getArea() });
+          let np = null; try { if (dist > 0) np = jsts.operation.distance.DistanceOp.nearestPoints(site, jg).map(c => [c.x, c.y]); } catch (e) { np = null; }
+          rows.push({ kind: p.id, kindLabel: p.short, name, dist, over, area: jg.getArea(), np });
           const of = fmt3857.readFeature({ type: 'Feature', geometry: g5, properties: {} }, { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' });
           of.set('kind', p.id); of.set('name', name);
           App.src.prot.addFeature(of);
@@ -195,9 +197,13 @@
       }
       // 같은 구분·명칭이 여러 조각이면 한 줄로 (최근접 거리 = 가장 가까운 조각, 중첩 = 합)
       const merged = new Map();
-      rows.forEach(r => { const k = r.kind + '|' + r.name.trim(); const m = merged.get(k); if (!m) merged.set(k, Object.assign({}, r, { name: r.name.trim() })); else { m.dist = Math.min(m.dist, r.dist); m.over += r.over; } });
+      rows.forEach(r => { const k = r.kind + '|' + r.name.trim(); const m = merged.get(k); if (!m) merged.set(k, Object.assign({}, r, { name: r.name.trim() })); else { if (r.dist < m.dist) { m.dist = r.dist; m.np = r.np; } m.over += r.over; } });
       rows = [...merged.values()];
       rows.sort((a, b) => a.dist - b.dist);
+      // 화살표: 구분별 가장 가까운 1곳만 기본으로 켬 (겹치는 곳 제외)
+      const seenKind = new Set();
+      rows.forEach((r, i) => { r.key = 'p' + i; r.arrow = false; if (r.np && !seenKind.has(r.kind)) { r.arrow = true; seenKind.add(r.kind); } });
+      syncArrows();
       msg.textContent = (rows.length ? `완료: 반경 ${fmt(radius / 1000)}km 안에 ${rows.length}곳 (사업지구 경계 기준 최근접 거리)` : `반경 ${fmt(radius / 1000)}km 안에 해당 보호구역이 없습니다.`) + ` · 자료: ${srcs.join(', ')}` + (errs.length ? ` · 오류: ${errs.join(' / ')}` : '');
     } catch (e) {
       msg.textContent = e.message;
@@ -213,11 +219,14 @@
     const t = $('#protTable');
     if (!rows.length) { t.innerHTML = ''; t.hidden = true; return; }
     t.hidden = false;
-    t.innerHTML = '<tr><th>구분</th><th>명칭</th><th>거리(km)</th><th>중첩(㎡)</th></tr>' + rows.map(r =>
-      `<tr><td class="cat">${r.kindLabel}</td><td style="text-align:left">${r.name}</td><td>${r.dist === 0 ? '0.00' : App.fmtDist(r.dist, false)}</td>` +
+    t.innerHTML = '<tr><th title="최근접 거리 화살표">↔</th><th>구분</th><th>명칭</th><th>거리(km)</th><th>중첩(㎡)</th></tr>' + rows.map(r =>
+      `<tr><td>${r.np ? `<input type="checkbox" data-arrow="${r.key}" ${r.arrow ? 'checked' : ''}>` : ''}</td><td class="cat">${r.kindLabel}</td><td style="text-align:left">${r.name}</td><td>${r.dist === 0 ? '0.00' : App.fmtDist(r.dist, false)}</td>` +
       `<td>${r.over > 0 ? `<b class="ok-blue">${fmt(r.over)}</b>` : '-'}</td></tr>`).join('');
   }
   App.protRows = () => rows;
+  function syncArrows() {
+    App.setArrows('prot', rows.filter(r => r.np).map(r => ({ key: r.key, pts: r.np, on: r.arrow, label: `${App.fmtDist(r.dist)} 이격` })));
+  }
 
   // ------------------------------------------------------------ UI
   function build() {
@@ -236,6 +245,10 @@
     });
     $('#protLabelChk').addEventListener('change', e => { App.opts.protLabel = e.target.checked; App.saveOpts(); cache.clear(); App.liveSets.forEach(s => s.changed()); App.emit(); });
     $('#btnProt').addEventListener('click', run);
+    $('#protTable').addEventListener('change', e => {
+      const k = e.target.dataset.arrow; if (!k) return;
+      const r = rows.find(x => x.key === k); if (r) { r.arrow = e.target.checked; syncArrows(); }
+    });
   }
   // 범례용: 지도에 실제로 표시된 보호구역 종류
   App.protLegend = () => PROT.filter(p => (App.opts.protShow || {})[p.id] !== false && App.src.prot.getFeatures().some(f => f.get('kind') === p.id));

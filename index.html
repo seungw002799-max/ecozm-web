@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>생태자연도 등급별 면적 산정 도구</title>
 <link rel="stylesheet" href="vendor/ol.css">
-<link rel="stylesheet" href="app.css?v=20261111t">
+<link rel="stylesheet" href="app.css?v=20261111u">
 </head>
 <body>
 <header class="topbar">
@@ -83,6 +83,10 @@
         <div class="hint">3등급 지역의 산정은 1,2등급, 별도관리지역을 제외한 면적으로 산정됩니다.</div>
         <div class="row"><button id="btnCalc" class="btn primary wide" type="button">생태자연도 면적 계산</button></div>
         <div id="calcProgress" class="progress" hidden></div>
+        <div class="eco1-box">
+          <label class="check"><input type="checkbox" id="eco1Chk" checked> 1등급 최근접 거리 화살표 표시</label>
+          <div id="eco1Info" class="hint">면적 계산 후 표시됩니다.</div>
+        </div>
         <div id="resultBox" hidden>
           <div class="table-wrap"><table id="areaTable" class="area-table"></table></div>
           <label class="field"><span>엑셀 제목</span>
@@ -195,11 +199,11 @@
 <script src="vendor/proj4.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jsts.min.js"></script>
-<script src="cad.js?v=20261111t"></script>
-<script src="backend.js?v=20261111t"></script>
-<script src="app.js?v=20261111t"></script>
-<script src="ecvam.js?v=20261111t"></script>
-<script src="prot.js?v=20261111t"></script>
-<script src="app2.js?v=20261111t"></script>
+<script src="cad.js?v=20261111u"></script>
+<script src="backend.js?v=20261111u"></script>
+<script src="app.js?v=20261111u"></script>
+<script src="ecvam.js?v=20261111u"></script>
+<script src="prot.js?v=20261111u"></script>
+<script src="app2.js?v=20261111u"></script>
 </body>
 </html>

@@ -405,7 +405,7 @@ function fitSites(sitesOnly) {
 }
 
 // ============================================================ 7. 옵션 UI (두 탭 공유)
-const SLD = (lab, k) => `<div class="slider"><span>${lab}</span><input type="range" min="0" max="1" step="0.05" data-opt="${k}">
+const SLD = (lab, k) => `<div class="slider" data-row="${k}"><span>${lab}</span><input type="range" min="0" max="1" step="0.05" data-opt="${k}">
       <span class="pct-box"><input type="number" min="0" max="100" step="5" data-pct="${k}"><span>%</span></span></div>`;
 // parts: 'base' = 배경지도 + 도면 선, 'eco' = 생태자연도·흰색, 'all' = 둘 다
 function buildMapOpts(el, parts) {
@@ -413,6 +413,7 @@ function buildMapOpts(el, parts) {
   if (parts !== 'eco') h += `<label class="field"><span>배경지도</span><select data-opt="basemap">
       <option value="base">일반지도</option><option value="sat">위성지도</option><option value="none">흰색 배경</option></select></label>`;
   if (parts !== 'base') h += SLD('생태자연도 투명도', 'opA') + SLD('흰색(3등급) 투명도', 'opI');
+  if (parts === 'all') h += SLD('평가지도 투명도', 'opE');
   if (parts !== 'eco') h += SLD('도면 투명도(선)', 'opS');
   el.innerHTML = h;
 }
@@ -430,7 +431,7 @@ function initOptUI() {
   $('#optRange').dataset.opt = 'range';
   buildMapOpts($('#mapOptsWork'), 'base');
   buildMapOpts($('#ecoOpts'), 'eco');
-  $('#ecvamOpts').innerHTML = SLD('국토환경성평가지도 투명도', 'opE');
+  $('#ecvamOpts').innerHTML = SLD('평가지도 투명도', 'opE');
   buildMapOpts($('#mapOptsLayout'), 'all');
   syncOptUI();
   // 투명도 % 직접 입력 (0~100)
@@ -876,8 +877,10 @@ function eco1Nearest(feats, sites) {
 // 거리 표기: 1km 미만은 소수 둘째 자리, 이상은 첫째 자리, 측정 오차를 감안해 "약"
 App.fmtDist = (m, unit = true) => { const km = m / 1000; const v = km < 1 ? km.toFixed(2) : km.toFixed(1); return '약 ' + v + (unit ? 'km' : ''); };
 App.theme = 'eco';
+document.body && (document.body.dataset.theme = 'eco');
 App.setTheme = function (t) {
   App.theme = ['prot', 'ecvam'].includes(t) ? t : 'eco';
+  document.body.dataset.theme = App.theme;
   const sel = document.getElementById('layoutTheme'); if (sel) sel.value = App.theme;
   App.liveSets.forEach(s => { s.refresh(); s.changed(); });
   App.emit();

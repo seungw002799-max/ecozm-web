@@ -6,9 +6,9 @@
 
   // 레이어 목록 (나중에 브이월드 자연공원·상수원보호구역 등을 같은 형식으로 추가)
   const VW_NOTE = '브이월드 2D데이터 API (실시간)';
-  const EG_NOTE = '환경공간정보서비스(기후에너지환경부) API (실시간, 중계)';
+  const EG_NOTE = '환경공간정보서비스 API (실시간, 중계) · 기후에너지환경부';
   const PROXY = 'https://ecozm-proxy.seungw002799.workers.dev/?url=';
-  const KEI_NOTE = 'KEI 지역환경정보시스템 산줄기(신산경표) API (실시간, 중계)';   // Cloudflare Workers 중계 (CORS 우회)
+  const KEI_NOTE = 'KEI 지역환경정보시스템 API (실시간, 중계) · 신산경표 산줄기 (박성태, 2010)';   // Cloudflare Workers 중계 (CORS 우회)
   const PROT = [
     { id: 'ridge1', label: '산줄기 - 백두대간', short: '백두대간(산줄기)', src: 'kei', typename: 'keilocal:mtridge_l1_pl', name: p => p.mbsnnm || '백두대간', color: '#4E342E', line: true, note: KEI_NOTE },
     { id: 'ridge2', label: '산줄기 - 정맥', short: '정맥', src: 'kei', typename: 'keilocal:mtridge_l2_pl', name: p => p.mbsnnm || '정맥', color: '#795548', line: true, note: KEI_NOTE },
@@ -33,7 +33,7 @@
     {
       id: 'winter_bird', label: '겨울철 조류 동시센서스 조사지역', short: '조류 조사지역',
       src: 'eiagis', typename: 'WINTER_BIRD', nameField: 'name',
-      color: '#7B3FA0', note: 'EIAGIS(환경영향평가 지리정보서비스) API (실시간, 중계) · 국립생물자원관 2014년 자료',
+      color: '#7B3FA0', note: 'EIAGIS 환경영향평가 지리정보서비스 API (실시간, 중계) · 국립생물자원관 2014년 자료',
       local: 'data/winter_bird.geojson',   // EIAGIS 서버가 외부 사이트 접속(CORS)을 막아 둔 경우 쓰는 사본
     },
   ];
@@ -291,10 +291,18 @@
   function build() {
     App.opts.protOn = App.opts.protOn || {};
     App.opts.protShow = App.opts.protShow || {};
+    // 출처 표시: "기관 API (실시간, 중계) · 추가설명" -> 기관 한 줄 + 태그 + 추가설명 줄
+    const noteHtml = n => {
+      const parts = String(n || '').split(' · ');
+      const m = parts[0].match(/^(.*?)\s*\(([^)]*)\)\s*$/);
+      const src = m ? m[1] : parts[0], tags = m ? m[2].split(/,\s*/) : [];
+      return `<span class="src-line">${src}${tags.map(t => `<span class="tag ${/중계|사본/.test(t) ? 'tag-gray' : ''}">${t}</span>`).join('')}</span>` +
+        parts.slice(1).map(x => `<span class="src-extra">${x}</span>`).join('');
+    };
     $('#protList').innerHTML = PROT.map(p => `
       <label class="prot-item"><input type="checkbox" data-prot="${p.id}" ${App.opts.protOn[p.id] !== false ? 'checked' : ''}>
-        <span class="swatch" style="border-color:${p.color};background:${hexA(p.color, 0.18)}"></span>
-        <span><b>${p.label}</b><br><small>${p.note}</small></span></label>`).join('');
+        <span class="swatch${p.line ? ' swatch-line' : ''}" style="border-color:${p.color};background:${p.line ? 'transparent' : hexA(p.color, 0.18)}"></span>
+        <span class="prot-text"><b>${p.label}</b>${noteHtml(p.note)}</span></label>`).join('');
     $('#protRadius').value = App.opts.protRadius || 5;
     $('#protLabelChk').checked = App.opts.protLabel !== false;
     $('#protList').addEventListener('change', e => {

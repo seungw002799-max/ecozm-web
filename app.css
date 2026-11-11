@@ -221,3 +221,25 @@ input:focus, select:focus { outline: 2px solid var(--accent-soft); border-color:
 
 .eco1-box { margin: 8px 0; padding: 7px 8px; background: #f6f7f9; border-radius: 5px; font-size: 12.5px; }
 .eco1-box .hint { margin-top: 3px; font-size: 12px; color: var(--text); }
+
+/* ---- 가독성 정리 ---- */
+body { word-break: keep-all; overflow-wrap: anywhere; }
+.mapopts .slider > span:first-child { flex: 0 0 auto; min-width: 96px; white-space: nowrap; font-size: 12.5px; }
+.mapopts .slider input[type=range] { flex: 1 1 auto; min-width: 60px; }
+.prot-item { align-items: flex-start; }
+.prot-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.prot-text b { font-size: 13px; }
+.src-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); }
+.src-extra { font-size: 11px; color: var(--muted); }
+.src-extra::before { content: '· '; }
+.tag { display: inline-block; padding: 0 5px; border-radius: 8px; font-size: 10px; line-height: 16px; background: #e3f1f0; color: var(--accent-dark); font-weight: 700; }
+.tag.tag-gray { background: #eef0f3; color: #5b6470; }
+.swatch-line { height: 0 !important; border-width: 0 0 3px 0 !important; border-style: solid !important; margin-top: 8px !important; }
+.bullets li { line-height: 1.55; }
+
+.mapopts .slider > span:first-child { flex: 0 0 112px; min-width: 112px; }
+/* 도면 출력: 주제에 맞는 투명도만 표시 */
+#mapOptsLayout .slider[data-row=opE] { display: none; }
+body[data-theme=ecvam] #mapOptsLayout .slider[data-row=opE] { display: flex; }
+body[data-theme=prot] #mapOptsLayout .slider[data-row=opA], body[data-theme=prot] #mapOptsLayout .slider[data-row=opI],
+body[data-theme=ecvam] #mapOptsLayout .slider[data-row=opA], body[data-theme=ecvam] #mapOptsLayout .slider[data-row=opI] { display: none; }

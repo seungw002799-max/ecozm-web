@@ -267,3 +267,5 @@ body[data-theme=ecvam] #mapOptsLayout .slider[data-row=opA], body[data-theme=ecv
 .sty-sub { margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--accent-dark); }
 .style-box .el-box .el-body { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .style-box .el-box .full { grid-column: 1 / -1; }
+
+.key-ok.bad { color: #c62828; font-size: 12px; max-width: 220px; text-align: right; }

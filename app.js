@@ -831,6 +831,27 @@ function switchTab(name) {
   else { if (App.layout) App.layout.leave(); App.workMap.updateSize(); }
 }
 
+// 브이월드 키 실제 확인 (2D데이터 API 1건 요청). 결과를 설정 칸에 표시
+async function checkVworldKey() {
+  const el = $('#keyVworldOk'); if (!el || !App.cfg.vworldKey) return;
+  if (location.protocol === 'file:') { el.textContent = '오류: 사이트 주소로 열어 주세요'; el.className = 'key-ok bad'; el.title = '내려받은 파일(file://)로 열면 브이월드가 인증키를 거부합니다. https://seungw002799-max.github.io/ecozm-web/ 로 여세요.'; return; }
+  el.textContent = '확인 중...'; el.className = 'key-ok';
+  const u = 'https://api.vworld.kr/req/data?service=data&request=GetFeature&format=json&size=1&geometry=false&data=LT_C_ADSIDO_INFO' +
+    `&key=${App.cfg.vworldKey}&domain=${encodeURIComponent(location.origin)}&geomFilter=BOX(126.9,37.5,127.0,37.6)`;
+  try {
+    const j = await new Promise((ok, no) => {
+      const cb = 'vwchk_' + Math.random().toString(36).slice(2), s = document.createElement('script');
+      const tm = setTimeout(() => { delete window[cb]; s.remove(); no(new Error('응답 없음 (회사 보안 프로그램이나 광고 차단이 api.vworld.kr 을 막는지 확인)')); }, 15000);
+      window[cb] = d => { clearTimeout(tm); delete window[cb]; s.remove(); ok(d); };
+      s.onerror = () => { clearTimeout(tm); delete window[cb]; s.remove(); no(new Error('접속 차단 (회사 보안 프로그램·광고 차단 확인)')); };
+      s.src = u + '&callback=' + cb; document.head.appendChild(s);
+    });
+    const r = (j && j.response) || {};
+    if (r.status === 'OK' || r.status === 'NOT_FOUND') { el.textContent = '인증 완료'; el.className = 'key-ok'; el.title = ''; }
+    else { const t = (r.error && r.error.text) || r.status; el.textContent = '오류: ' + t; el.className = 'key-ok bad'; el.title = '팀 설정 링크를 다시 열거나, 인증키 변경에서 키를 다시 붙여 넣으세요.'; toast('브이월드 인증키 오류: ' + t + ' · 팀 설정 링크를 다시 열어 주세요.', 'error'); }
+  } catch (e) { el.textContent = '오류: ' + e.message; el.className = 'key-ok bad'; }
+}
+App.checkVworldKey = checkVworldKey;
 // 키가 있으면 입력칸을 숨기고 "인증 완료"만 표시
 function renderKeys(edit) {
   const has = { Data: !!App.cfg.dataGoKrKey, Vworld: !!App.cfg.vworldKey };
@@ -849,6 +870,7 @@ async function saveConfig() {
     App.cfg = await api('/api/config', { dataGoKrKey: d, vworldKey: v });
     toast('인증키를 저장했습니다.', 'ok');
     renderKeys(false);
+    checkVworldKey();
     App.applyOpts();
     checkFresh();
   } catch (e) { toast('저장 실패: ' + e.message, 'error'); }
@@ -874,6 +896,7 @@ async function init() {
   $('#keyData').value = App.cfg.dataGoKrKey || '';
   $('#keyVworld').value = App.cfg.vworldKey || '';
   renderKeys(false);
+  checkVworldKey();
   if (!App.cfg.vworldKey) toast('브이월드 키를 입력하세요. 지금은 OSM 배경을 사용합니다.', 'warn');
   App.applyOpts();
   api('/api/health').then(h => {

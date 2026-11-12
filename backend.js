@@ -285,6 +285,12 @@
   // ---------------------------------------------------------------- 설정 저장 (브라우저 localStorage)
   const ls = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') || d; } catch (e) { return d; } };
   const DEFAULT_CFG = (window.ECO_DEFAULT_CONFIG || {});
+  // 키 정리: 복사·붙여넣기 때 섞인 공백/줄바꿈/따옴표 제거, 브이월드 키는 대문자(소문자면 '등록되지 않은 인증키' 오류)
+  const normKeys = c => {
+    if (c.vworldKey) c.vworldKey = String(c.vworldKey).replace(/[^0-9A-Za-z-]/g, '').toUpperCase();
+    if (c.dataGoKrKey) c.dataGoKrKey = String(c.dataGoKrKey).replace(/[\s"'<>]/g, '');
+    return c;
+  };
   // 팀 설정 링크: 주소 끝 #d=공공데이터키&v=브이월드키 로 열면 키를 이 브라우저에 저장하고 주소에서 지운다
   // (# 뒤 내용은 서버로 전송되지 않으며, 저장소에도 키가 남지 않음)
   try {
@@ -294,7 +300,7 @@
       const c = ls('ecoCfg', {});
       if (d) c.dataGoKrKey = d;
       if (v) c.vworldKey = v;
-      localStorage.setItem('ecoCfg', JSON.stringify(c));
+      localStorage.setItem('ecoCfg', JSON.stringify(normKeys(c)));
       history.replaceState(null, '', location.pathname + location.search);
       window.ECO_KEYS_FROM_LINK = true;
     }
@@ -315,8 +321,8 @@
       const post = (opts.method || 'GET').toUpperCase() === 'POST';
       switch (path) {
         case '/api/config':
-          if (post) { const c = Object.assign(ls('ecoCfg', {}), body); localStorage.setItem('ecoCfg', JSON.stringify(c)); return json(c); }
-          return json(Object.assign({}, DEFAULT_CFG, ls('ecoCfg', {})));
+          if (post) { const c = normKeys(Object.assign(ls('ecoCfg', {}), body)); localStorage.setItem('ecoCfg', JSON.stringify(c)); return json(c); }
+          { const c = normKeys(ls('ecoCfg', {})); localStorage.setItem('ecoCfg', JSON.stringify(c)); return json(Object.assign({}, DEFAULT_CFG, c)); }
         case '/api/state':
           if (post) { localStorage.setItem('ecoState', JSON.stringify(body)); return json({ ok: true }); }
           return json(ls('ecoState', {}));

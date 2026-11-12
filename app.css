@@ -295,3 +295,27 @@ body[data-theme=ecvam] #mapOptsLayout .slider[data-row=opA], body[data-theme=ecv
 .pr-name { overflow: hidden; text-overflow: ellipsis; }
 .pr-dist { font-weight: 700; white-space: nowrap; }
 .pr-more summary { cursor: pointer; font-size: 11.5px; color: var(--accent-dark); padding: 3px 4px; }
+
+.src-note { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sty-head, .sty-row { grid-template-columns: 16px 34px 1fr 58px 18px; }
+.sty-head span:nth-child(4) { grid-column: 4 / span 2; }
+.sty-head span:nth-child(3) { grid-column: auto; }
+.site-op { display: grid !important; grid-template-columns: 16px 1fr 90px auto; gap: 6px; align-items: center; }
+.sty-sub small { font-weight: 400; color: var(--muted); }
+.sty-sub .bulk { float: right; display: inline-flex; gap: 4px; }
+.arr-item { display: grid; grid-template-columns: 18px 1fr; gap: 4px; align-items: start; }
+.arr-item > input { margin-top: 10px; }
+.prot-bulk { display: flex; gap: 6px; justify-content: flex-end; margin-bottom: 2px; }
+
+/* 사업별 저장 */
+.folder-row { display: flex; align-items: center; gap: 6px; margin: 6px 0; font-size: 12.5px; flex-wrap: wrap; }
+.folder-row .fd-lbl { color: var(--muted); }
+.folder-row .fd-name { font-weight: 700; }
+.folder-row .fd-name.ok { color: var(--accent-dark); }
+.proj-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.proj-item { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+.proj-item.cur { border-color: var(--accent); background: #f1f8f7; }
+.proj-item .pj-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; font-size: 12.5px; }
+.proj-item .pj-main b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proj-item .pj-meta { font-size: 11px; color: var(--muted); }
+.proj-item .pj-src { display: flex; gap: 3px; }

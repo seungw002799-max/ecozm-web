@@ -203,9 +203,10 @@
       const rows = [{ t: '범 례', head: true }];
       grades.forEach(g => rows.push({ t: g.label, grade: g.key }));
       egrades.forEach(g => rows.push({ t: g.label, ecolor: g.color }));
-      cats.forEach(k => rows.push({ t: k, cat: k }));
-      (App.theme === 'prot' && App.protLegend ? App.protLegend() : []).forEach(p => { const lk = App.protLook(p); rows.push({ t: lk.name, prot: Object.assign({}, p, { color: lk.color }) }); });
-      if (App.opts.adm && App.src.admin.getFeatures().length) { const al = App.admLook(); rows.push({ t: al.name, adm: al.color }); }
+      const hide = App.opts.legendHide || {};   // 범례에서 뺄 항목 (도면 출력 > 표시 이름·크기·색)
+      cats.filter(k => !hide['cat:' + k]).forEach(k => rows.push({ t: k, cat: k }));
+      (App.theme === 'prot' && App.protLegend ? App.protLegend() : []).filter(p => !hide['p:' + p.id]).forEach(p => { const lk = App.protLook(p); rows.push({ t: lk.name, prot: Object.assign({}, p, { color: lk.color }) }); });
+      if (App.opts.adm && App.src.admin.getFeatures().length && !hide.adm) { const al = App.admLook(); rows.push({ t: al.name, adm: al.color }); }
       let tw = 0;
       rows.forEach(r => { tw = Math.max(tw, textW(ctx, r.t, f, !!r.head)); });
       const w = pad * 2 + (rows.length > 1 ? sw + 2 * z : 0) + tw, h = pad * 2 + rows.length * rowH;
@@ -394,7 +395,7 @@
   // ---------------------------------------------------- 표시 이름·크기·색 / 화살표 미세조정
   let styleSig = null;
   function esc(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
-  function arrowFeats() { return App.src.arrows.getFeatures().filter(f => f.get('theme') === App.theme && f.get('on') !== false); }
+  function arrowFeats() { return App.src.arrows.getFeatures().filter(f => f.get('theme') === App.theme); }
   function buildStyleUI(force) {
     const box = $('#styleBox'); if (!box) return;
     const kinds = App.theme === 'prot' && App.protLegend ? App.protLegend() : [];
@@ -405,27 +406,29 @@
     if (!force && sig === styleSig) return;
     if (!force && box.contains(document.activeElement)) return;      // 입력 중에는 다시 그리지 않음
     styleSig = sig;
+    const lg = k => `<input type="checkbox" data-lg="${esc(k)}" ${(App.opts.legendHide || {})[k] ? '' : 'checked'} title="범례에 표시">`;
     const row = (sk, name, color, pt, ph) => `<div class="sty-row">
+        ${lg(sk === 'adm' ? 'adm' : 'p:' + sk)}
         <input type="color" data-sk="${sk}" data-f="color" value="${color}" title="색">
         <input type="text" data-sk="${sk}" data-f="name" value="${esc(name)}" placeholder="${esc(ph)}" title="범례 이름">
         <input type="number" step="0.5" min="4" data-sk="${sk}" data-f="pt" value="${pt}" title="지도 명칭 글자 크기(pt)"><span class="unit">pt</span></div>`;
     let h = '';
     if (sites.length) {
-      h += '<div class="sty-sub">도면별 투명도</div>';
-      sites.forEach(s => { const v = Math.round((s.opacity == null ? 1 : Number(s.opacity)) * 100); h += `<div class="slider site-op"><span title="${esc(s.name)}">${esc(s.category)} · ${esc(s.name)}</span><input type="range" min="0" max="100" step="5" data-siteop="${s.id}" value="${v}"><span class="pct-box"><input type="number" min="0" max="100" step="5" data-siteop="${s.id}" value="${v}"><span>%</span></span></div>`; });
+      h += '<div class="sty-sub">도면별 투명도 <small>(앞 체크: 범례에 표시)</small></div>';
+      sites.forEach(s => { const v = Math.round((s.opacity == null ? 1 : Number(s.opacity)) * 100); h += `<div class="slider site-op">${lg('cat:' + s.category)}<span title="${esc(s.name)}">${esc(s.category)} · ${esc(s.name)}</span><input type="range" min="0" max="100" step="5" data-siteop="${s.id}" value="${v}"><span class="pct-box"><input type="number" min="0" max="100" step="5" data-siteop="${s.id}" value="${v}"><span>%</span></span></div>`; });
     }
     if (kinds.length || adm) {
-      h += '<div class="sty-head"><span>색</span><span>범례 이름</span><span>명칭 크기</span></div>';
+      h += '<div class="sty-head"><span>범례</span><span>색</span><span>범례 이름</span><span>명칭 크기</span></div>';
       kinds.forEach(p => { const c = (App.opts.protCustom || {})[p.id] || {}; const lk = App.protLook(p); h += row(p.id, c.name || '', lk.color, lk.pt, p.short); });
       if (adm) { const c = App.opts.admCustom || {}; const al = App.admLook(); h += row('adm', c.name || '', al.color, al.pt, '시군구 경계'); }
     }
     const step = (k, f, lbl, a, b, inc = 0.5) => `<div class="stepper"><span class="lbl">${lbl}</span><button type="button" data-ak="${esc(k)}" data-af="${f}" data-step="${-inc}">${a}</button><input type="number" step="0.5" data-ak="${esc(k)}" data-af="${f}" value="${((App.opts.arrowAdj || {})[k] || {})[f] || (f === 'len' || f === 'w' ? 100 : 0)}"><button type="button" data-ak="${esc(k)}" data-af="${f}" data-step="${inc}">${b}</button></div>`;
     if (arrs.length) {
-      h += '<div class="sty-sub">화살표 미세조정</div><ul class="bullets"><li>위치는 0.5mm, 길이·굵기는 5%, 회전은 1°씩 (Shift: 10배)</li><li>글자를 비우면 자동 문구(약 X km 이격)</li></ul>';
+      h += '<div class="sty-sub">화살표 <span class="bulk"><button type="button" class="btn small" data-aall="1">전체 선택</button><button type="button" class="btn small" data-aall="0">전체 해제</button></span></div><ul class="bullets"><li>앞 체크: 화살표 켜기/끄기</li><li>위치는 0.5mm, 길이·굵기는 5%, 회전은 1°씩 (Shift: 10배)</li><li>글자를 비우면 자동 문구(약 X km 이격)</li></ul>';
       arrs.forEach(f => {
         const k = f.get('key'), a = (App.opts.arrowAdj || {})[k] || {};
         const title = (k.split('|')[1] || k) + ' · ' + f.get('label');
-        h += `<details class="el-box"><summary>${esc(title)}</summary><div class="el-body">
+        h += `<div class="arr-item"><input type="checkbox" data-aon="${esc(k)}" ${f.get('on') !== false ? 'checked' : ''} title="화살표 표시"><details class="el-box"><summary>${esc(title)}</summary><div class="el-body">
           <label class="field full"><span>글자</span><input type="text" data-ak="${esc(k)}" data-af="text" value="${esc(a.text || '')}" placeholder="${esc(f.get('label'))}"></label>
           <label class="field"><span>글자 크기(pt)</span><input type="number" step="0.5" min="4" data-ak="${esc(k)}" data-af="size" value="${a.size || ''}" placeholder="10.5"></label>
           <div class="sty-sub full">화살표 모양</div>
@@ -436,11 +439,20 @@
           <div class="sty-sub full">글자 위치</div>
           <div class="pos-row full">${step(k, 'lx', 'X', '◀', '▶')}${step(k, 'ly', 'Y', '▲', '▼')}<span class="unit">mm</span></div>
           <div class="row full"><button type="button" class="btn small" data-areset="${esc(k)}">이 화살표 초기화</button></div>
-        </div></details>`;
+        </div></details></div>`;
       });
     }
     box.innerHTML = h || '<p class="hint">보호구역 검토를 실행하면 종류별 이름·색·크기와 화살표를 조정할 수 있습니다.</p>';
     $('#styleSection').hidden = !h && App.theme !== 'prot';
+  }
+  // 화살표 켜기/끄기: 보호구역은 결과표 체크와 같이, 생태자연도는 1등급 체크와 같이
+  function setArrowOn(key, on) {
+    if (App.theme === 'prot' && App.protSetArrow) App.protSetArrow(key, on);
+    else {
+      App.src.arrows.getFeatures().filter(f => f.get('key') === key).forEach(f => f.set('on', on));
+      if (key === 'eco1') { const c = document.getElementById('eco1Chk'); if (c) c.checked = on; }
+    }
+    App.liveSets.forEach(s => s.changed()); redraw();
   }
   function initStyleUI() {
     const box = $('#styleBox'); if (!box) return;
@@ -484,7 +496,14 @@
       timer = setTimeout(() => { timer = setInterval(() => bump(btn, big), 80); }, 350);
     });
     ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => document.addEventListener(ev, stop));
+    box.addEventListener('change', e => {
+      const t = e.target;
+      if (t.dataset.lg) { App.opts.legendHide = App.opts.legendHide || {}; if (t.checked) delete App.opts.legendHide[t.dataset.lg]; else App.opts.legendHide[t.dataset.lg] = true; App.saveOpts(); redraw(); }
+      if (t.dataset.aon) { setArrowOn(t.dataset.aon, t.checked); }
+    });
     box.addEventListener('click', e => {
+      const all = e.target.closest('[data-aall]');
+      if (all) { const on = all.dataset.aall === '1'; arrowFeats().forEach(f => setArrowOn(f.get('key'), on)); box.querySelectorAll('[data-aon]').forEach(c => { c.checked = on; }); return; }
       const b = e.target.closest('[data-areset]'); if (!b) return;
       if (App.opts.arrowAdj) delete App.opts.arrowAdj[b.dataset.areset];
       changed(); buildStyleUI(true);

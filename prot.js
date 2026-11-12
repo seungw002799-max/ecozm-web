@@ -383,6 +383,7 @@
     }).join('');
   }
   App.protRows = () => rows;
+  App.protSetArrow = (key, on) => { const r = rows.find(x => x.key === key); if (r) { r.arrow = on; syncArrows(); renderTable(); } };
   App.protRestore = (rs, msgText) => { rows = rs || []; renderTable(); const m = $('#protMsg'); if (m && msgText) { m.hidden = false; m.textContent = msgText; } };
   App.protMsgText = () => { const m = $('#protMsg'); return m && !m.hidden ? m.textContent : ''; };
   function syncArrows() {
@@ -412,12 +413,19 @@
           <span class="prot-text"><b>${g.label}</b>${noteHtml(g.note, true)}</span></label>
         <div class="prot-kids">${kids.map(k => `<label class="prot-kid"><input type="checkbox" data-prot="${k.id}" ${on(k.id) ? 'checked' : ''}>${sw(k)}<span>${k.label}</span></label>`).join('')}</div></div>`;
     });
-    $('#protList').innerHTML = html;
+    $('#protList').innerHTML = '<div class="prot-bulk"><button type="button" class="btn small" data-pall="1">전체 선택</button><button type="button" class="btn small" data-pall="0">전체 해제</button></div>' + html;
     const syncGroups = () => document.querySelectorAll('#protList [data-pgroup]').forEach(cb => {
       const ids = PROT.filter(x => x.group === cb.dataset.pgroup).map(x => x.id), n = ids.filter(on).length;
       cb.checked = n === ids.length; cb.indeterminate = n > 0 && n < ids.length;
     });
     syncGroups();
+    $('#protList').addEventListener('click', e => {
+      const b = e.target.closest('[data-pall]'); if (!b) return;
+      const v = b.dataset.pall === '1';
+      PROT.forEach(x => { App.opts.protOn[x.id] = v; App.opts.protShow[x.id] = v; });
+      document.querySelectorAll('#protList [data-prot]').forEach(c => { c.checked = v; });
+      syncGroups(); App.saveOpts(); App.liveSets.forEach(s => s.changed()); App.emit();
+    });
     $('#protList').addEventListener('change', e => {
       const gid = e.target.dataset.pgroup;
       if (gid) {

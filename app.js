@@ -653,10 +653,19 @@ async function reprocess(s, keepCrs) {
           c.hits = typeof j.totalFeatures === 'number' ? j.totalFeatures : (j.features || []).length;
         } catch (e) { c.hits = null; if (/시간 초과|HTTP 5/.test(e.message)) down = true; }
       }));
+      // 응답이 없던 후보 중 우선순위 높은 3개는 한 번 더 확인 (서버가 느릴 때 5186 이 빠지는 것 방지)
+      for (const c of cands.filter(x => x.hits == null && x.bbox5186).sort((a, b) => (a.priority || 0) - (b.priority || 0)).slice(0, 3)) {
+        if (!App.cfg.dataGoKrKey) break;
+        const b0 = c.bbox5186, P = 1000, b = [b0[0] - P, b0[1] - P, b0[2] + P, b0[3] + P];
+        try { const j = await limited(() => fetchJsonRetry(wfsUrl(b, 1), 2, 15000)); c.hits = typeof j.totalFeatures === 'number' ? j.totalFeatures : (j.features || []).length; } catch (e) { /* 그대로 확인불가 */ }
+        if (my !== s.seq) return;
+      }
       if (down && cands.every(c => c.hits == null)) toast('생태자연도 서버가 응답하지 않아 좌표계를 우선순위(EPSG:5186 등)로 정했습니다. 지도에서 위치를 확인하세요.', 'warn');
       if (my !== s.seq) return;
       let idx = -1;
-      cands.forEach((c, i) => { if (c.hits > 0 && (idx < 0 || (c.priority || 0) < (cands[idx].priority || 0))) idx = i; });
+      // 0건(바다 등)으로 확인된 후보만 빼고, 우선순위가 가장 높은 후보 (확인불가도 후보로 남김: 5186 이 기본)
+      cands.forEach((c, i) => { if (c.hits !== 0 && (idx < 0 || (c.priority || 0) < (cands[idx].priority || 0))) idx = i; });
+      if (idx >= 0 && cands[idx].hits == null) toast('생태자연도 서버 응답이 늦어 좌표계를 우선순위로 정했습니다. 지도에서 위치를 확인하세요.', 'warn');
       s.cands = cands;
       s.crsIdx = idx >= 0 ? idx : 0;
     }

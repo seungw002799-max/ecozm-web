@@ -23,6 +23,7 @@
     ridge: { label: '백두대간 및 산줄기 (정맥·기맥·지맥)', note: KEI },
     wild: { label: '야생생물 보호구역', note: VW },
     wet: { label: '습지보호지역', note: VW },
+    river: { label: '하천 (국가·지방·소하천)', note: { src: '하천정보관리시스템(RIMGIS) API', tags: ['실시간', '중계'], extra: ['국가·지방하천: 하천망도 (기후에너지환경부)', '소하천: 환경공간정보서비스 소하천구역'] } },
   };
   const CATS = { eco: '자연·생태', bio: '야생생물·습지', water: '수질·수자원', air: '대기' };
   const PROT = [
@@ -47,6 +48,9 @@
     { cat: 'bio', group: 'wet', id: 'wetland_c', label: '연안 습지보호지역 (해양수산부)', short: '연안 습지보호지역', src: 'vworld', data: 'LT_C_WGISARWET', name: p => p.uname || p.name || p.wet_name || '습지보호지역', color: '#006064', note: VW },
     { cat: 'bio', id: 'inland_wet', label: '내륙습지', short: '내륙습지', src: 'egis', typename: 'me:na_plg_wetland', name: p => p.wl_nm || '내륙습지', color: '#26A69A', note: Object.assign({}, EG, { extra: '국가 내륙습지 목록 (인공습지 포함)' }) },
     // 수질·수자원
+    { cat: 'water', group: 'river', id: 'river_nat', label: '국가하천', short: '국가하천', src: 'wfsb', base: 'https://www.river.go.kr/geoserver/rimgis/wfs', typename: 'rimgis:tb_riverlist_1', name: p => p.rivnm || '국가하천', color: '#1A237E', note: VW },
+    { cat: 'water', group: 'river', id: 'river_loc', label: '지방하천', short: '지방하천', src: 'wfsb', base: 'https://www.river.go.kr/geoserver/rimgis/wfs', typename: 'rimgis:tb_riverlist_2', name: p => p.rivnm || '지방하천', color: '#3F51B5', note: VW },
+    { cat: 'water', group: 'river', id: 'river_small', label: '소하천', short: '소하천', src: 'wfsb', base: 'https://api.mcee.go.kr/geoserver/ows', typename: 'EGIS:K33UJC100', name: () => '소하천구역', labelNearest: true, color: '#7986CB', note: VW },
     { cat: 'water', id: 'riverside', label: '수변구역', short: '수변구역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='수변구역'", name: () => '수변구역', color: '#29B6F6', note: EG },
     { cat: 'water', id: 'discharge', label: '폐수배출시설 설치제한지역', short: '폐수배출시설 설치제한지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='배출시설설치제한지역'", name: () => '폐수배출시설 설치제한지역', color: '#F4511E', note: Object.assign({}, EG, { extra: '물환경보전법 제33조' }) },
     { cat: 'water', id: 'wq_special', label: '상수원 수질보전 특별대책지역', short: '상수원 수질보전 특별대책지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='수질보전특별대책지역'", name: () => '특별대책지역', nameG: (p, g) => { let y = null; const w = c => { if (y !== null) return; if (typeof c[0] === 'number') y = c[1]; else c.forEach(w); }; w(g.coordinates); return (y > 37 ? '팔당호' : '대청호') + ' 특별대책지역'; }, color: '#00897B', note: Object.assign({}, EG, { extra: '팔당·대청호 2곳' }) },
@@ -266,6 +270,20 @@
       features: feats.filter(f => f.geometry && String((f.properties || {}).eczm_grad) === p.grade).map(f => ({ type: 'Feature', geometry: f.geometry, properties: { name: p.name() } })) };
   }
 
+  // 일반 WFS (bbox 조건, 중계 서버 경유): 하천정보관리시스템 하천망도, 환경공간정보 소하천구역
+  async function fetchWfsBbox(p, b) {
+    const u = `${p.base}?service=WFS&version=1.0.0&request=GetFeature&outputFormat=application/json&srsName=EPSG:4326&typeName=${p.typename}&bbox=${b.join(',')},EPSG:4326`;
+    const ac = new AbortController(); const tm = setTimeout(() => ac.abort(), 40000);
+    try {
+      const r = await fetch(PROXY + encodeURIComponent(u), { signal: ac.signal });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = JSON.parse(await r.text());
+      return { type: 'FeatureCollection', _src: /river\.go\.kr/.test(p.base) ? '하천정보관리시스템 실시간' : '환경공간정보 실시간',
+        features: (j.features || []).filter(f => f.geometry).map(f => ({ type: 'Feature', geometry: f.geometry, properties: { name: p.name(f.properties || {}) } })) };
+    } catch (e) { throw new Error(`${p.short} 자료를 받지 못했습니다 (${e.name === 'AbortError' ? '시간 초과' : e.message})`); }
+    finally { clearTimeout(tm); }
+  }
+
   // 사이트에 넣어 둔 자료 (예: 국립생물자원관 동시센서스 조사지역 지도파일)
   async function fetchLocal(p, b) {
     if (!localCache[p.id]) {
@@ -313,7 +331,7 @@
       for (const p of chosen) {
         msg.textContent = `${p.short} 받는 중...`;
         let fc;
-        try { fc = p.src === 'vworld' ? await fetchVworld(p, q.b4326) : p.src === 'egis' ? await fetchEgis(p, q.b4326) : p.src === 'kei' ? await fetchKei(p, q.b4326) : p.src === 'nier' ? await fetchNier(p, queryBox(Math.max(radius, 20000)).b4326) : p.src === 'eco1' ? await fetchEco1(p, q.b5186, msg) : p.src === 'local' ? await fetchLocal(p, q.b4326) : await fetchEiagis(p, q.b4326); }
+        try { fc = p.src === 'vworld' ? await fetchVworld(p, q.b4326) : p.src === 'egis' ? await fetchEgis(p, q.b4326) : p.src === 'kei' ? await fetchKei(p, q.b4326) : p.src === 'nier' ? await fetchNier(p, queryBox(Math.max(radius, 20000)).b4326) : p.src === 'eco1' ? await fetchEco1(p, q.b5186, msg) : p.src === 'local' ? await fetchLocal(p, q.b4326) : p.src === 'wfsb' ? await fetchWfsBbox(p, q.b4326) : await fetchEiagis(p, q.b4326); }
         catch (e) { errs.push(e.message); continue; }
         if (!srcs.includes(fc._src)) srcs.push(fc._src);
         const nbr = [], hosts = [];   // 단위유역: 사업지구가 속하지 않은 주변 유역 (지도 표시용)

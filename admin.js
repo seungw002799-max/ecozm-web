@@ -91,6 +91,9 @@
     ['#admChk', '#admChk2'].forEach(id => { const c = $(id); if (c) c.checked = !!App.opts.adm; });
   }
   function build() {
+    // 시군구 경계는 다른 자료로 바꿀 예정이라 잠시 끔 (체크칸 숨김)
+    if (App.opts.adm) { App.opts.adm = false; App.saveOpts(); }
+    App.src.admin.clear();
     ['#admChk', '#admChk2'].forEach(id => {
       const c = $(id); if (!c) return;
       c.addEventListener('change', e => {

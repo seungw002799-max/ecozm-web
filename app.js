@@ -600,6 +600,7 @@ App.restoreArea = function (area, around, inside, eczmCount, eco1, eco1Html) {
   renderTable();
 };
 App.fitSites = () => fitSites();
+App.renderSiteCard = s => renderCard(s);
 
 async function addFile(file) {
   const s = { id: ++siteSeq, name: file.name, category: guessCategory(file.name), busy: '업로드 중...', seq: 0 };

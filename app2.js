@@ -394,6 +394,7 @@
   // ========================================================== 4. 오버레이 갱신 / 요소 드래그
   // ---------------------------------------------------- 표시 이름·크기·색 / 화살표 미세조정
   let styleSig = null;
+  const openArr = new Set();   // 미세조정 칸이 열린 화살표
   function esc(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
   function arrowFeats() { return App.src.arrows.getFeatures().filter(f => f.get('theme') === App.theme); }
   function buildStyleUI(force) {
@@ -414,8 +415,8 @@
         <input type="number" step="0.5" min="4" data-sk="${sk}" data-f="pt" value="${pt}" title="지도 명칭 글자 크기(pt)"><span class="unit">pt</span></div>`;
     let h = '';
     if (sites.length) {
-      h += '<div class="sty-sub">도면별 투명도 <small>(앞 체크: 범례에 표시)</small></div>';
-      sites.forEach(s => { const v = Math.round((s.opacity == null ? 1 : Number(s.opacity)) * 100); h += `<div class="slider site-op">${lg('cat:' + s.category)}<span title="${esc(s.name)}">${esc(s.category)} · ${esc(s.name)}</span><input type="range" min="0" max="100" step="5" data-siteop="${s.id}" value="${v}"><span class="pct-box"><input type="number" min="0" max="100" step="5" data-siteop="${s.id}" value="${v}"><span>%</span></span></div>`; });
+      h += '<div class="sty-sub">도면 구분·투명도 <small>(앞 체크: 범례에 표시)</small></div>';
+      sites.forEach(s => { const v = Math.round((s.opacity == null ? 1 : Number(s.opacity)) * 100); h += `<div class="slider site-op">${lg('cat:' + s.category)}<span class="site-cat"><select data-sitecat="${s.id}" title="도면 구분 (범례 이름)">${(App.CATS || []).map(c => `<option ${c === s.category ? 'selected' : ''}>${c}</option>`).join('')}</select><small title="${esc(s.name)}">${esc(s.name)}</small></span><input type="range" min="0" max="100" step="5" data-siteop="${s.id}" value="${v}"><span class="pct-box"><input type="number" min="0" max="100" step="5" data-siteop="${s.id}" value="${v}"><span>%</span></span></div>`; });
     }
     if (kinds.length || adm) {
       h += '<div class="sty-head"><span title="범례에 표시">✓</span><span>색</span><span>범례 이름</span><span>명칭 크기</span></div>';
@@ -424,24 +425,44 @@
     }
     const step = (k, f, lbl, a, b, inc = 0.5) => `<div class="stepper"><span class="lbl">${lbl}</span><button type="button" data-ak="${esc(k)}" data-af="${f}" data-step="${-inc}">${a}</button><input type="number" step="0.5" data-ak="${esc(k)}" data-af="${f}" value="${((App.opts.arrowAdj || {})[k] || {})[f] || (f === 'len' || f === 'w' ? 100 : 0)}"><button type="button" data-ak="${esc(k)}" data-af="${f}" data-step="${inc}">${b}</button></div>`;
     if (arrs.length) {
-      h += '<div class="sty-sub">화살표 <span class="bulk"><button type="button" class="btn small" data-aall="1">전체 선택</button><button type="button" class="btn small" data-aall="0">전체 해제</button></span></div><ul class="bullets"><li>앞 체크: 화살표 켜기/끄기</li><li>위치는 0.5mm, 길이·굵기는 5%, 회전은 1°씩 (Shift: 10배)</li><li>글자를 비우면 자동 문구(약 X km 이격)</li></ul>';
-      arrs.forEach(f => {
-        const k = f.get('key'), a = (App.opts.arrowAdj || {})[k] || {};
-        const title = (k.split('|')[1] || k) + ' · ' + f.get('label');
-        h += `<div class="arr-item"><input type="checkbox" data-aon="${esc(k)}" ${f.get('on') !== false ? 'checked' : ''} title="화살표 표시"><details class="el-box"><summary>${esc(title)}</summary><div class="el-body">
-          <label class="field full"><span>글자</span><input type="text" data-ak="${esc(k)}" data-af="text" value="${esc(a.text || '')}" placeholder="${esc(f.get('label'))}"></label>
-          <label class="field"><span>글자 크기(pt)</span><input type="number" step="0.5" min="4" data-ak="${esc(k)}" data-af="size" value="${a.size || ''}" placeholder="10.5"></label>
-          <div class="sty-sub full">화살표 모양</div>
-          <div class="pos-row full">${step(k, 'len', '길이', '－', '＋', 5)}${step(k, 'w', '굵기', '－', '＋', 5)}<span class="unit">%</span></div>
-          <div class="pos-row full">${step(k, 'rot', '회전', '↺', '↻', 1)}<span class="unit">° (시계 방향 +)</span></div>
-          <div class="sty-sub full">화살표 위치</div>
-          <div class="pos-row full">${step(k, 'sx', 'X', '◀', '▶')}${step(k, 'sy', 'Y', '▲', '▼')}<span class="unit">mm</span></div>
-          <div class="sty-sub full">글자 위치</div>
-          <div class="pos-row full">${step(k, 'lx', 'X', '◀', '▶')}${step(k, 'ly', 'Y', '▲', '▼')}<span class="unit">mm</span></div>
-          <div class="row full"><button type="button" class="btn small" data-areset="${esc(k)}">이 화살표 초기화</button></div>
-        </div></details></div>`;
+      // 화살표: 보호구역 결과처럼 구분별로 묶고 가까운 순. 줄의 '조정'을 누르면 미세조정 칸이 열림
+      const dOf = k => { if (k === 'eco1') return App.eco1 ? App.eco1.dist : 0; const r = (App.protRows ? App.protRows() : []).find(x => x.key === k); return r ? r.dist : Infinity; };
+      const groups = new Map();
+      arrs.forEach(f => { const k = f.get('key'), kind = k === 'eco1' ? 'eco1' : k.split('|')[0]; if (!groups.has(kind)) groups.set(kind, []); groups.get(kind).push(f); });
+      const glist = [...groups.entries()].map(([kind, fs]) => ({ kind, fs: fs.slice().sort((a, b) => dOf(a.get('key')) - dOf(b.get('key'))) }))
+        .sort((a, b) => dOf(a.fs[0].get('key')) - dOf(b.fs[0].get('key')));
+      h += '<div class="sty-sub">화살표 <span class="bulk"><button type="button" class="btn small" data-aall="1">전체 선택</button><button type="button" class="btn small" data-aall="0">전체 해제</button></span></div><ul class="bullets"><li>체크: 화살표 켜기/끄기 (구분 체크는 묶음 전체)</li><li>조정: 위치 0.5mm, 길이·굵기 5%, 회전 1°씩 (Shift: 10배)</li></ul><div class="ar-list">';
+      glist.forEach(g => {
+        const p = (App.PROT || []).find(x => x.id === g.kind);
+        const col = p ? App.protLook(p).color : '#1AA800', gname = p ? App.protLook(p).name : '생태자연도 1등급';
+        const nOn = g.fs.filter(f => f.get('on') !== false).length;
+        h += `<div class="ar-group"><div class="ar-gh"><input type="checkbox" data-agrp="${esc(g.kind)}" ${nOn === g.fs.length ? 'checked' : ''} ${nOn > 0 && nOn < g.fs.length ? 'data-ind="1"' : ''}>
+          <span class="swatch${p && p.line ? ' swatch-line' : ''}" style="border-color:${col};background:${p && p.line ? 'transparent' : col + '2e'}"></span><b>${esc(gname)}</b><span class="pr-cnt">${g.fs.length}곳</span></div>`;
+        g.fs.forEach(f => {
+          const k = f.get('key'), a = (App.opts.arrowAdj || {})[k] || {};
+          const nm = k === 'eco1' ? '1등급' : (k.split('|')[1] || k);
+          const adjd = Object.keys(a).some(x => a[x] != null && a[x] !== '' && !(x === 'len' && +a[x] === 100) && !(x === 'w' && +a[x] === 100) && +a[x] !== 0);
+          h += `<div class="ar-row"><input type="checkbox" data-aon="${esc(k)}" ${f.get('on') !== false ? 'checked' : ''}>
+            <span class="ar-name">${esc(nm)}</span><span class="ar-dist">${esc((f.get('label') || '').replace(/\s*이격$/, ''))}</span>
+            <button type="button" class="btn small ar-adj${adjd ? ' on' : ''}" data-aopen="${esc(k)}">조정</button></div>
+            <div class="ar-panel el-body" data-apanel="${esc(k)}" ${openArr.has(k) ? '' : 'hidden'}>
+            <label class="field full"><span>글자</span><input type="text" data-ak="${esc(k)}" data-af="text" value="${esc(a.text || '')}" placeholder="${esc(f.get('label'))}"></label>
+            <label class="field"><span>글자 크기(pt)</span><input type="number" step="0.5" min="4" data-ak="${esc(k)}" data-af="size" value="${a.size || ''}" placeholder="10.5"></label>
+            <div class="sty-sub full">화살표 모양</div>
+            <div class="pos-row full">${step(k, 'len', '길이', '－', '＋', 5)}${step(k, 'w', '굵기', '－', '＋', 5)}<span class="unit">%</span></div>
+            <div class="pos-row full">${step(k, 'rot', '회전', '↺', '↻', 1)}<span class="unit">° (시계 방향 +)</span></div>
+            <div class="sty-sub full">화살표 위치</div>
+            <div class="pos-row full">${step(k, 'sx', 'X', '◀', '▶')}${step(k, 'sy', 'Y', '▲', '▼')}<span class="unit">mm</span></div>
+            <div class="sty-sub full">글자 위치</div>
+            <div class="pos-row full">${step(k, 'lx', 'X', '◀', '▶')}${step(k, 'ly', 'Y', '▲', '▼')}<span class="unit">mm</span></div>
+            <div class="row full"><button type="button" class="btn small" data-areset="${esc(k)}">이 화살표 초기화</button></div>
+            </div>`;
+        });
+        h += '</div>';
       });
+      h += '</div>';
     }
+    setTimeout(() => box.querySelectorAll('[data-ind]').forEach(c => { c.indeterminate = true; }), 0);
     box.innerHTML = h || '<p class="hint">보호구역 검토를 실행하면 종류별 이름·색·크기와 화살표를 조정할 수 있습니다.</p>';
     $('#styleSection').hidden = !h && App.theme !== 'prot';
   }
@@ -453,6 +474,13 @@
       if (key === 'eco1') { const c = document.getElementById('eco1Chk'); if (c) c.checked = on; }
     }
     App.liveSets.forEach(s => s.changed()); redraw();
+  }
+  function syncArrGroups() {
+    const box = $('#styleBox'); if (!box) return;
+    box.querySelectorAll('[data-agrp]').forEach(g => {
+      const cs = [...box.querySelectorAll('[data-aon]')].filter(c => (c.dataset.aon === 'eco1' ? 'eco1' : c.dataset.aon.split('|')[0]) === g.dataset.agrp);
+      const n = cs.filter(c => c.checked).length; g.checked = n === cs.length; g.indeterminate = n > 0 && n < cs.length;
+    });
   }
   function initStyleUI() {
     const box = $('#styleBox'); if (!box) return;
@@ -499,11 +527,15 @@
     box.addEventListener('change', e => {
       const t = e.target;
       if (t.dataset.lg) { App.opts.legendHide = App.opts.legendHide || {}; if (t.checked) delete App.opts.legendHide[t.dataset.lg]; else App.opts.legendHide[t.dataset.lg] = true; App.saveOpts(); redraw(); }
-      if (t.dataset.aon) { setArrowOn(t.dataset.aon, t.checked); }
+      if (t.dataset.aon) { setArrowOn(t.dataset.aon, t.checked); syncArrGroups(); }
+      if (t.dataset.agrp) { const on = t.checked; arrowFeats().filter(f => (f.get('key') === 'eco1' ? 'eco1' : f.get('key').split('|')[0]) === t.dataset.agrp).forEach(f => { setArrowOn(f.get('key'), on); const c = box.querySelector(`[data-aon="${CSS.escape(f.get('key'))}"]`); if (c) c.checked = on; }); syncArrGroups(); }
+      if (t.dataset.sitecat) { const s = App.sites.find(x => String(x.id) === t.dataset.sitecat); if (s) { s.category = t.value; if (s.feature) s.feature.set('category', s.category); App.renderSiteCard && App.renderSiteCard(s); App.liveSets.forEach(x => x.changed()); styleSig = null; App.emit(); redraw(); } }
     });
     box.addEventListener('click', e => {
       const all = e.target.closest('[data-aall]');
-      if (all) { const on = all.dataset.aall === '1'; arrowFeats().forEach(f => setArrowOn(f.get('key'), on)); box.querySelectorAll('[data-aon]').forEach(c => { c.checked = on; }); return; }
+      if (all) { const on = all.dataset.aall === '1'; arrowFeats().forEach(f => setArrowOn(f.get('key'), on)); box.querySelectorAll('[data-aon],[data-agrp]').forEach(c => { c.checked = on; c.indeterminate = false; }); return; }
+      const op = e.target.closest('[data-aopen]');
+      if (op) { const k = op.dataset.aopen, pn = box.querySelector(`[data-apanel="${CSS.escape(k)}"]`); if (pn) { pn.hidden = !pn.hidden; if (pn.hidden) openArr.delete(k); else openArr.add(k); } return; }
       const b = e.target.closest('[data-areset]'); if (!b) return;
       if (App.opts.arrowAdj) delete App.opts.arrowAdj[b.dataset.areset];
       changed(); buildStyleUI(true);

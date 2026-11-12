@@ -323,3 +323,21 @@ body[data-theme=ecvam] #mapOptsLayout .slider[data-row=opA], body[data-theme=ecv
 .site-op { grid-template-columns: 16px 1fr 70px 74px !important; }
 .site-op .pct-box { display: flex; align-items: center; gap: 2px; white-space: nowrap; }
 .site-op .pct-box input { width: 52px; }
+
+/* 화살표 목록: 구분별 묶음 */
+.ar-list { display: flex; flex-direction: column; gap: 6px; }
+.ar-group { border: 1px solid var(--line); border-radius: 6px; background: #fff; padding: 6px 8px; }
+.ar-gh { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-bottom: 2px; }
+.ar-gh .swatch { flex: 0 0 18px; height: 12px; border: 2px dashed; border-radius: 2px; }
+.ar-gh .swatch-line { height: 0; border-width: 0 0 3px 0; border-style: solid; }
+.ar-row { display: grid; grid-template-columns: 18px 1fr auto auto; gap: 6px; align-items: center; padding: 3px 0 3px 2px; font-size: 12.5px; border-top: 1px dashed #eceff3; }
+.ar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ar-dist { font-weight: 700; white-space: nowrap; }
+.ar-adj { padding: 1px 8px !important; font-size: 11.5px !important; }
+.ar-adj.on { border-color: var(--accent); color: var(--accent-dark); }
+.ar-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 4px 0 6px 20px; padding: 6px; background: #f7f9fa; border-radius: 4px; }
+.ar-panel[hidden] { display: none; }
+.ar-panel .full { grid-column: 1 / -1; }
+.site-cat { display: flex; flex-direction: column; min-width: 0; }
+.site-cat select { font-size: 12.5px; padding: 2px 4px; }
+.site-cat small { font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

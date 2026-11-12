@@ -41,7 +41,7 @@
     // 야생생물·습지
     { cat: 'bio', group: 'wild', id: 'wild', label: '야생생물 보호구역', short: '야생생물 보호구역', src: 'vworld', data: 'LT_C_UM221', keep: p => !/특별/.test(p.uname || ''), name: sgW, uid: p => [p.dyear, p.dnum].filter(Boolean).join('-'), color: '#C62828', note: VW },
     { cat: 'bio', group: 'wild', id: 'wild_sp', label: '야생생물 특별보호구역', short: '야생생물 특별보호구역', src: 'vworld', data: 'LT_C_UM221', attr: 'uname:like:특별', name: sgW, uid: p => [p.dyear, p.dnum].filter(Boolean).join('-'), color: '#8E0000', note: VW },
-    { cat: 'bio', id: 'winter_bird', label: '겨울철 조류 동시센서스 조사지역', short: '조류 조사지역', src: 'eiagis', typename: 'WINTER_BIRD', nameField: 'name', color: '#7B3FA0', note: EIA,
+    { cat: 'bio', id: 'winter_bird', label: '겨울철 조류 동시센서스 조사지역', short: '겨울철 철새 도래지', src: 'eiagis', typename: 'WINTER_BIRD', nameField: 'name', nameFmt: n => n + ' 겨울철 철새 도래지', color: '#7B3FA0', note: EIA,
       local: 'data/winter_bird.geojson' },   // EIAGIS 서버가 외부 사이트 접속(CORS)을 막아 둔 경우 쓰는 사본
     { cat: 'bio', group: 'wet', id: 'wetland', label: '습지보호지역 (내륙)', short: '습지보호지역', src: 'vworld', data: 'LT_C_UM901', name: sg, color: '#00838F', note: VW },
     { cat: 'bio', group: 'wet', id: 'wetland_c', label: '연안 습지보호지역 (해양수산부)', short: '연안 습지보호지역', src: 'vworld', data: 'LT_C_WGISARWET', name: p => p.uname || p.name || p.wet_name || '습지보호지역', color: '#006064', note: VW },
@@ -315,7 +315,8 @@
           if (p.overlapOnly && dist > 0) { nbr.push({ jg, g5, dist, name: (f.properties || {}).name || '' }); return; }   // 표에는 속한 유역만
           if (dist > radius) return;                         // 반경 밖은 제외
           let over = 0; try { over = dist === 0 ? jg.intersection(site).getArea() : 0; } catch (e) { over = 0; }
-          const name = (f.properties || {})[p.nameField || 'name'] || `(이름 없음 ${i + 1})`;
+          const raw = (f.properties || {})[p.nameField || 'name'];
+          const name = raw ? (p.nameFmt ? p.nameFmt(raw) : raw) : `(이름 없음 ${i + 1})`;
           let np = null; try { if (dist > 0) np = jsts.operation.distance.DistanceOp.nearestPoints(site, jg).map(c => [c.x, c.y]); } catch (e) { np = null; }
           rows.push({ kind: p.id, kindLabel: p.short, name, uid: (f.properties || {}).uid || '', dist, over, area: jg.getArea(), np });
           const of = fmt3857.readFeature({ type: 'Feature', geometry: g5, properties: {} }, { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' });

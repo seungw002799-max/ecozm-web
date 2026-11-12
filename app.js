@@ -293,11 +293,12 @@ App.setArrows = function (theme, list) {
   });
   App.emit();
 };
-function siteStyle(cat, s) {
+function siteStyle(cat, s, op) {
   const st = App.catStyle[cat] || DEFAULT_CAT_STYLE['사업지구'];
-  return cached(`s|${cat}|${st.color}|${st.width}|${st.dash}|${s.toFixed(3)}`, () => {
+  const a = op == null || op === '' ? 1 : Math.max(0, Math.min(1, Number(op)));   // 도면별 투명도 (도면 출력)
+  return cached(`s|${cat}|${st.color}|${st.width}|${st.dash}|${s.toFixed(3)}|${a}`, () => {
     const w = st.width * s;
-    return new ol.style.Style({ stroke: new ol.style.Stroke({ color: st.color, width: w, lineDash: dashArr(st.dash, w), lineCap: 'butt' }) });
+    return new ol.style.Style({ stroke: new ol.style.Stroke({ color: hexA(st.color, a), width: w, lineDash: dashArr(st.dash, w), lineCap: 'butt' }) });
   });
 }
 
@@ -333,7 +334,7 @@ App.createLayerSet = function (getScale, live) {
   });
   set.sites = new ol.layer.Vector({
     source: App.src.sites, zIndex: 4,
-    style: f => siteStyle(f.get('category'), getScale()),
+    style: f => siteStyle(f.get('category'), getScale(), (App.sites.find(x => x.id === f.get('siteId')) || {}).opacity),
   });
   set.ecvam = new ol.layer.Tile({ zIndex: 2.5, visible: false });   // 국토환경성평가지도 (ecvam.js)
   set.prot = new ol.layer.Vector({
@@ -558,6 +559,7 @@ function renderCard(s) {
     <div class="head"><span class="fname">${esc(s.name)}</span>
       <button class="btn small" data-act="zoom" type="button" ${s.geometry ? '' : 'disabled'}>위치로 이동</button>
       <button class="btn small" data-act="del" type="button">삭제</button></div>
+    ${s.restored ? '<div class="note">저장한 작업 파일에서 불러온 도면입니다 (레이어·좌표계를 바꾸려면 원본 도면을 다시 올려 주세요)</div>' : ''}
     ${s.converter ? `<div class="note">DWG→DXF 변환: ${esc(s.converter)}</div>` : ''}
     <label class="field"><span>구분</span><select data-act="cat">${CATS.map(c => `<option ${c === s.category ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
     ${s.layers ? `<div class="layer-list">${layers || '<div class="note">레이어 없음</div>'}</div>` : ''}
@@ -574,6 +576,30 @@ function renderCard(s) {
 }
 
 function siteById(id) { return App.sites.find(s => String(s.id) === String(id)); }
+
+// ---- 작업 저장/열기 (project.js) 에서 쓰는 도우미
+App.restoreSite = function (o) {
+  const s = { id: ++siteSeq, name: o.name, category: o.category, geometry: o.geometry, area: o.area, bbox: o.bbox, opacity: o.opacity, restored: true, seq: 0 };
+  App.sites.push(s); renderCard(s); if (s.geometry) setSiteFeature(s);
+  return s;
+};
+App.clearWork = function () {
+  App.sites.slice().forEach(s => { s.seq++; clearSiteGeom(s); if (s.el) s.el.remove(); });
+  App.sites.length = 0;
+  ['around', 'inside', 'prot', 'arrows', 'admin'].forEach(k => App.src[k] && App.src[k].clear());
+  App.area = null; App.eco1 = null; App.eczmCache = null;
+  renderTable(); const ei = $('#eco1Info'); if (ei) ei.innerHTML = '면적 계산 후 표시됩니다.';
+  App.emit();
+};
+App.restoreArea = function (area, around, inside, eczmCount, eco1, eco1Html) {
+  App.area = area; App.eczmCount = eczmCount;
+  App.src.around.clear(); App.src.inside.clear();
+  if (around) App.src.around.addFeatures(around);
+  if (inside) App.src.inside.addFeatures(inside);
+  App.eco1 = eco1 || null; const ei = $('#eco1Info'); if (ei && eco1Html) ei.innerHTML = eco1Html;
+  renderTable();
+};
+App.fitSites = () => fitSites();
 
 async function addFile(file) {
   const s = { id: ++siteSeq, name: file.name, category: guessCategory(file.name), busy: '업로드 중...', seq: 0 };
@@ -657,7 +683,7 @@ function clearSiteGeom(s) {
 function setSiteFeature(s) {
   if (s.feature) App.src.sites.removeFeature(s.feature);
   const f = geojson.readFeature({ type: 'Feature', geometry: s.geometry, properties: {} }, readOpts);
-  f.set('category', s.category);
+  f.set('category', s.category); f.set('siteId', s.id);
   s.feature = f;
   App.src.sites.addFeature(f);
   App.emit();
@@ -754,11 +780,14 @@ App.tableModel = function () {
   keys.sort((a, b) => ((order[a] != null ? order[a] : 9) - (order[b] != null ? order[b] : 9)) || a.localeCompare(b));
   const cols = keys.map(k => ({ key: k, label: GRADE_NAME[k] || (r.gradeLabels && r.gradeLabels[k]) || k }));
   if (!as3) cols.push({ key: 'none', label: '등급 없음(자료 외)' });
-  const rows = CATS.map(c => r.rows.find(x => x.category === c)).filter(Boolean).map(row => ({
-    category: row.category,
-    total: row.total,
-    vals: cols.map(c => c.key === 'none' ? row.noData : ((row.areas[c.key] || 0) + (c.key === '3' && as3 ? row.noData : 0))),
-  }));
+  // 면적 보정: 발주처 면적(㎡)을 넣으면 등급별 면적을 같은 비율로 맞춤 (합계 = 발주처 면적)
+  const tg = App.opts.areaTarget || {};
+  const rows = CATS.map(c => r.rows.find(x => x.category === c)).filter(Boolean).map(row => {
+    const raw = cols.map(c => c.key === 'none' ? row.noData : ((row.areas[c.key] || 0) + (c.key === '3' && as3 ? row.noData : 0)));
+    const t = Number(tg[row.category]);
+    const k = t > 0 && row.total > 0 ? t / row.total : 1;
+    return { category: row.category, total: row.total * k, rawTotal: row.total, factor: k, corrected: k !== 1, vals: raw.map(v => v * k) };
+  });
   return { cols, rows };
 };
 function renderTable() {
@@ -769,12 +798,20 @@ function renderTable() {
   // 구분마다 블록: 등급을 세로로 나열 (가로 스크롤 없이 한눈에)
   let h = '<tr><th>등급</th><th>면적(㎡)</th><th>비율(%)</th></tr>';
   m.rows.forEach(r => {
-    h += `<tr class="cat-head"><td colspan="3">${esc(r.category)}</td></tr>`;
+    h += `<tr class="cat-head"><td colspan="3">${esc(r.category)}${r.corrected ? ' <span class="tag">면적 보정</span>' : ''}</td></tr>`;
     m.cols.forEach((c, i) => { h += `<tr><td class="cat">${esc(c.label)}</td><td>${fmt(r.vals[i])}</td><td>${fmt(pct(r.vals[i], r.total))}</td></tr>`; });
     h += `<tr class="sum"><td class="cat">계</td><td>${fmt(r.total)}</td><td>${fmt(100)}</td></tr>`;
   });
   $('#areaTable').innerHTML = h;
+  // 면적 보정 입력칸 (구분별)
+  const tg = App.opts.areaTarget || {};
+  $('#areaFix').innerHTML = m.rows.map(r => `<div class="fix-row">
+      <span class="fix-cat">${esc(r.category)}</span>
+      <span class="fix-raw">도면 ${fmt(r.rawTotal)}㎡</span>
+      <label class="unit-input"><input type="number" min="0" step="any" data-fix="${esc(r.category)}" value="${tg[r.category] || ''}" placeholder="발주처 면적"><span class="unit">㎡</span></label>
+    </div>${r.corrected ? `<div class="hint fix-note">· 보정 비율 ${(r.factor * 100).toFixed(3)}% (도면 ${fmt(r.rawTotal)}㎡ → ${fmt(r.total)}㎡)</div>` : ''}`).join('');
 }
+App.renderAreaTable = renderTable;
 function tsv() {
   const m = App.tableModel(); if (!m) return '';
   const l1 = ['구분'], l2 = [''];
@@ -806,10 +843,15 @@ async function saveXlsx() {
     '생태자연도 폴리곤 수': String(App.eczmCount),
     '주변 범위(m)': String(App.opts.range),
     '자료 없는 지역': App.opts.rest3 ? '3등급으로 산정' : '등급 없음으로 분리',
+    ...Object.fromEntries(Object.entries(App.opts.areaTarget || {}).filter(([c, v]) => Number(v) > 0 && App.area.rows.some(r => r.category === c)).map(([c, v]) => [c + ' 면적 보정', '발주처 면적 ' + Number(v).toLocaleString('ko-KR') + '㎡ 기준 (도면 ' + App.area.rows.find(r => r.category === c).total.toFixed(2) + '㎡)'])),
   };
   try {
     const r = await api('/api/xlsx', {
-      rows: App.area.rows, gradeKeys: App.area.gradeKeys, gradeLabels: App.area.gradeLabels,
+      rows: App.area.rows.map(row => { const k = Number((App.opts.areaTarget || {})[row.category]) > 0 && row.total > 0 ? Number(App.opts.areaTarget[row.category]) / row.total : 1;
+        if (k === 1) return row;
+        const areas = {}; Object.keys(row.areas).forEach(g => { areas[g] = row.areas[g] * k; });
+        return Object.assign({}, row, { total: row.total * k, noData: row.noData * k, areas }); }),
+      gradeKeys: App.area.gradeKeys, gradeLabels: App.area.gradeLabels,
       remainderAs3: !!App.opts.rest3, title: $('#xlsxTitle').value || '생태자연도 등급별 면적 현황', meta,
     }, true);
     const blob = await r.blob();
@@ -896,6 +938,7 @@ async function init() {
   $('#btnCalc').addEventListener('click', calculate);
   $('#eco1Chk').addEventListener('change', e => { App.src.arrows.getFeatures().filter(f => f.get('theme') === 'eco').forEach(f => f.set('on', e.target.checked)); App.liveSets.forEach(s => s.changed()); App.emit(); });
   $('#btnXlsx').addEventListener('click', saveXlsx);
+  $('#areaFix').addEventListener('change', e => { const c = e.target.dataset.fix; if (c == null) return; App.opts.areaTarget = App.opts.areaTarget || {}; const v = Number(e.target.value); if (v > 0) App.opts.areaTarget[c] = v; else delete App.opts.areaTarget[c]; App.saveOpts(); renderTable(); App.emit(); });
   $('#btnCopy').addEventListener('click', copyTable);
   try {
     App.cfg = (await api('/api/config')) || {};

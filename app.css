@@ -269,3 +269,29 @@ body[data-theme=ecvam] #mapOptsLayout .slider[data-row=opA], body[data-theme=ecv
 .style-box .el-box .full { grid-column: 1 / -1; }
 
 .key-ok.bad { color: #c62828; font-size: 12px; max-width: 220px; text-align: right; }
+
+.src-note { margin-top: 6px; font-size: 11.5px; color: var(--muted); }
+.src-note a { margin-left: 4px; color: var(--accent-dark); font-weight: 700; }
+.fix-box { margin-bottom: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: #fafbfc; }
+.fix-row { display: grid; grid-template-columns: 64px 1fr 130px; gap: 6px; align-items: center; margin-top: 4px; font-size: 12.5px; }
+.fix-row .fix-cat { font-weight: 700; }
+.fix-row .fix-raw { color: var(--muted); font-size: 11.5px; }
+.fix-row .unit-input input { width: 100%; }
+.fix-note { margin: 2px 0 0 70px; }
+.site-op > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 보호구역 결과: 구분별 묶음 */
+.prot-result { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.pr-head { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); padding: 0 4px; }
+.pr-group { border: 1px solid var(--line); border-radius: 6px; background: #fff; padding: 6px 8px; }
+.pr-gh { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-bottom: 3px; }
+.pr-gh .swatch { flex: 0 0 18px; height: 12px; border: 2px dashed; border-radius: 2px; }
+.pr-gh .swatch-line { height: 0; border-width: 0 0 3px 0; border-style: solid; }
+.pr-cnt { font-size: 11px; color: var(--muted); }
+.pr-near { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--accent-dark); white-space: nowrap; }
+.pr-near.zero, .pr-dist.zero { color: #1565C0; }
+.pr-row { display: grid; grid-template-columns: 18px 1fr auto; gap: 6px; align-items: center; padding: 3px 0 3px 4px; font-size: 12.5px; border-top: 1px dashed #eceff3; }
+.pr-row .pr-over { grid-column: 2 / -1; font-size: 11px; color: var(--muted); margin-top: -2px; }
+.pr-name { overflow: hidden; text-overflow: ellipsis; }
+.pr-dist { font-weight: 700; white-space: nowrap; }
+.pr-more summary { cursor: pointer; font-size: 11.5px; color: var(--accent-dark); padding: 3px 4px; }

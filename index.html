@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>생태자연도 등급별 면적 산정 도구</title>
 <link rel="stylesheet" href="vendor/ol.css">
-<link rel="stylesheet" href="app.css?v=20261112m">
+<link rel="stylesheet" href="app.css?v=20261112n">
 </head>
 <body>
 <header class="topbar">
@@ -36,6 +36,21 @@
           <button id="btnSaveCfg" class="btn primary" type="button">저장</button>
         </div>
         <button id="btnKeyEdit" class="linkbtn" type="button" hidden>인증키 변경</button>
+      </section>
+
+      <section class="card-section">
+        <h2>작업 저장 / 열기</h2>
+        <div id="restoreBanner" class="banner" hidden></div>
+        <div class="row">
+          <button id="btnSaveWork" class="btn primary" type="button">작업 저장</button>
+          <button id="btnOpenWork" class="btn" type="button">작업 열기</button>
+          <input type="file" id="workFile" accept=".ecozm,.json" hidden>
+        </div>
+        <ul class="bullets">
+          <li>도면 경계·계산 결과·도면 출력 배치를 한 파일(.ecozm)로 저장합니다</li>
+          <li>이 브라우저에도 자동 저장되어, 다음에 열면 이어서 할 수 있습니다</li>
+        </ul>
+        <div id="autoSaveInfo" class="hint"></div>
       </section>
 
       <section class="card-section">
@@ -70,6 +85,7 @@
           <div id="freshInfo" class="fresh-info">확인 전</div>
           <button id="btnFresh" class="btn fresh-btn" type="button">재확인</button>
         </div>
+        <div class="src-note">출처 : 국립생태원 에코뱅크 생태·자연도 <span class="tag">실시간</span> <a href="https://www.nie-ecobank.kr/spceinfo/naturalMap.do" target="_blank" rel="noopener">에코뱅크에서 바로 확인</a></div>
       </section>
 
       <section class="card-section">
@@ -90,6 +106,11 @@
           <div id="eco1Info" class="hint">면적 계산 후 표시됩니다.</div>
         </div>
         <div id="resultBox" hidden>
+          <div class="fix-box">
+            <div class="sty-sub">면적 보정 (선택)</div>
+            <ul class="bullets"><li>발주처 면적을 넣으면 등급별 면적을 같은 비율로 맞춥니다</li><li>비우면 도면 면적 그대로</li></ul>
+            <div id="areaFix"></div>
+          </div>
           <div class="table-wrap"><table id="areaTable" class="area-table"></table></div>
           <label class="field"><span>엑셀 제목</span>
             <input type="text" id="xlsxTitle" value="생태자연도 등급별 면적 현황"></label>
@@ -112,7 +133,7 @@
         </div>
         <div class="row"><button id="btnProt" class="btn primary wide" type="button">보호구역 조회</button></div>
         <div id="protMsg" class="progress" hidden></div>
-        <div class="table-wrap"><table id="protTable" class="area-table" hidden></table></div>
+        <div id="protTable" class="prot-result" hidden></div>
       </section>
     </div>
 
@@ -210,12 +231,13 @@
 <script src="vendor/proj4.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jsts.min.js"></script>
-<script src="cad.js?v=20261112m"></script>
-<script src="backend.js?v=20261112m"></script>
-<script src="app.js?v=20261112m"></script>
-<script src="ecvam.js?v=20261112m"></script>
-<script src="prot.js?v=20261112m"></script>
-  <script src="admin.js?v=20261112m"></script>
-<script src="app2.js?v=20261112m"></script>
+<script src="cad.js?v=20261112n"></script>
+<script src="backend.js?v=20261112n"></script>
+<script src="app.js?v=20261112n"></script>
+<script src="ecvam.js?v=20261112n"></script>
+<script src="prot.js?v=20261112n"></script>
+  <script src="admin.js?v=20261112n"></script>
+  <script src="project.js?v=20261112n"></script>
+<script src="app2.js?v=20261112n"></script>
 </body>
 </html>

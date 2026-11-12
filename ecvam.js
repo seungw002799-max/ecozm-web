@@ -47,6 +47,7 @@
   // ------------------------------------------------------------ 등급별 면적 (픽셀 집계)
   let result = null;
   App.ecvamResult = () => result;
+  App.setEcvamResult = r => { result = r || null; try { render(); } catch (e) { /* 무시 */ } };
   function nearestGrade(r, g, b) {
     let best = null, bd = 1e9;
     GRADES.forEach(G => { const d = (G.rgb[0] - r) ** 2 + (G.rgb[1] - g) ** 2 + (G.rgb[2] - b) ** 2; if (d < bd) { bd = d; best = G.key; } });

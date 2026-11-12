@@ -357,15 +357,34 @@
     }
   }
 
+  // 결과: 구분별로 묶고, 가까운 구분부터 / 구분 안에서도 가까운 순. 많으면 3곳만 보이고 나머지는 펼치기
   function renderTable() {
     const t = $('#protTable');
     if (!rows.length) { t.innerHTML = ''; t.hidden = true; return; }
     t.hidden = false;
-    t.innerHTML = '<tr><th title="최근접 거리 화살표">↔</th><th>구분</th><th>명칭</th><th>거리(km)</th><th>중첩(㎡)</th></tr>' + rows.map(r =>
-      `<tr><td>${r.np ? `<input type="checkbox" data-arrow="${r.key}" ${r.arrow ? 'checked' : ''}>` : ''}</td><td class="cat">${r.kindLabel}</td><td style="text-align:left">${r.name}</td><td>${r.dist === 0 ? '0.00' : App.fmtDist(r.dist, false)}</td>` +
-      `<td>${r.over > 0 ? `<b class="ok-blue">${fmt(r.over)}</b>` : (r.dist === 0 ? '<b class="ok-blue">통과</b>' : '-')}</td></tr>`).join('');
+    const groups = new Map();
+    rows.forEach(r => { if (!groups.has(r.kind)) groups.set(r.kind, []); groups.get(r.kind).push(r); });
+    const list = [...groups.entries()].map(([kind, rs]) => ({ kind, rs: rs.slice().sort((a, b) => a.dist - b.dist) }))
+      .sort((a, b) => a.rs[0].dist - b.rs[0].dist);
+    const dtxt = r => r.dist === 0 ? (r.over > 0 ? '중첩' : '통과') : App.fmtDist(r.dist);
+    const item = r => `<div class="pr-row">
+        ${r.np ? `<input type="checkbox" data-arrow="${r.key}" ${r.arrow ? 'checked' : ''} title="최근접 거리 화살표">` : '<span class="pr-nochk"></span>'}
+        <span class="pr-name">${r.name}</span>
+        <span class="pr-dist ${r.dist === 0 ? 'zero' : ''}">${dtxt(r)}</span>
+        ${r.over > 0 ? `<span class="pr-over">${fmt(r.over)}㎡</span>` : ''}</div>`;
+    t.innerHTML = '<div class="pr-head"><span>↔ 화살표</span><span>가까운 순</span></div>' + list.map(g => {
+      const p = BY_ID[g.kind] || {}, near = g.rs[0];
+      const col = App.protLook && p.id ? App.protLook(p).color : (p.color || '#888');
+      const more = g.rs.length > 3 ? `<details class="pr-more"><summary>외 ${g.rs.length - 3}곳 더 보기</summary>${g.rs.slice(3).map(item).join('')}</details>` : '';
+      return `<div class="pr-group">
+        <div class="pr-gh"><span class="swatch${p.line ? ' swatch-line' : ''}" style="border-color:${col};background:${p.line ? 'transparent' : hexA(col, 0.18)}"></span>
+          <b>${p.short || g.kind}</b><span class="pr-cnt">${g.rs.length}곳</span><span class="pr-near ${near.dist === 0 ? 'zero' : ''}">최근접 ${near.dist === 0 ? '0.00km' : App.fmtDist(near.dist)}</span></div>
+        ${g.rs.slice(0, 3).map(item).join('')}${more}</div>`;
+    }).join('');
   }
   App.protRows = () => rows;
+  App.protRestore = (rs, msgText) => { rows = rs || []; renderTable(); const m = $('#protMsg'); if (m && msgText) { m.hidden = false; m.textContent = msgText; } };
+  App.protMsgText = () => { const m = $('#protMsg'); return m && !m.hidden ? m.textContent : ''; };
   function syncArrows() {
     App.setArrows('prot', rows.filter(r => r.np).map(r => ({ key: r.key, pts: r.np, on: r.arrow, label: `${App.fmtDist(r.dist)} 이격` })));
   }

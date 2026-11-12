@@ -16,7 +16,7 @@
       scale: 5000, center: null,          // scale: 내부 계산용(화면 확대/축소로 자동 결정, 입력란 없음)
       els: {
         north: { show: true, x: null, y: null, size: 18, buf: 0.8 },
-        scalebar: { show: true, x: null, y: null, buf: 2.4 },
+        scalebar: { show: true, x: null, y: null, buf: 2.4, size: 100 },
         legend: { show: true, x: null, y: null, font: 9, size: 100, buf: 2.2, all: false },
         areatext: { show: true, x: null, y: null, font: 9 },
       },
@@ -154,11 +154,12 @@
     // 축척바: 흰 박스 + 위쪽 숫자(0.0 / 2.0 / 4.0 km) + 위아래 어긋난 흑백 2단 막대. 길이는 0.5km 미만 0.1km 단위, 이상 0.5km 단위
     scalebar(ctx, cIn, env) {
       // 글자·막대 크기는 용지 크기에 비례해 자동 (A4 기준 9pt, 막대 4mm)
-      const k = Math.min(env.W, env.H) / 210;
-      const c = { len: 'auto', div: 2, h: Math.max(2, 4 * k), font: Math.min(28, Math.max(7, 11 * k)) };
+      const z = Math.max(0.3, (Number(cIn.size) || 100) / 100);         // 축척바 크기(%)
+      const k = Math.min(env.W, env.H) / 210 * z;
+      const c = { len: 'auto', div: 2, h: Math.max(1, 4 * k), font: Math.min(28, Math.max(4, 11 * k)) };
       const bf = Number(cIn.buf);
       const N = env.N, fmm = c.font * PT, pad = isFinite(bf) && cIn.buf !== null && cIn.buf !== '' ? Math.max(0.3, bf) : 2.4 * Math.max(0.7, k), gap = 1.2 * Math.max(0.7, k);
-      const maxKm = env.mapRect.w * N / 1e6;
+      const maxKm = env.mapRect.w * N / 1e6 * z;
       const km = (c.len === 'auto' || c.len == null || c.len === '') ? autoLen(maxKm / 4) : (Number(c.len) || 0.5);
       const lenMm = km * 1e6 / N;
       const d = Math.min(10, Math.max(1, Math.round(Number(c.div) || 2))), bh = Math.max(1, Number(c.h) || 4);
@@ -399,7 +400,8 @@
     const kinds = App.theme === 'prot' && App.protLegend ? App.protLegend() : [];
     const arrs = arrowFeats();
     const adm = !!App.opts.adm && App.src.admin.getFeatures().length > 0;
-    const sig = [App.theme, kinds.map(p => p.id).join(','), arrs.map(f => f.get('key') + f.get('label')).join(','), adm].join('#');
+    const sites = App.sites.filter(s => s.geometry);
+    const sig = [App.theme, kinds.map(p => p.id).join(','), arrs.map(f => f.get('key') + f.get('label')).join(','), adm, sites.map(s => s.id + s.name + s.category).join(',')].join('#');
     if (!force && sig === styleSig) return;
     if (!force && box.contains(document.activeElement)) return;      // 입력 중에는 다시 그리지 않음
     styleSig = sig;
@@ -408,6 +410,10 @@
         <input type="text" data-sk="${sk}" data-f="name" value="${esc(name)}" placeholder="${esc(ph)}" title="범례 이름">
         <input type="number" step="0.5" min="4" data-sk="${sk}" data-f="pt" value="${pt}" title="지도 명칭 글자 크기(pt)"><span class="unit">pt</span></div>`;
     let h = '';
+    if (sites.length) {
+      h += '<div class="sty-sub">도면별 투명도</div>';
+      sites.forEach(s => { const v = Math.round((s.opacity == null ? 1 : Number(s.opacity)) * 100); h += `<div class="slider site-op"><span title="${esc(s.name)}">${esc(s.category)} · ${esc(s.name)}</span><input type="range" min="0" max="100" step="5" data-siteop="${s.id}" value="${v}"><span class="pct-box"><input type="number" min="0" max="100" step="5" data-siteop="${s.id}" value="${v}"><span>%</span></span></div>`; });
+    }
     if (kinds.length || adm) {
       h += '<div class="sty-head"><span>색</span><span>범례 이름</span><span>명칭 크기</span></div>';
       kinds.forEach(p => { const c = (App.opts.protCustom || {})[p.id] || {}; const lk = App.protLook(p); h += row(p.id, c.name || '', lk.color, lk.pt, p.short); });
@@ -441,6 +447,12 @@
     const changed = () => { App.saveOpts(); App.liveSets.forEach(s => s.changed()); redraw(); };
     box.addEventListener('input', e => {
       const t = e.target;
+      if (t.dataset.siteop) {
+        const s = App.sites.find(x => String(x.id) === t.dataset.siteop); if (!s) return;
+        s.opacity = Math.max(0, Math.min(100, Number(t.value) || 0)) / 100;
+        box.querySelectorAll(`[data-siteop="${t.dataset.siteop}"]`).forEach(o => { if (o !== t) o.value = Math.round(s.opacity * 100); });
+        App.liveSets.forEach(x => x.changed()); redraw(); return;
+      }
       if (t.dataset.sk) {
         const sk = t.dataset.sk, f = t.dataset.f;
         const tgt = sk === 'adm' ? (App.opts.admCustom = App.opts.admCustom || {}) : ((App.opts.protCustom = App.opts.protCustom || {})[sk] = (App.opts.protCustom[sk] || {}));
@@ -579,11 +591,11 @@
   // ========================================================== 5. 설정 패널 UI
   const EL_UI = [
     ['north', [['size', '크기(mm)', 'number'], ['buf', '흰색 버퍼(mm)', 'number']]],
-    ['scalebar', [['buf', '흰색 버퍼(mm)', 'number']]],
+    ['scalebar', [['size', '축척바 크기(%)', 'number'], ['buf', '흰색 버퍼(mm)', 'number']]],
     ['legend', [['font', '글자 크기(pt)', 'number'], ['size', '범례 크기(%)', 'number'], ['buf', '흰색 버퍼(mm)', 'number'], ['all', '자료에 없는 등급도 표시', 'check']]],
     ['areatext', [['font', '글자 크기(pt)', 'number']]],
   ];
-  const EL_HINT = { scalebar: ['길이·글자 크기는 도면 크기와 화면 배율에 맞춰 자동', '0.5km 미만은 0.1km 단위', '0.5km 이상은 0.5km 단위'] };
+  const EL_HINT = { scalebar: ['길이·글자 크기는 도면 크기와 화면 배율에 맞춰 자동', '축척바 크기(%)로 전체를 줄이거나 키움', '0.5km 미만은 0.1km 단위', '0.5km 이상은 0.5km 단위'] };
   // X(좌우)는 ◀ ▶, Y(위아래)는 ▲ ▼ 버튼으로 1mm씩 (Shift 누르면 10mm)
   function posRow(key, c) {
     const val = v => (v == null ? '' : v);
@@ -788,6 +800,8 @@
 
   // ========================================================== 7. 탭 진입/이탈 및 시작
   App.layout = {
+    getL() { return JSON.parse(JSON.stringify(L)); },
+    setL(o) { const d = defaults(); L = Object.assign(d, o || {}); L.els = Object.assign(d.els, (o && o.els) || {}); Object.keys(d.els).forEach(k => { L.els[k] = Object.assign(defaults().els[k], (o && o.els && o.els[k]) || {}); }); saveLayout(); syncControls(); buildElUI(); styleSig = null; if (active) { if (map && L.center) map.getView().setCenter(L.center); layoutPaper(); } },
     enter() {
       active = true;
       ensureMap();

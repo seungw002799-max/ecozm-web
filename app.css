@@ -341,3 +341,7 @@ body[data-theme=ecvam] #mapOptsLayout .slider[data-row=opA], body[data-theme=ecv
 .site-cat { display: flex; flex-direction: column; min-width: 0; }
 .site-cat select { font-size: 12.5px; padding: 2px 4px; }
 .site-cat small { font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ar-panel .pos-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.ar-panel .stepper { flex: 1 1 130px; min-width: 0; }
+.stepper .lbl { white-space: nowrap; }

@@ -152,7 +152,12 @@
     const tol = lvl === 'sido' ? 15 : lvl === 'sigg' ? 6 : 2;   // 3857 단위(m) 단순화 허용치
     return feats.filter(f => f.geometry).map(f => {
       const of = gjf.readFeature({ type: 'Feature', geometry: f.geometry, properties: {} }, { dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857' });
-      try { let g = rd.read(gjf.writeGeometryObject(of.getGeometry())); if (!clip.getEnvelopeInternal().contains(g.getEnvelopeInternal())) g = g.intersection(clip); g = jsts.simplify.DouglasPeuckerSimplifier.simplify(g, tol); if (!g.isEmpty()) of.setGeometry(gjf.readGeometry(wr.write(g))); } catch (e) { /* 원본 유지 */ }
+      try {
+        let g = rd.read(gjf.writeGeometryObject(of.getGeometry()));
+        g = jsts.simplify.DouglasPeuckerSimplifier.simplify(g, tol);            // 먼저 단순화 (잘라내기 오류가 나도 가벼워지도록)
+        if (!clip.getEnvelopeInternal().contains(g.getEnvelopeInternal())) { try { g = g.intersection(clip); } catch (e) { try { g = g.buffer(0).intersection(clip); } catch (e2) { /* 자르지 않고 사용 */ } } }
+        if (!g.isEmpty()) of.setGeometry(gjf.readGeometry(wr.write(g)));
+      } catch (e) { /* 원본 유지 */ }
       of.set('name', (f.properties || {})[L.field] || ''); of.set('kind', 'adm'); of.set('lvl', lvl);
       of.set('lat', (bb[1] + bb[3]) / 2);
       return of;

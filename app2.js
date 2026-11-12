@@ -421,7 +421,7 @@
     if (kinds.length || adm) {
       h += '<div class="sty-head"><span title="범례에 표시">✓</span><span>색</span><span>범례 이름</span><span>명칭 크기</span></div>';
       kinds.forEach(p => { const c = (App.opts.protCustom || {})[p.id] || {}; const lk = App.protLook(p); h += row(p.id, c.name || '', lk.color, lk.pt, p.short); });
-      if (adm) { const c = App.opts.admCustom || {}; const al = App.admLook(); h += row('adm', c.name || '', al.color, al.pt, '시군구 경계'); }
+      if (adm) { const c = App.opts.admCustom || {}; const al = App.admLook(); h += row('adm', c.name || '', al.color, al.pt, '행정구역 경계'); }
     }
     const step = (k, f, lbl, a, b, inc = 0.5) => `<div class="stepper"><span class="lbl">${lbl}</span><button type="button" data-ak="${esc(k)}" data-af="${f}" data-step="${-inc}">${a}</button><input type="number" step="0.5" data-ak="${esc(k)}" data-af="${f}" value="${((App.opts.arrowAdj || {})[k] || {})[f] || (f === 'len' || f === 'w' ? 100 : 0)}"><button type="button" data-ak="${esc(k)}" data-af="${f}" data-step="${inc}">${b}</button></div>`;
     if (arrs.length) {
@@ -581,7 +581,7 @@
     if (App.theme === 'prot' && App.opts.protLabel !== false) App.src.prot.getFeatures().forEach(f => { const p = (App.PROT || []).find(x => x.id === f.get('kind')); if (p && (App.opts.protShow || {})[p.id] !== false && (!p.labelNearest || f.get('labelMe'))) fs.push(f); });
     if (App.opts.adm && App.opts.admLabel !== false) App.src.admin.getFeatures().forEach(f => fs.push(f));
     fs.forEach(f => {
-      const lp = App.protLabelPoint(f, set); if (!lp) return;
+      const lp = f.get('kind') === 'adm' && App.admLabelPoint ? App.admLabelPoint(f, set) : App.protLabelPoint(f, set); if (!lp) return;
       const q = map.getPixelFromCoordinate(lp); if (!q) return;
       const d = Math.hypot(q[0] - px[0], q[1] - px[1]); if (d < bd) { bd = d; best = f; }
     });

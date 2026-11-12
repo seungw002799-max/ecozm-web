@@ -52,6 +52,47 @@
     return c;
   }
 
+  // 명칭 위치: 시도는 보이는 부분 중 도면 왼쪽 위에 가까운 곳, 시군구·읍면동은 사업지구를 피한 보이는 부분의 안쪽
+  const gw = new ol.format.GeoJSON();
+  let siteKey = '', siteG = null;
+  function siteGeom3857(rd) {
+    const k = App.sites.filter(s => s.geometry).map(s => s.id + ':' + s.area).join(',');
+    if (k !== siteKey) {
+      siteKey = k; siteG = null;
+      App.sites.filter(s => s.feature).forEach(s => { try { const g = rd.read(gw.writeGeometryObject(s.feature.getGeometry())); siteG = siteG ? siteG.union(g) : g; } catch (e) { /* 무시 */ } });
+    }
+    return siteG;
+  }
+  function admLabelPoint(f, set) {
+    const manual = f.get('labelPos'); if (manual) return manual;
+    const ext = set && set.viewExtent; if (!ext) return null;
+    const ck = '__alp_' + set.id, ek = ext.map(v => Math.round(v)).join(',') + '|' + siteKey;
+    if (f[ck + 'k'] === ek) return f[ck];
+    let pt = null;
+    try {
+      const rd = new jsts.io.GeoJSONReader();
+      const w = ext[2] - ext[0], h = ext[3] - ext[1], m = 0.07;
+      const box = rd.read({ type: 'Polygon', coordinates: [[[ext[0] + w * m, ext[1] + h * m], [ext[2] - w * m, ext[1] + h * m], [ext[2] - w * m, ext[3] - h * m], [ext[0] + w * m, ext[3] - h * m], [ext[0] + w * m, ext[1] + h * m]]] });
+      let part = rd.read(gw.writeGeometryObject(f.getGeometry())).intersection(box);
+      if (!part.isEmpty()) {
+        const sg = siteGeom3857(rd);
+        if (sg) { try { const cut = part.difference(sg.buffer(w * 0.06)); if (!cut.isEmpty() && cut.getArea() > part.getArea() * 0.05) part = cut; } catch (e) { /* 무시 */ } }
+        let big = part, ba = -1;
+        for (let i = 0; i < part.getNumGeometries(); i++) { const q = part.getGeometryN(i); if (q.getArea() > ba) { ba = q.getArea(); big = q; } }
+        if (f.get('lvl') === 'sido') {
+          // 왼쪽 위 모서리에서 가장 가까운 보이는 점 → 안쪽으로 조금 이동
+          const corner = new jsts.geom.GeometryFactory().createPoint(new jsts.geom.Coordinate(ext[0] + w * 0.16, ext[3] - h * 0.12));
+          const c = jsts.operation.distance.DistanceOp.nearestPoints(big, corner)[0];
+          const ip = big.getInteriorPoint().getCoordinate();
+          pt = [c.x + (ip.x - c.x) * 0.15, c.y + (ip.y - c.y) * 0.15];
+        } else { const c = big.getInteriorPoint().getCoordinate(); pt = [c.x, c.y]; }
+      }
+    } catch (e) { pt = null; }
+    f[ck + 'k'] = ek; f[ck] = pt;
+    return pt;
+  }
+  App.admLabelPoint = admLabelPoint;
+
   const stCache = new Map();
   function lineStyle(lvl, s) {
     const lk = App.admLook(), key = lvl + lk.color + s.toFixed(3);
@@ -73,7 +114,7 @@
     }
     const st = lineStyle(lvl, s);
     if (App.opts.admLabel === false) return st;
-    const lp = App.protLabelPoint ? App.protLabelPoint(f, set) : null;
+    const lp = admLabelPoint(f, set);
     if (!lp) return st;
     const custom = (App.opts.protLabelText || {})['adm|' + f.get('name')];
     const img = tileImage(custom != null && custom !== '' ? custom : f.get('name'), lvl, s);

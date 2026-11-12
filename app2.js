@@ -203,7 +203,8 @@
       grades.forEach(g => rows.push({ t: g.label, grade: g.key }));
       egrades.forEach(g => rows.push({ t: g.label, ecolor: g.color }));
       cats.forEach(k => rows.push({ t: k, cat: k }));
-      (App.theme === 'prot' && App.protLegend ? App.protLegend() : []).forEach(p => rows.push({ t: p.short, prot: p }));
+      (App.theme === 'prot' && App.protLegend ? App.protLegend() : []).forEach(p => { const lk = App.protLook(p); rows.push({ t: lk.name, prot: Object.assign({}, p, { color: lk.color }) }); });
+      if (App.opts.adm && App.src.admin.getFeatures().length) { const al = App.admLook(); rows.push({ t: al.name, adm: al.color }); }
       let tw = 0;
       rows.forEach(r => { tw = Math.max(tw, textW(ctx, r.t, f, !!r.head)); });
       const w = pad * 2 + (rows.length > 1 ? sw + 2 * z : 0) + tw, h = pad * 2 + rows.length * rowH;
@@ -221,6 +222,9 @@
             if (r.ecolor) {
               ctx.fillStyle = r.ecolor; ctx.fillRect(bx, by, sw, bh);
               ctx.lineWidth = 0.15; ctx.strokeStyle = '#555'; ctx.strokeRect(bx, by, sw, bh);
+            } else if (r.adm) {
+              ctx.strokeStyle = r.adm; ctx.lineWidth = Math.max(0.3, bh * 0.18); ctx.setLineDash([2.2, 0.8, 0.5, 0.8]);
+              ctx.beginPath(); ctx.moveTo(bx, by + bh / 2); ctx.lineTo(bx + sw, by + bh / 2); ctx.stroke(); ctx.setLineDash([]);
             } else if (r.prot && r.prot.line) {
               ctx.strokeStyle = r.prot.color; ctx.lineWidth = Math.max(0.4, bh * 0.35); ctx.setLineDash([]);
               ctx.beginPath(); ctx.moveTo(bx, by + bh / 2); ctx.lineTo(bx + sw, by + bh / 2); ctx.stroke();
@@ -386,8 +390,92 @@
   }
 
   // ========================================================== 4. 오버레이 갱신 / 요소 드래그
+  // ---------------------------------------------------- 표시 이름·크기·색 / 화살표 미세조정
+  let styleSig = null;
+  function esc(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+  function arrowFeats() { return App.src.arrows.getFeatures().filter(f => f.get('theme') === App.theme && f.get('on') !== false); }
+  function buildStyleUI(force) {
+    const box = $('#styleBox'); if (!box) return;
+    const kinds = App.theme === 'prot' && App.protLegend ? App.protLegend() : [];
+    const arrs = arrowFeats();
+    const adm = !!App.opts.adm && App.src.admin.getFeatures().length > 0;
+    const sig = [App.theme, kinds.map(p => p.id).join(','), arrs.map(f => f.get('key') + f.get('label')).join(','), adm].join('#');
+    if (!force && sig === styleSig) return;
+    if (!force && box.contains(document.activeElement)) return;      // 입력 중에는 다시 그리지 않음
+    styleSig = sig;
+    const row = (sk, name, color, pt, ph) => `<div class="sty-row">
+        <input type="color" data-sk="${sk}" data-f="color" value="${color}" title="색">
+        <input type="text" data-sk="${sk}" data-f="name" value="${esc(name)}" placeholder="${esc(ph)}" title="범례 이름">
+        <input type="number" step="0.5" min="4" data-sk="${sk}" data-f="pt" value="${pt}" title="지도 명칭 글자 크기(pt)"><span class="unit">pt</span></div>`;
+    let h = '';
+    if (kinds.length || adm) {
+      h += '<div class="sty-head"><span>색</span><span>범례 이름</span><span>명칭 크기</span></div>';
+      kinds.forEach(p => { const c = (App.opts.protCustom || {})[p.id] || {}; const lk = App.protLook(p); h += row(p.id, c.name || '', lk.color, lk.pt, p.short); });
+      if (adm) { const c = App.opts.admCustom || {}; const al = App.admLook(); h += row('adm', c.name || '', al.color, al.pt, '시군구 경계'); }
+    }
+    const step = (k, f, lbl, a, b) => `<div class="stepper"><span class="lbl">${lbl}</span><button type="button" data-ak="${esc(k)}" data-af="${f}" data-step="-0.5">${a}</button><input type="number" step="0.5" data-ak="${esc(k)}" data-af="${f}" value="${((App.opts.arrowAdj || {})[k] || {})[f] || 0}"><button type="button" data-ak="${esc(k)}" data-af="${f}" data-step="0.5">${b}</button></div>`;
+    if (arrs.length) {
+      h += '<div class="sty-sub">화살표 미세조정</div><ul class="bullets"><li>화살표·글자를 0.5mm씩 옮깁니다 (Shift: 5mm)</li><li>글자를 비우면 자동 문구(약 X km 이격)</li></ul>';
+      arrs.forEach(f => {
+        const k = f.get('key'), a = (App.opts.arrowAdj || {})[k] || {};
+        const title = (k.split('|')[1] || k) + ' · ' + f.get('label');
+        h += `<details class="el-box"><summary>${esc(title)}</summary><div class="el-body">
+          <label class="field full"><span>글자</span><input type="text" data-ak="${esc(k)}" data-af="text" value="${esc(a.text || '')}" placeholder="${esc(f.get('label'))}"></label>
+          <label class="field"><span>글자 크기(pt)</span><input type="number" step="0.5" min="4" data-ak="${esc(k)}" data-af="size" value="${a.size || ''}" placeholder="10.5"></label>
+          <div class="sty-sub full">화살표 위치</div>
+          <div class="pos-row full">${step(k, 'sx', 'X', '◀', '▶')}${step(k, 'sy', 'Y', '▲', '▼')}<span class="unit">mm</span></div>
+          <div class="sty-sub full">글자 위치</div>
+          <div class="pos-row full">${step(k, 'lx', 'X', '◀', '▶')}${step(k, 'ly', 'Y', '▲', '▼')}<span class="unit">mm</span></div>
+          <div class="row full"><button type="button" class="btn small" data-areset="${esc(k)}">이 화살표 초기화</button></div>
+        </div></details>`;
+      });
+    }
+    box.innerHTML = h || '<p class="hint">보호구역 검토를 실행하면 종류별 이름·색·크기와 화살표를 조정할 수 있습니다.</p>';
+    $('#styleSection').hidden = !h && App.theme !== 'prot';
+  }
+  function initStyleUI() {
+    const box = $('#styleBox'); if (!box) return;
+    const changed = () => { App.saveOpts(); App.liveSets.forEach(s => s.changed()); redraw(); };
+    box.addEventListener('input', e => {
+      const t = e.target;
+      if (t.dataset.sk) {
+        const sk = t.dataset.sk, f = t.dataset.f;
+        const tgt = sk === 'adm' ? (App.opts.admCustom = App.opts.admCustom || {}) : ((App.opts.protCustom = App.opts.protCustom || {})[sk] = (App.opts.protCustom[sk] || {}));
+        if (f === 'pt') tgt.pt = Number(t.value) || null; else tgt[f] = t.value;
+        changed(); return;
+      }
+      if (t.dataset.ak) {
+        const k = t.dataset.ak, f = t.dataset.af;
+        const a = (App.opts.arrowAdj = App.opts.arrowAdj || {})[k] = (App.opts.arrowAdj[k] || {});
+        if (f === 'text') a.text = t.value; else a[f] = t.value === '' ? null : Number(t.value);
+        changed();
+      }
+    });
+    let timer = null;
+    const stop = () => { clearTimeout(timer); clearInterval(timer); timer = null; };
+    const bump = (btn, big) => {
+      const k = btn.dataset.ak, f = btn.dataset.af;
+      const a = (App.opts.arrowAdj = App.opts.arrowAdj || {})[k] = (App.opts.arrowAdj[k] || {});
+      a[f] = Math.round(((Number(a[f]) || 0) + Number(btn.dataset.step) * (big ? 10 : 1)) * 10) / 10;
+      const inp = box.querySelector(`input[data-ak="${CSS.escape(k)}"][data-af="${f}"]`); if (inp) inp.value = a[f];
+      changed();
+    };
+    box.addEventListener('pointerdown', e => {
+      const btn = e.target.closest('button[data-ak]'); if (!btn) return;
+      e.preventDefault(); const big = e.shiftKey; bump(btn, big);
+      timer = setTimeout(() => { timer = setInterval(() => bump(btn, big), 80); }, 350);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => document.addEventListener(ev, stop));
+    box.addEventListener('click', e => {
+      const b = e.target.closest('[data-areset]'); if (!b) return;
+      if (App.opts.arrowAdj) delete App.opts.arrowAdj[b.dataset.areset];
+      changed(); buildStyleUI(true);
+    });
+  }
+
   function redraw() {
     if (!active || !map) return;
+    buildStyleUI();
     const { W, H } = dims();
     const dpr = window.devicePixelRatio || 1;
     const ctx = overlay.getContext('2d');
@@ -418,9 +506,12 @@
   }
   // 미리보기 지도에서 보호구역 명칭 위치 근처(20px)를 눌렀는지
   function labelHit(e) {
-    if (!map || App.theme !== 'prot' || App.opts.protLabel === false || !App.protLabelPoint) return null;
+    if (!map || !App.protLabelPoint) return null;
     const px = map.getEventPixel(e); let best = null, bd = 22;
-    App.src.prot.getFeatures().forEach(f => {
+    const fs = [];
+    if (App.theme === 'prot' && App.opts.protLabel !== false) App.src.prot.getFeatures().forEach(f => { const p = (App.PROT || []).find(x => x.id === f.get('kind')); if (p && (App.opts.protShow || {})[p.id] !== false && (!p.labelNearest || f.get('labelMe'))) fs.push(f); });
+    if (App.opts.adm && App.opts.admLabel !== false) App.src.admin.getFeatures().forEach(f => fs.push(f));
+    fs.forEach(f => {
       const lp = App.protLabelPoint(f, set); if (!lp) return;
       const q = map.getPixelFromCoordinate(lp); if (!q) return;
       const d = Math.hypot(q[0] - px[0], q[1] - px[1]); if (d < bd) { bd = d; best = f; }
@@ -464,6 +555,19 @@
       }
     });
     window.addEventListener('pointerup', () => { drag = null; });
+    // 명칭 두 번 누르기: 글자 바꾸기 (비우면 원래 이름)
+    paper.addEventListener('dblclick', e => {
+      if (!active) return;
+      const lf = labelHit(e); if (!lf) return;
+      e.stopPropagation(); e.preventDefault();
+      const key = lf.get('kind') === 'adm' ? 'adm|' + lf.get('name') : App.protLabelKey(lf);
+      App.opts.protLabelText = App.opts.protLabelText || {};
+      const cur = App.opts.protLabelText[key] || lf.get('name') || '';
+      const v = prompt('지도에 표시할 명칭 (비우면 원래 이름)', cur);
+      if (v === null) return;
+      if (v.trim() === '' || v === lf.get('name')) delete App.opts.protLabelText[key]; else App.opts.protLabelText[key] = v;
+      App.saveOpts(); App.liveSets.forEach(s => s.changed()); redraw();
+    }, true);
   }
 
   // ========================================================== 5. 설정 패널 UI
@@ -528,6 +632,7 @@
   function resetPositions() { Object.values(L.els).forEach(c => { c.x = null; c.y = null; }); buildElUI(); }
 
   function initControls() {
+    initStyleUI();
     $('#layoutTheme').addEventListener('change', e => { App.setTheme(e.target.value); L.els.areatext.x = null; L.els.areatext.y = null; layoutPaper(); });
     $('#btnFit').addEventListener('click', fitToSites);
 
@@ -559,7 +664,7 @@
       const center = L.center; L = defaults(); L.center = center;
       syncControls(); buildElUI(); selected = null; layoutPaper();
     });
-    $('#btnLabelReset').addEventListener('click', () => { App.src.prot.getFeatures().forEach(f => f.unset('labelPos')); App.liveSets.forEach(s => s.changed()); });
+    $('#btnLabelReset').addEventListener('click', () => { App.src.prot.getFeatures().forEach(f => f.unset('labelPos')); App.src.admin.getFeatures().forEach(f => f.unset('labelPos')); App.liveSets.forEach(s => s.changed()); });
     $('#btnPng').addEventListener('click', () => doExport('png'));
     $('#btnPdf').addEventListener('click', () => doExport('pdf'));
     if (window.ResizeObserver) new ResizeObserver(() => layoutPaper()).observe(wrap);

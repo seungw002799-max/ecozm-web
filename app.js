@@ -36,6 +36,7 @@ const App = {
     inside: new ol.source.Vector(),
     sites: new ol.source.Vector(),
     prot: new ol.source.Vector(),
+    admin: new ol.source.Vector(),    // 시군구 경계 (브이월드)
     arrows: new ol.source.Vector(),   // 최근접 거리 화살표 (theme 별)     // 보호구역 검토 레이어 (prot.js)
   },
 };
@@ -242,15 +243,22 @@ function insideStyle(grade, s, a, thin) {
   }));
 }
 // 최근접 거리 화살표: 양쪽 화살촉 + "약 4.7km 이격" 글자
-function arrowStyle(f, s) {
-  const c = f.getGeometry().getCoordinates(); if (c.length < 2) return null;
-  const [a, b] = c, ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+function arrowStyle(f, s, res) {
+  const c0 = f.getGeometry().getCoordinates(); if (c0.length < 2) return null;
+  // 미세조정 (도면 출력): 화살표 이동 sx/sy, 글자 이동 lx/ly (mm, 아래쪽 +), 글자 내용 text, 글자 크기 pt
+  const adj = ((App.opts.arrowAdj || {})[f.get('key')]) || {};
+  const PXMM = App.PX_PER_MM96 * s;                       // 1mm 의 화면 px
+  const mx = (Number(adj.sx) || 0) * PXMM * (res || 0), my = -(Number(adj.sy) || 0) * PXMM * (res || 0);
+  const a = [c0[0][0] + mx, c0[0][1] + my], b = [c0[1][0] + mx, c0[1][1] + my];
+  const line = new ol.geom.LineString([a, b]);
+  const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
   const head = (p, rot) => new ol.style.Style({ geometry: new ol.geom.Point(p),
     image: new ol.style.RegularShape({ points: 3, radius: 7 * s, rotation: rot, fill: new ol.style.Fill({ color: '#000' }) }) });
   const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
   // 글자: 화살표와 겹치지 않게 선의 수직 방향(위쪽 또는 오른쪽)으로 글자 크기만큼 띄움 (흰 테두리 글자)
-  const label = f.get('label') || '';
-  const fpx = Math.round(14 * s);
+  const label = adj.text != null && adj.text !== '' ? adj.text : (f.get('label') || '');
+  const pt = Number(adj.size) || Number(App.opts.arrowPt) || 10.5;
+  const fpx = Math.round(pt * 0.3528 * PXMM * 10) / 10;
   const font = `${fpx}px "EcoFont","Malgun Gothic",sans-serif`;
   arrowStyle.ctx = arrowStyle.ctx || document.createElement('canvas').getContext('2d');
   arrowStyle.ctx.font = font;
@@ -258,12 +266,13 @@ function arrowStyle(f, s) {
   let nx = -Math.sin(ang), ny = Math.cos(ang);              // 선에 수직 (지도 좌표, y 위쪽)
   if (ny < 0 || (Math.abs(ny) < 1e-6 && nx < 0)) { nx = -nx; ny = -ny; }   // 위쪽/오른쪽으로
   const d = 4 * s + Math.abs(nx) * tw / 2 + Math.abs(ny) * th / 2;
+  const ox = nx * d + (Number(adj.lx) || 0) * PXMM, oy = -ny * d + (Number(adj.ly) || 0) * PXMM;
   return [
-    new ol.style.Style({ stroke: new ol.style.Stroke({ color: '#fff', width: 5 * s }) }),
-    new ol.style.Style({ stroke: new ol.style.Stroke({ color: '#000', width: 2.2 * s }) }),
+    new ol.style.Style({ geometry: line, stroke: new ol.style.Stroke({ color: '#fff', width: 5 * s }) }),
+    new ol.style.Style({ geometry: line, stroke: new ol.style.Stroke({ color: '#000', width: 2.2 * s }) }),
     head(b, Math.PI / 2 - ang), head(a, -Math.PI / 2 - ang),
     new ol.style.Style({ geometry: new ol.geom.Point(mid), text: new ol.style.Text({
-      text: label, font, textAlign: 'center', textBaseline: 'middle', offsetX: nx * d, offsetY: -ny * d,
+      text: label, font, textAlign: 'center', textBaseline: 'middle', offsetX: ox, offsetY: oy,
       fill: new ol.style.Fill({ color: '#000' }), stroke: new ol.style.Stroke({ color: '#fff', width: 4 * s }), overflow: true }) }),
   ];
 }
@@ -327,19 +336,26 @@ App.createLayerSet = function (getScale, live) {
   });
   set.id = (App._setSeq = (App._setSeq || 0) + 1);
   // 화면 범위가 바뀌면 보호구역 명칭 위치를 다시 계산
-  set.prot.on('prerender', e => {
+  // 화면 범위가 바뀌면 명칭 위치(보호구역·시군구)를 다시 계산
+  const onPre = e => {
     const ex = e.frameState.extent, o = set.viewExtent;
     const tol = o ? (o[2] - o[0]) * 0.02 : 0;
     if (!o || Math.abs(ex[0] - o[0]) > tol || Math.abs(ex[1] - o[1]) > tol || Math.abs(ex[2] - o[2]) > tol || Math.abs(ex[3] - o[3]) > tol) {
       set.viewExtent = ex.slice();
-      setTimeout(() => set.prot.changed(), 0);
+      setTimeout(() => { set.prot.changed(); if (set.admin) set.admin.changed(); }, 0);
     }
+  };
+  set.prot.on('prerender', onPre);
+  set.admin = new ol.layer.Vector({
+    source: App.src.admin, zIndex: 5.5, declutter: false,
+    style: f => (App.admStyle ? App.admStyle(f, getScale(), set) : null),
   });
+  set.admin.on('prerender', onPre);
   set.arrows = new ol.layer.Vector({
     source: App.src.arrows, zIndex: 6, declutter: false,
-    style: (f, res) => (f.get('theme') === App.theme && f.get('on') !== false ? arrowStyle(f, getScale()) : null),
+    style: (f, res) => (f.get('theme') === App.theme && f.get('on') !== false ? arrowStyle(f, getScale(), res) : null),
   });
-  set.layers = [set.base, set.label, set.ecvam, set.around, set.inside, set.prot, set.sites, set.arrows];
+  set.layers = [set.base, set.label, set.ecvam, set.around, set.inside, set.prot, set.admin, set.sites, set.arrows];
   set.errors = 0;
   set.refresh = function (over) {
     const o = Object.assign({}, App.opts, over || {});

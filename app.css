@@ -255,3 +255,15 @@ body[data-theme=ecvam] #mapOptsLayout .slider[data-row=opA], body[data-theme=ecv
 .prot-kid { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12.5px; }
 .prot-kid .swatch { margin-top: 0 !important; }
 .prot-kid .swatch-line { margin-top: 0 !important; }
+
+/* 도면 출력: 표시 이름·크기·색, 화살표 미세조정 */
+.style-box { display: flex; flex-direction: column; gap: 6px; }
+.sty-head, .sty-row { display: grid; grid-template-columns: 34px 1fr 58px 18px; gap: 6px; align-items: center; }
+.sty-head { font-size: 11px; color: var(--muted); }
+.sty-head span:nth-child(3) { grid-column: 3 / span 2; }
+.sty-row input[type=color] { width: 34px; height: 28px; padding: 1px; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
+.sty-row input[type=text], .sty-row input[type=number] { min-width: 0; height: 28px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 4px; font-size: 12.5px; }
+.sty-row .unit, .pos-row .unit { font-size: 11px; color: var(--muted); }
+.sty-sub { margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--accent-dark); }
+.style-box .el-box .el-body { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.style-box .el-box .full { grid-column: 1 / -1; }

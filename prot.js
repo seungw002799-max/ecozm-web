@@ -39,8 +39,8 @@
     { cat: 'eco', group: 'ridge', id: 'ridge3', label: '기맥', short: '기맥', src: 'kei', typename: 'keilocal:mtridge_l3_pl', name: p => p.sbsnnm || '기맥', color: '#A1887F', line: true, note: KEI },
     { cat: 'eco', group: 'ridge', id: 'ridge4', label: '지맥', short: '지맥', src: 'kei', typename: 'keilocal:mtridge_l4_pl', name: p => p.sbsnnm || '지맥', color: '#8D6E63', line: true, note: KEI },
     // 야생생물·습지
-    { cat: 'bio', group: 'wild', id: 'wild', label: '야생생물 보호구역', short: '야생생물 보호구역', src: 'vworld', data: 'LT_C_UM221', keep: p => !/특별/.test(p.uname || ''), name: sgW, color: '#C62828', note: VW },
-    { cat: 'bio', group: 'wild', id: 'wild_sp', label: '야생생물 특별보호구역', short: '야생생물 특별보호구역', src: 'vworld', data: 'LT_C_UM221', attr: 'uname:like:특별', name: sgW, color: '#8E0000', note: VW },
+    { cat: 'bio', group: 'wild', id: 'wild', label: '야생생물 보호구역', short: '야생생물 보호구역', src: 'vworld', data: 'LT_C_UM221', keep: p => !/특별/.test(p.uname || ''), name: sgW, uid: p => [p.dyear, p.dnum].filter(Boolean).join('-'), color: '#C62828', note: VW },
+    { cat: 'bio', group: 'wild', id: 'wild_sp', label: '야생생물 특별보호구역', short: '야생생물 특별보호구역', src: 'vworld', data: 'LT_C_UM221', attr: 'uname:like:특별', name: sgW, uid: p => [p.dyear, p.dnum].filter(Boolean).join('-'), color: '#8E0000', note: VW },
     { cat: 'bio', id: 'winter_bird', label: '겨울철 조류 동시센서스 조사지역', short: '조류 조사지역', src: 'eiagis', typename: 'WINTER_BIRD', nameField: 'name', color: '#7B3FA0', note: EIA,
       local: 'data/winter_bird.geojson' },   // EIAGIS 서버가 외부 사이트 접속(CORS)을 막아 둔 경우 쓰는 사본
     { cat: 'bio', group: 'wet', id: 'wetland', label: '습지보호지역 (내륙)', short: '습지보호지역', src: 'vworld', data: 'LT_C_UM901', name: sg, color: '#00838F', note: VW },
@@ -57,6 +57,12 @@
     { cat: 'air', id: 'air', label: '대기환경규제지역', short: '대기환경규제지역', src: 'vworld', data: 'LT_C_UM301', name: p => sg(p) || '대기환경규제지역', color: '#FFB300', note: Object.assign({}, VW, { extra: ['대기관리권역 등', '전국 5건, 세부 구분 없음'] }) },
   ];
   const BY_ID = Object.fromEntries(PROT.map(p => [p.id, p]));
+  // 도면 출력에서 바꾼 표시 이름·색·글자 크기 (App.opts.protCustom[id])
+  App.protLook = p => {
+    const c = ((App.opts.protCustom || {})[p.id]) || {};
+    return { name: c.name || p.short, color: /^#[0-9a-fA-F]{6}$/.test(c.color || '') ? c.color : p.color, pt: Number(c.pt) || 9 };
+  };
+  App.protLabelKey = f => f.get('kind') + '|' + (f.get('name') || '');
   App.PROT = PROT;
 
   const fmt = n => Number(n).toLocaleString('ko-KR', { maximumFractionDigits: 0 });
@@ -100,30 +106,32 @@
     const show = (App.opts.protShow || {})[p.id] !== false;
     if (!show) return null;
     const nb = p.overlapOnly && !f.get('host');
-    const key = p.id + '|' + s.toFixed(3) + (nb ? '|nb' : '');
+    const lk = App.protLook(p), col = lk.color;
+    const key = p.id + '|' + s.toFixed(3) + (nb ? '|nb' : '') + '|' + col;
     let st = cache.get(key);
     if (!st) {
       st = p.line
-        ? new ol.style.Style({ stroke: new ol.style.Stroke({ color: p.color, width: Math.max(1, 3 * s) }) })
+        ? new ol.style.Style({ stroke: new ol.style.Stroke({ color: col, width: Math.max(1, 3 * s) }) })
         : nb
-        ? new ol.style.Style({ stroke: new ol.style.Stroke({ color: p.color, width: Math.max(0.8, 1.6 * s), lineDash: [6 * s, 4 * s] }) })
+        ? new ol.style.Style({ stroke: new ol.style.Stroke({ color: col, width: Math.max(0.8, 1.6 * s), lineDash: [6 * s, 4 * s] }) })
         : p.src === 'eco1'
-        ? new ol.style.Style({ fill: new ol.style.Fill({ color: hexA(p.color, 0.45) }), stroke: new ol.style.Stroke({ color: p.color, width: Math.max(0.5, 1 * s) }) })
+        ? new ol.style.Style({ fill: new ol.style.Fill({ color: hexA(col, 0.45) }), stroke: new ol.style.Stroke({ color: col, width: Math.max(0.5, 1 * s) }) })
         : new ol.style.Style({
-          fill: new ol.style.Fill({ color: hexA(p.color, 0.18) }),
-          stroke: new ol.style.Stroke({ color: p.color, width: Math.max(0.8, 2 * s), lineDash: [6 * s, 4 * s] }),
+          fill: new ol.style.Fill({ color: hexA(col, 0.18) }),
+          stroke: new ol.style.Stroke({ color: col, width: Math.max(0.8, 2 * s), lineDash: [6 * s, 4 * s] }),
         });
       if (cache.size > 500) cache.clear();
       cache.set(key, st);
     }
     if (p.labelNearest && !f.get('labelMe')) return st;
-    const label = App.opts.protLabel !== false ? (f.get('name') || '') : '';
+    const custom = (App.opts.protLabelText || {})[App.protLabelKey(f)];
+    const label = App.opts.protLabel !== false ? (custom != null && custom !== '' ? custom : (f.get('name') || '')) : '';
     if (!label) return st;
     const lp = labelPoint(f, set);
     if (!lp) return st;
     return [st, new ol.style.Style({ geometry: new ol.geom.Point(lp), text: new ol.style.Text({
-      text: label, font: `bold ${Math.round(12 * s)}px "EcoFont","Malgun Gothic",sans-serif`,
-      fill: new ol.style.Fill({ color: p.color }), stroke: new ol.style.Stroke({ color: '#fff', width: 3 * s }), overflow: true }) })];
+      text: label, font: `bold ${Math.round(lk.pt * 0.3528 * App.PX_PER_MM96 * s * 10) / 10}px "EcoFont","Malgun Gothic",sans-serif`,
+      fill: new ol.style.Fill({ color: col }), stroke: new ol.style.Stroke({ color: '#fff', width: 3 * s }), overflow: true }) })];
   };
 
   // ------------------------------------------------------------ 자료 받기
@@ -164,6 +172,7 @@
       document.head.appendChild(s);
     });
   }
+  App.jsonp = jsonp;
   async function fetchVworld(p, bbox4326) {
     const key = App.cfg.vworldKey;
     if (!key) throw new Error('브이월드 인증키가 없습니다.');
@@ -177,7 +186,7 @@
       if (r.status === 'NOT_FOUND') break;
       if (r.status !== 'OK') throw new Error(`${p.short}: ${(r.error && r.error.text) || r.status}${/인증키/.test((r.error && r.error.text) || '') ? ' (브이월드 키가 이 사이트 주소로 등록됐는지 확인)' : ''}`);
       const fs = (r.result && r.result.featureCollection && r.result.featureCollection.features) || [];
-      fs.filter(f => !p.keep || p.keep(f.properties || {})).forEach(f => feats.push({ type: 'Feature', geometry: f.geometry, properties: { name: p.name(f.properties || {}) || p.short } }));
+      fs.filter(f => !p.keep || p.keep(f.properties || {})).forEach(f => feats.push({ type: 'Feature', geometry: f.geometry, properties: { name: p.name(f.properties || {}) || p.short, uid: p.uid ? p.uid(f.properties || {}) : '' } }));
       const total = Number(r.record && r.record.total) || 0;
       if (feats.length >= total || !fs.length) break;
     }
@@ -308,7 +317,7 @@
           let over = 0; try { over = dist === 0 ? jg.intersection(site).getArea() : 0; } catch (e) { over = 0; }
           const name = (f.properties || {})[p.nameField || 'name'] || `(이름 없음 ${i + 1})`;
           let np = null; try { if (dist > 0) np = jsts.operation.distance.DistanceOp.nearestPoints(site, jg).map(c => [c.x, c.y]); } catch (e) { np = null; }
-          rows.push({ kind: p.id, kindLabel: p.short, name, dist, over, area: jg.getArea(), np });
+          rows.push({ kind: p.id, kindLabel: p.short, name, uid: (f.properties || {}).uid || '', dist, over, area: jg.getArea(), np });
           const of = fmt3857.readFeature({ type: 'Feature', geometry: g5, properties: {} }, { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' });
           of.set('kind', p.id); of.set('name', name); of.set('dist', dist); of.set('area', jg.getArea());
           if (p.overlapOnly) { of.set('host', true); hosts.push(jg); }
@@ -330,12 +339,12 @@
       }
       // 같은 구분·명칭이 여러 조각이면 한 줄로 (최근접 거리 = 가장 가까운 조각, 중첩 = 합)
       const merged = new Map();
-      rows.forEach(r => { const k = r.kind + '|' + r.name.trim(); const m = merged.get(k); if (!m) merged.set(k, Object.assign({}, r, { name: r.name.trim() })); else { if (r.dist < m.dist) { m.dist = r.dist; m.np = r.np; } m.over += r.over; } });
+      rows.forEach(r => { const k = r.kind + '|' + r.name.trim() + '|' + (r.uid || ''); const m = merged.get(k); if (!m) merged.set(k, Object.assign({}, r, { name: r.name.trim() })); else { if (r.dist < m.dist) { m.dist = r.dist; m.np = r.np; } m.over += r.over; } });
       rows = [...merged.values()];
       rows.sort((a, b) => a.dist - b.dist);
       // 화살표: 구분별 가장 가까운 1곳만 기본으로 켬 (겹치는 곳 제외)
       const seenKind = new Set();
-      rows.forEach((r, i) => { r.key = 'p' + i; r.arrow = false; if (r.np && !seenKind.has(r.kind)) { r.arrow = true; seenKind.add(r.kind); } });
+      rows.forEach((r, i) => { r.key = r.kind + '|' + r.name + (r.uid ? '|' + r.uid : ''); r.arrow = false; if (r.np && !seenKind.has(r.kind)) { r.arrow = true; seenKind.add(r.kind); } });
       syncArrows();
       msg.textContent = (rows.length ? `완료: 반경 ${fmt(radius / 1000)}km 안에 ${rows.length}곳 (사업지구 경계 기준 최근접 거리)` : `반경 ${fmt(radius / 1000)}km 안에 해당 보호구역이 없습니다.`) + ` · 자료: ${srcs.join(', ')}` + (errs.length ? ` · 오류: ${errs.join(' / ')}` : '');
     } catch (e) {

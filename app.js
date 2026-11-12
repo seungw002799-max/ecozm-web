@@ -22,7 +22,7 @@ const DEFAULT_CAT_STYLE = {
 
 const App = {
   cfg: {},
-  opts: { basemap: 'base', mode: 'both', opA: 0.6, opI: 0.6, opS: 1, opE: 0.7, proxy: false, rest3: true, range: 500 },
+  opts: { basemap: 'base', mode: 'both', opA: 0.6, opI: 0.6, opS: 1, opE: 0.7, opB: 1, proxy: false, rest3: true, range: 500 },
   catStyle: JSON.parse(JSON.stringify(DEFAULT_CAT_STYLE)),
   sites: [],
   area: null,        // /api/area 응답
@@ -106,7 +106,7 @@ async function fetchJsonRetry(url, tries, ms) {
 // ============================================================ 2. 설정 / 옵션 저장
 function loadLocal() {
   try { Object.assign(App.opts, JSON.parse(localStorage.getItem('ecoOpts') || '{}')); } catch (e) { /* 무시 */ }
-  if (!['base', 'sat', 'none'].includes(App.opts.basemap)) App.opts.basemap = 'base';
+  if (!['base', 'white', 'sat', 'none'].includes(App.opts.basemap)) App.opts.basemap = 'base';
   App.opts.mode = 'both';
   try {
     const cs = JSON.parse(localStorage.getItem('ecoCatStyle') || '{}');
@@ -249,11 +249,17 @@ function arrowStyle(f, s, res) {
   const adj = ((App.opts.arrowAdj || {})[f.get('key')]) || {};
   const PXMM = App.PX_PER_MM96 * s;                       // 1mm 의 화면 px
   const mx = (Number(adj.sx) || 0) * PXMM * (res || 0), my = -(Number(adj.sy) || 0) * PXMM * (res || 0);
-  const a = [c0[0][0] + mx, c0[0][1] + my], b = [c0[1][0] + mx, c0[1][1] + my];
+  // 길이(%)·회전(°): 화살표 가운데를 기준으로 늘이고 돌림 (시계 방향 +)
+  const k = (Number(adj.len) || 100) / 100, rot = -(Number(adj.rot) || 0) * Math.PI / 180;
+  const cx = (c0[0][0] + c0[1][0]) / 2 + mx, cy = (c0[0][1] + c0[1][1]) / 2 + my;
+  const hx = (c0[1][0] - c0[0][0]) / 2 * k, hy = (c0[1][1] - c0[0][1]) / 2 * k;
+  const rx = hx * Math.cos(rot) - hy * Math.sin(rot), ry = hx * Math.sin(rot) + hy * Math.cos(rot);
+  const a = [cx - rx, cy - ry], b = [cx + rx, cy + ry];
+  const wk = (Number(adj.w) || 100) / 100;                // 굵기·화살촉 크기(%)
   const line = new ol.geom.LineString([a, b]);
   const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
   const head = (p, rot) => new ol.style.Style({ geometry: new ol.geom.Point(p),
-    image: new ol.style.RegularShape({ points: 3, radius: 7 * s, rotation: rot, fill: new ol.style.Fill({ color: '#000' }) }) });
+    image: new ol.style.RegularShape({ points: 3, radius: 7 * s * wk, rotation: rot, fill: new ol.style.Fill({ color: '#000' }) }) });
   const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
   // 글자: 화살표와 겹치지 않게 선의 수직 방향(위쪽 또는 오른쪽)으로 글자 크기만큼 띄움 (흰 테두리 글자)
   const label = adj.text != null && adj.text !== '' ? adj.text : (f.get('label') || '');
@@ -268,8 +274,8 @@ function arrowStyle(f, s, res) {
   const d = 4 * s + Math.abs(nx) * tw / 2 + Math.abs(ny) * th / 2;
   const ox = nx * d + (Number(adj.lx) || 0) * PXMM, oy = -ny * d + (Number(adj.ly) || 0) * PXMM;
   return [
-    new ol.style.Style({ geometry: line, stroke: new ol.style.Stroke({ color: '#fff', width: 5 * s }) }),
-    new ol.style.Style({ geometry: line, stroke: new ol.style.Stroke({ color: '#000', width: 2.2 * s }) }),
+    new ol.style.Style({ geometry: line, stroke: new ol.style.Stroke({ color: '#fff', width: 5 * s * wk }) }),
+    new ol.style.Style({ geometry: line, stroke: new ol.style.Stroke({ color: '#000', width: 2.2 * s * wk }) }),
     head(b, Math.PI / 2 - ang), head(a, -Math.PI / 2 - ang),
     new ol.style.Style({ geometry: new ol.geom.Point(mid), text: new ol.style.Text({
       text: label, font, textAlign: 'center', textBaseline: 'middle', offsetX: ox, offsetY: oy,
@@ -360,7 +366,7 @@ App.createLayerSet = function (getScale, live) {
   set.refresh = function (over) {
     const o = Object.assign({}, App.opts, over || {});
     // 표시 방식은 '주변 전체 + 사업지구 내부' 하나로 고정, 투명도는 하나로 통일
-    if (!['base', 'sat', 'none'].includes(o.basemap)) o.basemap = App.opts.basemap = 'base';
+    if (!['base', 'white', 'sat', 'none'].includes(o.basemap)) o.basemap = App.opts.basemap = 'base';
     // 주제(생태자연도 / 보호구역)에 따라 레이어 표시
     const eco = App.theme === 'eco';
     set.around.setVisible(eco);
@@ -372,7 +378,8 @@ App.createLayerSet = function (getScale, live) {
     set.ecvam.setOpacity(o.opE == null ? 0.7 : Number(o.opE));
     set.around.setOpacity(1);   // 등급별 투명도는 스타일에서 적용
     set.inside.setOpacity(1);   // 내부는 스타일에서 등급별로 투명도 적용
-    set.sites.setOpacity(o.opS == null ? 1 : Number(o.opS));   // 올린 도면(경계선) 투명도
+    set.sites.setOpacity(o.opS == null ? 1 : Number(o.opS));
+    set.base.setOpacity(o.opB == null ? 1 : Number(o.opB));   // 배경지도 투명도   // 올린 도면(경계선) 투명도
     const key = [o.basemap, o.proxy ? 1 : 0, App.cfg.vworldKey || ''].join('|');
     if (key !== set.baseKey) {
       set.baseKey = key;
@@ -381,6 +388,7 @@ App.createLayerSet = function (getScale, live) {
       if (o.basemap !== 'none') {
         if (!hasKey) { b = new ol.source.OSM(); }
         else if (o.basemap === 'base') b = tileSource('Base', 'png', o.proxy);
+        else if (o.basemap === 'white') b = tileSource('white', 'png', o.proxy);   // 브이월드 백지도 (상호·시설 글자 없음)
         else if (o.basemap === 'sat') b = tileSource('Satellite', 'jpeg', o.proxy);
         else if (o.basemap === 'hybrid') { b = tileSource('Satellite', 'jpeg', o.proxy); l = tileSource('Hybrid', 'png', o.proxy); }
         else if (o.basemap === 'gray') b = tileSource('gray', 'png', o.proxy);
@@ -437,7 +445,7 @@ const SLD = (lab, k) => `<div class="slider" data-row="${k}"><span>${lab}</span>
 function buildMapOpts(el, parts) {
   let h = '';
   if (parts !== 'eco') h += `<label class="field"><span>배경지도</span><select data-opt="basemap">
-      <option value="base">일반지도</option><option value="sat">위성지도</option><option value="none">흰색 배경</option></select></label>`;
+      <option value="base">일반지도</option><option value="white">백지도 (글자 적음)</option><option value="sat">위성지도</option><option value="none">흰색 배경</option></select></label>` + SLD('배경지도 투명도', 'opB');
   if (parts !== 'base') h += SLD('생태자연도 투명도', 'opA') + SLD('흰색(3등급) 투명도', 'opI');
   if (parts === 'all') h += SLD('평가지도 투명도', 'opE');
   if (parts !== 'eco') h += SLD('도면 투명도(선)', 'opS');

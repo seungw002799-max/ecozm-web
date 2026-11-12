@@ -413,15 +413,18 @@
       kinds.forEach(p => { const c = (App.opts.protCustom || {})[p.id] || {}; const lk = App.protLook(p); h += row(p.id, c.name || '', lk.color, lk.pt, p.short); });
       if (adm) { const c = App.opts.admCustom || {}; const al = App.admLook(); h += row('adm', c.name || '', al.color, al.pt, '시군구 경계'); }
     }
-    const step = (k, f, lbl, a, b) => `<div class="stepper"><span class="lbl">${lbl}</span><button type="button" data-ak="${esc(k)}" data-af="${f}" data-step="-0.5">${a}</button><input type="number" step="0.5" data-ak="${esc(k)}" data-af="${f}" value="${((App.opts.arrowAdj || {})[k] || {})[f] || 0}"><button type="button" data-ak="${esc(k)}" data-af="${f}" data-step="0.5">${b}</button></div>`;
+    const step = (k, f, lbl, a, b, inc = 0.5) => `<div class="stepper"><span class="lbl">${lbl}</span><button type="button" data-ak="${esc(k)}" data-af="${f}" data-step="${-inc}">${a}</button><input type="number" step="0.5" data-ak="${esc(k)}" data-af="${f}" value="${((App.opts.arrowAdj || {})[k] || {})[f] || (f === 'len' || f === 'w' ? 100 : 0)}"><button type="button" data-ak="${esc(k)}" data-af="${f}" data-step="${inc}">${b}</button></div>`;
     if (arrs.length) {
-      h += '<div class="sty-sub">화살표 미세조정</div><ul class="bullets"><li>화살표·글자를 0.5mm씩 옮깁니다 (Shift: 5mm)</li><li>글자를 비우면 자동 문구(약 X km 이격)</li></ul>';
+      h += '<div class="sty-sub">화살표 미세조정</div><ul class="bullets"><li>위치는 0.5mm, 길이·굵기는 5%, 회전은 1°씩 (Shift: 10배)</li><li>글자를 비우면 자동 문구(약 X km 이격)</li></ul>';
       arrs.forEach(f => {
         const k = f.get('key'), a = (App.opts.arrowAdj || {})[k] || {};
         const title = (k.split('|')[1] || k) + ' · ' + f.get('label');
         h += `<details class="el-box"><summary>${esc(title)}</summary><div class="el-body">
           <label class="field full"><span>글자</span><input type="text" data-ak="${esc(k)}" data-af="text" value="${esc(a.text || '')}" placeholder="${esc(f.get('label'))}"></label>
           <label class="field"><span>글자 크기(pt)</span><input type="number" step="0.5" min="4" data-ak="${esc(k)}" data-af="size" value="${a.size || ''}" placeholder="10.5"></label>
+          <div class="sty-sub full">화살표 모양</div>
+          <div class="pos-row full">${step(k, 'len', '길이', '－', '＋', 5)}${step(k, 'w', '굵기', '－', '＋', 5)}<span class="unit">%</span></div>
+          <div class="pos-row full">${step(k, 'rot', '회전', '↺', '↻', 1)}<span class="unit">° (시계 방향 +)</span></div>
           <div class="sty-sub full">화살표 위치</div>
           <div class="pos-row full">${step(k, 'sx', 'X', '◀', '▶')}${step(k, 'sy', 'Y', '▲', '▼')}<span class="unit">mm</span></div>
           <div class="sty-sub full">글자 위치</div>
@@ -456,7 +459,10 @@
     const bump = (btn, big) => {
       const k = btn.dataset.ak, f = btn.dataset.af;
       const a = (App.opts.arrowAdj = App.opts.arrowAdj || {})[k] = (App.opts.arrowAdj[k] || {});
-      a[f] = Math.round(((Number(a[f]) || 0) + Number(btn.dataset.step) * (big ? 10 : 1)) * 10) / 10;
+      const base = Number(a[f]) || (f === 'len' || f === 'w' ? 100 : 0);
+      a[f] = Math.round((base + Number(btn.dataset.step) * (big ? 10 : 1)) * 10) / 10;
+      if (f === 'len' || f === 'w') a[f] = Math.max(10, Math.min(400, a[f]));
+      if (f === 'rot') a[f] = ((a[f] + 180) % 360 + 360) % 360 - 180;
       const inp = box.querySelector(`input[data-ak="${CSS.escape(k)}"][data-af="${f}"]`); if (inp) inp.value = a[f];
       changed();
     };

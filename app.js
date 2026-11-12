@@ -848,7 +848,7 @@ async function checkVworldKey() {
     });
     const r = (j && j.response) || {};
     if (r.status === 'OK' || r.status === 'NOT_FOUND') { el.textContent = '인증 완료'; el.className = 'key-ok'; el.title = ''; }
-    else { const t = (r.error && r.error.text) || r.status; el.textContent = '오류: ' + t; el.className = 'key-ok bad'; el.title = '팀 설정 링크를 다시 열거나, 인증키 변경에서 키를 다시 붙여 넣으세요.'; toast('브이월드 인증키 오류: ' + t + ' · 팀 설정 링크를 다시 열어 주세요.', 'error'); }
+    else { const raw = (r.error && r.error.text) || r.status; const old = /올바르지 않습니다/.test(raw); const t = old ? '이 사이트용 키가 아닙니다 (예전 키)' : raw; el.textContent = '오류: ' + t; el.className = 'key-ok bad'; el.title = '팀 설정 링크를 다시 열거나, 인증키 변경에서 키를 다시 붙여 넣으세요.'; toast('브이월드 인증키 오류: ' + t + (old ? ' · 다른 주소(localhost)용으로 발급된 예전 키가 저장되어 있습니다. 최신 팀 설정 링크를 열거나 인증키 변경에서 새 키를 넣어 주세요.' : ' · 팀 설정 링크를 다시 열어 주세요.'), 'error'); }
   } catch (e) { el.textContent = '오류: ' + e.message; el.className = 'key-ok bad'; }
 }
 App.checkVworldKey = checkVworldKey;

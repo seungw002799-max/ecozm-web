@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>생태자연도 등급별 면적 산정 도구</title>
 <link rel="stylesheet" href="vendor/ol.css">
-<link rel="stylesheet" href="app.css?v=20261112t">
+<link rel="stylesheet" href="app.css?v=20261112u">
 </head>
 <body>
 <header class="topbar">
@@ -76,7 +76,7 @@
       <section class="card-section">
         <h2>3. 지도 표시</h2>
         <div class="mapopts" id="mapOptsWork"></div>
-        <label class="check"><input type="checkbox" id="admChk"> 시군구 경계 표시</label>
+        <label class="check"><input type="checkbox" id="admChk"> 행정구역 경계 표시 (시도·시군구·읍면동)</label>
         <div id="admMsg" class="hint" hidden></div>
       </section>
     </div>
@@ -187,7 +187,11 @@
         <h2>지도 표시</h2>
         <label class="field"><span>도면 주제</span><select id="layoutTheme"><option value="eco">생태자연도</option><option value="prot">보호구역 (최근접 거리)</option><option value="ecvam">국토환경성평가지도</option></select></label>
         <div class="mapopts" id="mapOptsLayout"></div>
-        <label class="check"><input type="checkbox" id="admChk2"> 시군구 경계 표시</label>
+        <label class="check"><input type="checkbox" id="admChk2"> 행정구역 경계 표시</label>
+        <div class="adm-opts">
+          <label class="check"><input type="checkbox" id="admLabelChk"> 명칭 표시 (시도·시군구)</label>
+          <label class="unit-input"><span class="lbl">읍면동은 1:</span><input type="number" id="admEmdScale" min="1000" step="1000" value="25000"><span class="unit">보다 확대 시</span></label>
+        </div>
         <div class="row"><button id="btnFit" class="btn" type="button">도면 이동</button></div>
       </section>
 
@@ -236,13 +240,13 @@
 <script src="vendor/proj4.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jsts.min.js"></script>
-<script src="cad.js?v=20261112t"></script>
-<script src="backend.js?v=20261112t"></script>
-<script src="app.js?v=20261112t"></script>
-<script src="ecvam.js?v=20261112t"></script>
-<script src="prot.js?v=20261112t"></script>
-  <script src="admin.js?v=20261112t"></script>
-  <script src="project.js?v=20261112t"></script>
-<script src="app2.js?v=20261112t"></script>
+<script src="cad.js?v=20261112u"></script>
+<script src="backend.js?v=20261112u"></script>
+<script src="app.js?v=20261112u"></script>
+<script src="ecvam.js?v=20261112u"></script>
+<script src="prot.js?v=20261112u"></script>
+  <script src="admin2.js?v=20261112u"></script>
+  <script src="project.js?v=20261112u"></script>
+<script src="app2.js?v=20261112u"></script>
 </body>
 </html>

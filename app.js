@@ -355,7 +355,7 @@ App.createLayerSet = function (getScale, live) {
   set.prot.on('prerender', onPre);
   set.admin = new ol.layer.Vector({
     source: App.src.admin, zIndex: 5.5, declutter: false,
-    style: f => (App.admStyle ? App.admStyle(f, getScale(), set) : null),
+    style: (f, res) => (App.admStyle ? App.admStyle(f, getScale(), set, res) : null),
   });
   set.admin.on('prerender', onPre);
   set.arrows = new ol.layer.Vector({

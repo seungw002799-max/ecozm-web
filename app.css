@@ -345,3 +345,6 @@ body[data-theme=ecvam] #mapOptsLayout .slider[data-row=opA], body[data-theme=ecv
 .ar-panel .pos-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .ar-panel .stepper { flex: 1 1 130px; min-width: 0; }
 .stepper .lbl { white-space: nowrap; }
+
+.adm-opts { display: flex; flex-direction: column; gap: 4px; margin: 2px 0 6px 22px; font-size: 12.5px; }
+.adm-opts .unit-input input { width: 80px; }

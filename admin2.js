@@ -1,0 +1,161 @@
+/* 행정구역 경계 (법정구역, 브이월드 2D데이터 API)
+ * - 시도(LT_C_ADSIDO_INFO) · 시군구(LT_C_ADSIGG_INFO) : 항상 표시
+ * - 읍면동(LT_C_ADEMD_INFO) : 도면 축척이 기준(기본 1:25,000)보다 크게 확대됐을 때만 표시
+ * - 명칭은 글자마다 네모 칸 (시도 회색, 시군구 파랑, 읍면동 연파랑, 흰 글자)
+ * admin.js 를 대체. prot.js 다음, project.js / app2.js 앞에 로드. */
+(function () {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const gjf = new ol.format.GeoJSON();
+  const LV = {
+    sido: { data: 'LT_C_ADSIDO_INFO', field: 'ctp_kor_nm', pad: 40000, name: '시도' },
+    sigg: { data: 'LT_C_ADSIGG_INFO', field: 'sig_kor_nm', pad: 30000, name: '시군구' },
+    emd: { data: 'LT_C_ADEMD_INFO', field: 'emd_kor_nm', pad: 8000, name: '읍면동' },
+  };
+  // 명칭 칸 모양 (pt = 글자 크기)
+  const TILE = {
+    sido: { bg: '#827878', pt: 13 },
+    sigg: { bg: '#3B8BF0', pt: 11 },
+    emd: { bg: '#AFCFF5', pt: 8.5 },
+  };
+  let loadedKey = null, loading = false;
+
+  App.admLook = () => {
+    const c = App.opts.admCustom || {};
+    return { color: /^#[0-9a-fA-F]{6}$/.test(c.color || '') ? c.color : '#555555', pt: Number(c.pt) || 11, name: c.name || '행정구역 경계' };
+  };
+  const emdScale = () => Number(App.opts.admEmdScale) || 25000;
+
+  // 글자 칸 이미지 (캐시)
+  const tileCache = new Map();
+  function tileImage(text, lvl, s) {
+    const t = TILE[lvl]; const base = App.admLook().pt / 11;          // 명칭 크기(pt) 설정은 전체 배율로 사용
+    const px = Math.max(6, t.pt * base * 0.3528 * App.PX_PER_MM96 * s);
+    const key = text + '|' + lvl + '|' + px.toFixed(1);
+    let c = tileCache.get(key); if (c) return c;
+    const chars = [...String(text).replace(/\s+/g, '')];
+    const box = Math.round(px * 1.25), gap = Math.round(px * (lvl === 'emd' ? 0.45 : 0.55)), pad = Math.ceil(px * 0.12);
+    c = document.createElement('canvas');
+    c.width = chars.length * box + (chars.length - 1) * gap + pad * 2; c.height = box + pad * 2;
+    const g = c.getContext('2d');
+    g.font = `bold ${px}px "EcoFont","Malgun Gothic",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    chars.forEach((ch, i) => {
+      const x = pad + i * (box + gap), y = pad;
+      g.fillStyle = t.bg; g.fillRect(x, y, box, box);
+      g.lineWidth = Math.max(1, px * 0.06); g.strokeStyle = 'rgba(0,0,0,0.55)'; g.strokeRect(x + 0.5, y + 0.5, box - 1, box - 1);
+      g.lineJoin = 'round'; g.lineWidth = Math.max(1.5, px * 0.14); g.strokeStyle = lvl === 'emd' ? '#4a6a90' : '#222';
+      g.strokeText(ch, x + box / 2, y + box / 2 + px * 0.04);
+      g.fillStyle = '#fff'; g.fillText(ch, x + box / 2, y + box / 2 + px * 0.04);
+    });
+    if (tileCache.size > 400) tileCache.clear();
+    tileCache.set(key, c);
+    return c;
+  }
+
+  const stCache = new Map();
+  function lineStyle(lvl, s) {
+    const lk = App.admLook(), key = lvl + lk.color + s.toFixed(3);
+    let st = stCache.get(key); if (st) return st;
+    const w = lvl === 'sido' ? 2.4 : lvl === 'sigg' ? 1.6 : 0.9;
+    const dash = lvl === 'sido' ? [12, 4, 2, 4] : lvl === 'sigg' ? [9, 3, 2, 3] : [2, 2.5];
+    st = new ol.style.Style({ stroke: new ol.style.Stroke({ color: lk.color, width: Math.max(0.6, w * s), lineDash: dash.map(v => v * s) }) });
+    if (stCache.size > 200) stCache.clear(); stCache.set(key, st);
+    return st;
+  }
+  App.admStyle = function (f, s, set, res) {
+    if (!App.opts.adm) return null;
+    const lvl = f.get('lvl') || 'sigg';
+    // 축척(1:N) 계산: 지도 단위/px × px/mm × 1000 × 위도 보정
+    if (lvl === 'emd') {
+      const lat = f.get('lat') || 36.5;
+      const denom = (res || 0) * Math.cos(lat * Math.PI / 180) * App.PX_PER_MM96 * s * 1000;
+      if (!res || denom > emdScale()) return null;
+    }
+    const st = lineStyle(lvl, s);
+    if (App.opts.admLabel === false) return st;
+    const lp = App.protLabelPoint ? App.protLabelPoint(f, set) : null;
+    if (!lp) return st;
+    const custom = (App.opts.protLabelText || {})['adm|' + f.get('name')];
+    const img = tileImage(custom != null && custom !== '' ? custom : f.get('name'), lvl, s);
+    return [st, new ol.style.Style({ geometry: new ol.geom.Point(lp), image: new ol.style.Icon({ img }), zIndex: lvl === 'sido' ? 3 : lvl === 'sigg' ? 2 : 1 })];
+  };
+
+  function wantedBox(pad) {
+    const bs = App.sites.filter(s => s.bbox).map(s => s.bbox);
+    if (!bs.length) return null;
+    const b = [Math.min(...bs.map(x => x[0])) - pad, Math.min(...bs.map(x => x[1])) - pad, Math.max(...bs.map(x => x[2])) + pad, Math.max(...bs.map(x => x[3])) + pad];
+    return b.map(v => Math.round(v / 1000) * 1000);
+  }
+  async function fetchLevel(lvl) {
+    const L = LV[lvl], b = wantedBox(L.pad);
+    const pts = [[b[0], b[1]], [b[2], b[1]], [b[0], b[3]], [b[2], b[3]]].map(p => proj4('EPSG:5186', 'EPSG:4326', p));
+    const bb = [Math.min(...pts.map(p => p[0])), Math.min(...pts.map(p => p[1])), Math.max(...pts.map(p => p[0])), Math.max(...pts.map(p => p[1]))];
+    const feats = [];
+    for (let page = 1; page <= 10; page++) {
+      const u = 'https://api.vworld.kr/req/data?service=data&request=GetFeature&format=json&crs=EPSG:4326&geometry=true&attribute=true&size=1000' +
+        `&page=${page}&data=${L.data}&key=${App.cfg.vworldKey}&domain=${encodeURIComponent(location.origin)}&geomFilter=BOX(${bb.join(',')})`;
+      const j = await App.jsonp(u);
+      const r = j.response || {};
+      if (r.status === 'NOT_FOUND') break;
+      if (r.status !== 'OK') throw new Error((r.error && r.error.text) || r.status);
+      const fs = (r.result && r.result.featureCollection && r.result.featureCollection.features) || [];
+      fs.forEach(f => feats.push(f));
+      if (feats.length >= (Number(r.record && r.record.total) || 0) || !fs.length) break;
+    }
+    return feats.filter(f => f.geometry).map(f => {
+      const of = gjf.readFeature({ type: 'Feature', geometry: f.geometry, properties: {} }, { dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857' });
+      of.set('name', (f.properties || {})[L.field] || ''); of.set('kind', 'adm'); of.set('lvl', lvl);
+      of.set('lat', (bb[1] + bb[3]) / 2);
+      return of;
+    });
+  }
+  async function load() {
+    if (!App.opts.adm || loading) return;
+    const msg = $('#admMsg');
+    const b = wantedBox(0);
+    if (!b) { if (msg) { msg.hidden = false; msg.textContent = '도면을 먼저 추가하면 주변 행정구역 경계를 불러옵니다.'; } return; }
+    const k = b.join(',');
+    if (k === loadedKey) return;
+    if (!App.cfg.vworldKey || !App.jsonp) { if (msg) { msg.hidden = false; msg.textContent = '브이월드 인증키가 없습니다.'; } return; }
+    loading = true;
+    if (msg) { msg.hidden = false; msg.textContent = '행정구역 경계를 받는 중...'; }
+    try {
+      const out = [];
+      for (const lvl of ['sido', 'sigg', 'emd']) out.push(...await fetchLevel(lvl));
+      App.src.admin.clear(); App.src.admin.addFeatures(out);
+      loadedKey = k;
+      const n = l => out.filter(f => f.get('lvl') === l).length;
+      if (msg) msg.textContent = `시도 ${n('sido')} · 시군구 ${n('sigg')} · 읍면동 ${n('emd')} (법정구역, 브이월드 실시간)`;
+    } catch (e) {
+      if (msg) { msg.hidden = false; msg.textContent = '행정구역 경계를 받지 못했습니다: ' + (e.message || e); }
+    } finally {
+      loading = false;
+      App.liveSets.forEach(s => s.changed && s.changed()); App.emit();
+    }
+  }
+  App.loadAdmin = load;
+
+  function sync() {
+    ['#admChk', '#admChk2'].forEach(id => { const c = $(id); if (c) c.checked = !!App.opts.adm; });
+    ['#admLabelChk'].forEach(id => { const c = $(id); if (c) c.checked = App.opts.admLabel !== false; });
+    const sc = $('#admEmdScale'); if (sc) sc.value = String(emdScale());
+  }
+  function build() {
+    if (App.opts.admLabel === undefined || App.opts.admLabelV !== 2) { App.opts.admLabel = true; App.opts.admLabelV = 2; App.saveOpts(); }   // 새 명칭 방식은 기본으로 켬
+    ['#admChk', '#admChk2'].forEach(id => {
+      const c = $(id); if (!c) return;
+      c.addEventListener('change', e => {
+        App.opts.adm = e.target.checked; App.saveOpts(); sync();
+        if (App.opts.adm) load();
+        App.liveSets.forEach(s => s.changed && s.changed()); App.emit();
+      });
+    });
+    const lc = $('#admLabelChk'); if (lc) lc.addEventListener('change', e => { App.opts.admLabel = e.target.checked; App.saveOpts(); App.liveSets.forEach(s => s.changed && s.changed()); App.emit(); });
+    const sc = $('#admEmdScale'); if (sc) sc.addEventListener('change', e => { App.opts.admEmdScale = Number(e.target.value) || 25000; App.saveOpts(); App.liveSets.forEach(s => s.changed && s.changed()); App.emit(); });
+    sync();
+    App.listeners.push(() => { if (App.opts.adm) { const b = wantedBox(0); if (b && b.join(',') !== loadedKey) load(); } });
+    if (App.opts.adm) setTimeout(load, 1500);
+  }
+  const origInit = App.init;
+  App.init = async function () { await origInit.apply(this, arguments); build(); };
+})();

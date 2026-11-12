@@ -10,7 +10,7 @@
   const VW = { src: '브이월드 2D데이터 API', tags: ['실시간'] };
   const EG = { src: '환경공간정보서비스 API', tags: ['실시간', '중계'], extra: '기후에너지환경부' };
   const KEI = { src: 'KEI 지역환경정보시스템 API', tags: ['실시간', '중계'], extra: '신산경표 산줄기 (박성태, 2010)' };
-  const NIER = { src: '물환경정보시스템 API', tags: ['실시간'], extra: ['국립환경과학원 수질오염총량 단위유역', '사업지구가 속한 단위유역만 표시'] };
+  const NIER = { src: '물환경정보시스템 API', tags: ['실시간'], extra: ['국립환경과학원 수질오염총량 단위유역', '표에는 사업지구가 속한 유역만, 지도에는 맞닿은 주변 유역도 표시'] };
   const EIA = { src: 'EIAGIS API', tags: ['실시간', '중계'], extra: ['환경영향평가 지리정보서비스', '국립생물자원관 2014년 자료'] };
   const ECZ = { src: '생태자연도 API (data.go.kr)', tags: ['실시간'], extra: ['국립생태원 · 1등급, 별도관리지역만 표시', '반경이 크면 받는 데 시간이 걸립니다'] };
   const sg = p => [p.sigg_name, p.uname].filter(Boolean).join(' ');
@@ -99,11 +99,14 @@
     const p = BY_ID[f.get('kind')]; if (!p) return null;
     const show = (App.opts.protShow || {})[p.id] !== false;
     if (!show) return null;
-    const key = p.id + '|' + s.toFixed(3);
+    const nb = p.overlapOnly && !f.get('host');
+    const key = p.id + '|' + s.toFixed(3) + (nb ? '|nb' : '');
     let st = cache.get(key);
     if (!st) {
       st = p.line
         ? new ol.style.Style({ stroke: new ol.style.Stroke({ color: p.color, width: Math.max(1, 3 * s) }) })
+        : nb
+        ? new ol.style.Style({ stroke: new ol.style.Stroke({ color: p.color, width: Math.max(0.8, 1.6 * s), lineDash: [6 * s, 4 * s] }) })
         : p.src === 'eco1'
         ? new ol.style.Style({ fill: new ol.style.Fill({ color: hexA(p.color, 0.45) }), stroke: new ol.style.Stroke({ color: p.color, width: Math.max(0.5, 1 * s) }) })
         : new ol.style.Style({
@@ -289,9 +292,10 @@
       for (const p of chosen) {
         msg.textContent = `${p.short} 받는 중...`;
         let fc;
-        try { fc = p.src === 'vworld' ? await fetchVworld(p, q.b4326) : p.src === 'egis' ? await fetchEgis(p, q.b4326) : p.src === 'kei' ? await fetchKei(p, q.b4326) : p.src === 'nier' ? await fetchNier(p, q.b4326) : p.src === 'eco1' ? await fetchEco1(p, q.b5186, msg) : await fetchEiagis(p, q.b4326); }
+        try { fc = p.src === 'vworld' ? await fetchVworld(p, q.b4326) : p.src === 'egis' ? await fetchEgis(p, q.b4326) : p.src === 'kei' ? await fetchKei(p, q.b4326) : p.src === 'nier' ? await fetchNier(p, queryBox(Math.max(radius, 20000)).b4326) : p.src === 'eco1' ? await fetchEco1(p, q.b5186, msg) : await fetchEiagis(p, q.b4326); }
         catch (e) { errs.push(e.message); continue; }
         if (!srcs.includes(fc._src)) srcs.push(fc._src);
+        const nbr = [], hosts = [];   // 단위유역: 사업지구가 속하지 않은 주변 유역 (지도 표시용)
         (fc.features || []).forEach((f, i) => {
           if (!f.geometry) return;
           // 4326 -> 5186 (Z 제거)
@@ -299,14 +303,23 @@
           const g5 = { type: f.geometry.type, coordinates: tf(f.geometry.coordinates) };
           let jg; try { jg = rd.read(g5); if (!jg.isValid()) jg = jg.buffer(0); } catch (e) { return; }
           const dist = jg.distance(site);
+          if (p.overlapOnly && dist > 0) { nbr.push({ jg, g5, dist, name: (f.properties || {}).name || '' }); return; }   // 표에는 속한 유역만
           if (dist > radius) return;                         // 반경 밖은 제외
-          if (p.overlapOnly && dist > 0) return;             // 단위유역: 사업지구가 속한 유역만
           let over = 0; try { over = dist === 0 ? jg.intersection(site).getArea() : 0; } catch (e) { over = 0; }
           const name = (f.properties || {})[p.nameField || 'name'] || `(이름 없음 ${i + 1})`;
           let np = null; try { if (dist > 0) np = jsts.operation.distance.DistanceOp.nearestPoints(site, jg).map(c => [c.x, c.y]); } catch (e) { np = null; }
           rows.push({ kind: p.id, kindLabel: p.short, name, dist, over, area: jg.getArea(), np });
           const of = fmt3857.readFeature({ type: 'Feature', geometry: g5, properties: {} }, { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' });
           of.set('kind', p.id); of.set('name', name); of.set('dist', dist); of.set('area', jg.getArea());
+          if (p.overlapOnly) { of.set('host', true); hosts.push(jg); }
+          App.src.prot.addFeature(of);
+        });
+        // 주변 단위유역: 속한 유역과 맞닿은 유역 + 검토 반경 안의 유역을 함께 표시 (표·화살표에는 넣지 않음)
+        nbr.forEach(n => {
+          const touch = hosts.some(h => { try { return h.distance(n.jg) < 50; } catch (e) { return false; } });
+          if (!touch && n.dist > radius) return;
+          const of = fmt3857.readFeature({ type: 'Feature', geometry: n.g5, properties: {} }, { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' });
+          of.set('kind', p.id); of.set('name', n.name); of.set('dist', n.dist); of.set('host', false);
           App.src.prot.addFeature(of);
         });
         if (p.labelNearest) {   // 조각이 많은 생태자연도는 가장 가까운(겹치면 가장 큰) 조각 하나에만 명칭

@@ -319,3 +319,7 @@ body[data-theme=ecvam] #mapOptsLayout .slider[data-row=opA], body[data-theme=ecv
 .proj-item .pj-main b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .proj-item .pj-meta { font-size: 11px; color: var(--muted); }
 .proj-item .pj-src { display: flex; gap: 3px; }
+
+.site-op { grid-template-columns: 16px 1fr 70px 74px !important; }
+.site-op .pct-box { display: flex; align-items: center; gap: 2px; white-space: nowrap; }
+.site-op .pct-box input { width: 52px; }

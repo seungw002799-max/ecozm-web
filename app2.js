@@ -418,7 +418,7 @@
       sites.forEach(s => { const v = Math.round((s.opacity == null ? 1 : Number(s.opacity)) * 100); h += `<div class="slider site-op">${lg('cat:' + s.category)}<span title="${esc(s.name)}">${esc(s.category)} · ${esc(s.name)}</span><input type="range" min="0" max="100" step="5" data-siteop="${s.id}" value="${v}"><span class="pct-box"><input type="number" min="0" max="100" step="5" data-siteop="${s.id}" value="${v}"><span>%</span></span></div>`; });
     }
     if (kinds.length || adm) {
-      h += '<div class="sty-head"><span>범례</span><span>색</span><span>범례 이름</span><span>명칭 크기</span></div>';
+      h += '<div class="sty-head"><span title="범례에 표시">✓</span><span>색</span><span>범례 이름</span><span>명칭 크기</span></div>';
       kinds.forEach(p => { const c = (App.opts.protCustom || {})[p.id] || {}; const lk = App.protLook(p); h += row(p.id, c.name || '', lk.color, lk.pt, p.short); });
       if (adm) { const c = App.opts.admCustom || {}; const al = App.admLook(); h += row('adm', c.name || '', al.color, al.pt, '시군구 경계'); }
     }

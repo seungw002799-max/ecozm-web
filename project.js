@@ -84,11 +84,12 @@
 
   const safe = n => String(n || '').replace(/[\\/:*?"<>|]/g, '_').trim();
   let curName = localStorage.getItem('ecoProjName') || '';
+  let autoNamed = localStorage.getItem('ecoProjAuto') === '1';   // 사업명을 안 넣어 도면 이름으로 자동 저장 중인지
   let dir = null, dirOk = false;
   const canFolder = !!window.showDirectoryPicker;
 
   function nameInput() { return $('#projName'); }
-  function setName(n) { curName = n || ''; localStorage.setItem('ecoProjName', curName); const i = nameInput(); if (i && i.value !== curName) i.value = curName; }
+  function setName(n, auto) { curName = n || ''; autoNamed = !!auto; localStorage.setItem('ecoProjName', curName); localStorage.setItem('ecoProjAuto', autoNamed ? '1' : '0'); const i = nameInput(); if (i && i.value !== curName) i.value = curName; }
   function ensureName() {
     let n = (nameInput().value || '').trim();
     if (!n) {
@@ -97,7 +98,7 @@
       if (!n || !n.trim()) return null;
       n = n.trim();
     }
-    setName(n); return n;
+    setName(n, false); return n;
   }
 
   async function writeFolder(name, d) {
@@ -213,7 +214,7 @@
     clearTimeout(timer);
     timer = setTimeout(async () => {
       if (!App.sites.some(s => s.geometry)) return;
-      if (!curName) { const s = App.sites.find(x => x.geometry); setName(s.name.replace(/\.[^.]+$/, '')); }
+      if (!curName) { const s = App.sites.find(x => x.geometry); setName(s.name.replace(/\.[^.]+$/, ''), true); }
       const d = collect();
       const sig = JSON.stringify([d.sites.map(s => [s.name, s.area, s.opacity]), d.eco && d.eco.eczmCount, d.prot && d.prot.rows.length, d.opts, d.layout, d.arrows.features.length, d.arrows.features.map(f => f.properties.on)]);
       if (sig === lastSig) return; lastSig = sig;
@@ -236,7 +237,12 @@
 
   async function build() {
     setName(curName);
-    nameInput().addEventListener('change', () => setName(nameInput().value.trim()));
+    nameInput().addEventListener('change', async () => {
+      const old = curName, wasAuto = autoNamed, n = nameInput().value.trim();
+      setName(n);
+      // 자동 이름으로 저장되던 작업에 사업명을 붙이면 자동 이름 항목은 지우고 새 이름으로 저장
+      if (n && old && old !== n && App.sites.some(s => s.geometry)) { if (wasAuto) { try { await pDel(old); } catch (e) { /* 무시 */ } } lastSig = ''; saveProject(true).catch(() => {}); }
+    });
     $('#btnSaveWork').addEventListener('click', () => saveProject(false));
     $('#btnNewWork').addEventListener('click', newProject);
     $('#btnExportWork').addEventListener('click', exportFile);

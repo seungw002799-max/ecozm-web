@@ -79,9 +79,11 @@
         if (sg) { try { const cut = part.difference(sg.buffer(w * 0.06)); if (!cut.isEmpty() && cut.getArea() > part.getArea() * 0.05) part = cut; } catch (e) { /* 무시 */ } }
         let big = part, ba = -1;
         for (let i = 0; i < part.getNumGeometries(); i++) { const q = part.getGeometryN(i); if (q.getArea() > ba) { ba = q.getArea(); big = q; } }
-        if (f.get('lvl') === 'sido') {
-          // 왼쪽 위 모서리에서 가장 가까운 보이는 점 → 안쪽으로 조금 이동
-          const corner = new jsts.geom.GeometryFactory().createPoint(new jsts.geom.Coordinate(ext[0] + w * 0.16, ext[3] - h * 0.12));
+        const lvl = f.get('lvl');
+        if (lvl === 'sido' || lvl === 'sigg') {
+          // 겹치지 않도록 기준점을 나눔: 시도는 왼쪽 위, 시군구는 가운데 위쪽 (보이는 부분 중 기준점에 가장 가까운 곳)
+          const ax = lvl === 'sido' ? 0.16 : 0.62, ay = lvl === 'sido' ? 0.12 : 0.3;
+          const corner = new jsts.geom.GeometryFactory().createPoint(new jsts.geom.Coordinate(ext[0] + w * ax, ext[3] - h * ay));
           const c = jsts.operation.distance.DistanceOp.nearestPoints(big, corner)[0];
           const ip = big.getInteriorPoint().getCoordinate();
           pt = [c.x + (ip.x - c.x) * 0.15, c.y + (ip.y - c.y) * 0.15];

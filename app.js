@@ -313,7 +313,7 @@ App.createLayerSet = function (getScale, live) {
   const set = { baseKey: null };
   set.base = new ol.layer.Tile({ visible: false, zIndex: 0 });
   set.label = new ol.layer.Tile({ visible: false, zIndex: 1 });
-  set.around = new ol.layer.Vector({
+  set.around = new ol.layer.VectorImage({ imageRatio: 1.5,
     source: App.src.around, zIndex: 2,
     // 주변 생태자연도: 3등급(흰색)은 '흰색(3등급) 투명도', 나머지는 '생태자연도 투명도'
     style: f => {
@@ -322,7 +322,7 @@ App.createLayerSet = function (getScale, live) {
       return insideStyle(g, getScale(), a, true);
     },
   });
-  set.inside = new ol.layer.Vector({
+  set.inside = new ol.layer.VectorImage({ imageRatio: 1.5,
     source: App.src.inside, zIndex: 3,
     style: f => {
       let g = String(f.get('grade'));
@@ -337,7 +337,7 @@ App.createLayerSet = function (getScale, live) {
     style: f => siteStyle(f.get('category'), getScale(), (App.sites.find(x => x.id === f.get('siteId')) || {}).opacity),
   });
   set.ecvam = new ol.layer.Tile({ zIndex: 2.5, visible: false });   // 국토환경성평가지도 (ecvam.js)
-  set.prot = new ol.layer.Vector({
+  set.prot = new ol.layer.VectorImage({ imageRatio: 1.5,
     source: App.src.prot, zIndex: 3.5,
     style: f => (App.protStyle ? App.protStyle(f, getScale(), set) : null),
   });
@@ -348,12 +348,14 @@ App.createLayerSet = function (getScale, live) {
     const ex = e.frameState.extent, o = set.viewExtent;
     const tol = o ? (o[2] - o[0]) * 0.02 : 0;
     if (!o || Math.abs(ex[0] - o[0]) > tol || Math.abs(ex[1] - o[1]) > tol || Math.abs(ex[2] - o[2]) > tol || Math.abs(ex[3] - o[3]) > tol) {
-      set.viewExtent = ex.slice();
-      setTimeout(() => { set.prot.changed(); if (set.admin) set.admin.changed(); }, 0);
+      // 움직이는 동안에는 이전 명칭 위치를 쓰고, 멈춘 뒤(0.3초) 한 번만 다시 계산
+      clearTimeout(set._lpTimer);
+      const exs = ex.slice();
+      set._lpTimer = setTimeout(() => { set.viewExtent = exs; set.prot.changed(); if (set.admin) set.admin.changed(); }, o ? 300 : 0);
     }
   };
   set.prot.on('prerender', onPre);
-  set.admin = new ol.layer.Vector({
+  set.admin = new ol.layer.VectorImage({ imageRatio: 1.5,
     source: App.src.admin, zIndex: 5.5, declutter: false,
     style: (f, res) => (App.admStyle ? App.admStyle(f, getScale(), set, res) : null),
   });

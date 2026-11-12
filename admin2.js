@@ -145,8 +145,14 @@
       fs.forEach(f => feats.push(f));
       if (feats.length >= (Number(r.record && r.record.total) || 0) || !fs.length) break;
     }
+    // 받은 범위 밖은 잘라내고 단순화 (시도 경계는 도 전체라 꼭짓점이 수십만 개)
+    const e3 = ol.proj.transformExtent(bb, 'EPSG:4326', 'EPSG:3857');
+    const rd = new jsts.io.GeoJSONReader(), wr = new jsts.io.GeoJSONWriter();
+    const clip = new jsts.geom.GeometryFactory().toGeometry(new jsts.geom.Envelope(e3[0], e3[2], e3[1], e3[3]));
+    const tol = lvl === 'emd' ? 1.5 : 3;
     return feats.filter(f => f.geometry).map(f => {
       const of = gjf.readFeature({ type: 'Feature', geometry: f.geometry, properties: {} }, { dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857' });
+      try { let g = rd.read(gjf.writeGeometryObject(of.getGeometry())); if (!clip.getEnvelopeInternal().contains(g.getEnvelopeInternal())) g = g.intersection(clip); g = jsts.simplify.DouglasPeuckerSimplifier.simplify(g, tol); if (!g.isEmpty()) of.setGeometry(gjf.readGeometry(wr.write(g))); } catch (e) { /* 원본 유지 */ }
       of.set('name', (f.properties || {})[L.field] || ''); of.set('kind', 'adm'); of.set('lvl', lvl);
       of.set('lat', (bb[1] + bb[3]) / 2);
       return of;

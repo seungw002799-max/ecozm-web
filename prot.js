@@ -327,6 +327,18 @@
       let site = siteGeoms[0];
       for (let i = 1; i < siteGeoms.length; i++) site = site.union(siteGeoms[i]);
       const fmt3857 = new ol.format.GeoJSON();
+      // 지도용 도형: 검토 범위(+여유) 밖은 잘라내고 1m 단위로 단순화 (거리·중첩 계산은 원본 도형으로)
+      const gwr = new jsts.io.GeoJSONWriter(), gfac = new jsts.geom.GeometryFactory();
+      const clipOf = rM => { const b = queryBox(rM * 1.3 + 2000).b5186; return gfac.toGeometry(new jsts.geom.Envelope(b[0], b[2], b[1], b[3])); };
+      const clipR = clipOf(radius), clipBig = clipOf(Math.max(radius, 20000));
+      const disp = (jg, g5, clip) => {
+        try {
+          let d = jg;
+          if (!clip.getEnvelopeInternal().contains(d.getEnvelopeInternal())) d = d.intersection(clip);
+          d = jsts.simplify.DouglasPeuckerSimplifier.simplify(d, 1.0);
+          return d.isEmpty() ? g5 : gwr.write(d);
+        } catch (e) { return g5; }
+      };
       const srcs = [], errs = [];
       for (const p of chosen) {
         msg.textContent = `${p.short} 받는 중...`;
@@ -342,14 +354,14 @@
           const g5 = { type: f.geometry.type, coordinates: tf(f.geometry.coordinates) };
           let jg; try { jg = rd.read(g5); if (!jg.isValid()) jg = jg.buffer(0); } catch (e) { return; }
           const dist = jg.distance(site);
-          if (p.overlapOnly && dist > 0) { nbr.push({ jg, g5, dist, name: (f.properties || {}).name || '' }); return; }   // 표에는 속한 유역만
+          if (p.overlapOnly && dist > 0) { nbr.push({ jg, g5: disp(jg, g5, clipBig), dist, name: (f.properties || {}).name || '' }); return; }   // 표에는 속한 유역만
           if (dist > radius) return;                         // 반경 밖은 제외
           let over = 0; try { over = dist === 0 ? jg.intersection(site).getArea() : 0; } catch (e) { over = 0; }
           const raw = (f.properties || {})[p.nameField || 'name'];
           const name = raw ? (p.nameFmt ? p.nameFmt(raw) : raw) : `(이름 없음 ${i + 1})`;
           let np = null; try { if (dist > 0) np = jsts.operation.distance.DistanceOp.nearestPoints(site, jg).map(c => [c.x, c.y]); } catch (e) { np = null; }
           rows.push({ kind: p.id, kindLabel: p.short, name, uid: (f.properties || {}).uid || '', dist, over, area: jg.getArea(), np });
-          const of = fmt3857.readFeature({ type: 'Feature', geometry: g5, properties: {} }, { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' });
+          const of = fmt3857.readFeature({ type: 'Feature', geometry: disp(jg, g5, p.overlapOnly ? clipBig : clipR), properties: {} }, { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' });
           of.set('kind', p.id); of.set('name', name); of.set('dist', dist); of.set('area', jg.getArea());
           if (p.overlapOnly) { of.set('host', true); hosts.push(jg); }
           App.src.prot.addFeature(of);

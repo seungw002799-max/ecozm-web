@@ -215,8 +215,8 @@
     timer = setTimeout(async () => {
       if (!App.sites.some(s => s.geometry)) return;
       if (!curName) { const s = App.sites.find(x => x.geometry); setName(s.name.replace(/\.[^.]+$/, ''), true); }
-      const d = collect();
-      const sig = JSON.stringify([d.sites.map(s => [s.name, s.area, s.opacity]), d.eco && d.eco.eczmCount, d.prot && d.prot.rows.length, d.opts, d.layout, d.arrows.features.length, d.arrows.features.map(f => f.properties.on)]);
+      // 바뀐 게 있을 때만 저장 (도형 전체를 모으는 collect 는 비싸므로 가벼운 값으로 먼저 비교)
+      const sig = JSON.stringify([App.sites.map(s => [s.name, s.area, s.opacity, s.category]), App.eczmCount, App.protRows ? App.protRows().map(r => r.key + r.arrow) : 0, App.opts, App.layout && App.layout.getL ? App.layout.getL() : 0, App.src.arrows.getFeatures().map(f => f.get('key') + f.get('on')), App.ecvamResult ? !!App.ecvamResult() : 0]);
       if (sig === lastSig) return; lastSig = sig;
       try { await saveProject(true); } catch (e) { /* 저장 공간 부족 등은 무시 */ }
     }, 4000);
@@ -251,7 +251,6 @@
     fi.addEventListener('change', () => { const f = fi.files[0]; fi.value = ''; if (f) openFile(f); });
     App.listeners.push(scheduleAuto);
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && ready && curName && App.sites.some(s => s.geometry)) { lastSig = ''; saveProject(true).catch(() => {}); } });
-    setInterval(() => { if (ready) scheduleAuto(); }, 30000);
     await loadFolderHandle(); renderFolder();
     await offerRestore(); renderList();
     ready = true;

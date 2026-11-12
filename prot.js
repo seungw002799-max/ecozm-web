@@ -12,9 +12,13 @@
   const KEI = { src: 'KEI 지역환경정보시스템 API', tags: ['실시간', '중계'], extra: '신산경표 산줄기 (박성태, 2010)' };
   const NIER = { src: '물환경정보시스템 API', tags: ['실시간'], extra: ['국립환경과학원 수질오염총량 단위유역', '사업지구가 속한 단위유역만 표시'] };
   const EIA = { src: 'EIAGIS API', tags: ['실시간', '중계'], extra: ['환경영향평가 지리정보서비스', '국립생물자원관 2014년 자료'] };
+  const ECZ = { src: '생태자연도 API (data.go.kr)', tags: ['실시간'], extra: ['국립생태원 · 1등급, 별도관리지역만 표시', '반경이 크면 받는 데 시간이 걸립니다'] };
   const sg = p => [p.sigg_name, p.uname].filter(Boolean).join(' ');
+  // 야생생물 보호구역: 자료 명칭이 옛 법령 이름(야생동·식물)이라 현행 이름으로 표기
+  const sgW = p => sg(p).replace(/야생동·식물/g, '야생생물');
   // 묶음(group)은 목록에서 한 칸으로 보이고, 안의 항목을 각각 켜고 끌 수 있다. cat 은 비슷한 것끼리 모으는 구분
   const GROUPS = {
+    eczm: { label: '생태자연도', note: ECZ },
     park: { label: '자연공원', note: VW },
     ridge: { label: '백두대간 및 산줄기 (정맥·기맥·지맥)', note: KEI },
     wild: { label: '야생생물 보호구역', note: VW },
@@ -23,7 +27,8 @@
   const CATS = { eco: '자연·생태', bio: '야생생물·습지', water: '수질·수자원', air: '대기' };
   const PROT = [
     // 자연·생태
-    { cat: 'eco', id: 'eco1', label: '생태자연도 1등급', short: '생태자연도 1등급', src: 'eco1', name: () => '생태자연도 1등급', noLabel: true, color: '#1AA800', note: { src: '생태자연도 API (data.go.kr)', tags: ['실시간'], extra: ['국립생태원 · 1등급 권역만 표시', '반경이 크면 받는 데 시간이 걸립니다'] } },
+    { cat: 'eco', group: 'eczm', id: 'eco1', grade: '1', label: '1등급', short: '생태자연도 1등급', src: 'eco1', name: () => '생태자연도 1등급', labelNearest: true, color: '#1AA800', note: ECZ },
+    { cat: 'eco', group: 'eczm', id: 'eco9', grade: '9', label: '별도관리지역', short: '별도관리지역', src: 'eco1', name: () => '별도관리지역', labelNearest: true, color: '#FF8000', note: ECZ },
     { cat: 'eco', group: 'park', id: 'np_nat', label: '국립공원', short: '국립공원', src: 'vworld', data: 'LT_C_WGISNPGUG', name: p => p.park_name, color: '#1B7F3B', note: VW },
     { cat: 'eco', group: 'park', id: 'np_do', label: '도립공원', short: '도립공원', src: 'vworld', data: 'LT_C_WGISNPDO', name: p => p.park_name, color: '#5E9E1F', note: VW },
     { cat: 'eco', group: 'park', id: 'np_gun', label: '군립공원', short: '군립공원', src: 'vworld', data: 'LT_C_WGISNPGUN', name: p => p.park_name, color: '#A08A00', note: VW },
@@ -34,8 +39,8 @@
     { cat: 'eco', group: 'ridge', id: 'ridge3', label: '기맥', short: '기맥', src: 'kei', typename: 'keilocal:mtridge_l3_pl', name: p => p.sbsnnm || '기맥', color: '#A1887F', line: true, note: KEI },
     { cat: 'eco', group: 'ridge', id: 'ridge4', label: '지맥', short: '지맥', src: 'kei', typename: 'keilocal:mtridge_l4_pl', name: p => p.sbsnnm || '지맥', color: '#8D6E63', line: true, note: KEI },
     // 야생생물·습지
-    { cat: 'bio', group: 'wild', id: 'wild', label: '야생생물 보호구역', short: '야생생물 보호구역', src: 'vworld', data: 'LT_C_UM221', keep: p => !/특별/.test(p.uname || ''), name: sg, color: '#C62828', note: VW },
-    { cat: 'bio', group: 'wild', id: 'wild_sp', label: '야생생물 특별보호구역', short: '야생생물 특별보호구역', src: 'vworld', data: 'LT_C_UM221', attr: 'uname:like:특별', name: sg, color: '#8E0000', note: VW },
+    { cat: 'bio', group: 'wild', id: 'wild', label: '야생생물 보호구역', short: '야생생물 보호구역', src: 'vworld', data: 'LT_C_UM221', keep: p => !/특별/.test(p.uname || ''), name: sgW, color: '#C62828', note: VW },
+    { cat: 'bio', group: 'wild', id: 'wild_sp', label: '야생생물 특별보호구역', short: '야생생물 특별보호구역', src: 'vworld', data: 'LT_C_UM221', attr: 'uname:like:특별', name: sgW, color: '#8E0000', note: VW },
     { cat: 'bio', id: 'winter_bird', label: '겨울철 조류 동시센서스 조사지역', short: '조류 조사지역', src: 'eiagis', typename: 'WINTER_BIRD', nameField: 'name', color: '#7B3FA0', note: EIA,
       local: 'data/winter_bird.geojson' },   // EIAGIS 서버가 외부 사이트 접속(CORS)을 막아 둔 경우 쓰는 사본
     { cat: 'bio', group: 'wet', id: 'wetland', label: '습지보호지역 (내륙)', short: '습지보호지역', src: 'vworld', data: 'LT_C_UM901', name: sg, color: '#00838F', note: VW },
@@ -99,7 +104,7 @@
     if (!st) {
       st = p.line
         ? new ol.style.Style({ stroke: new ol.style.Stroke({ color: p.color, width: Math.max(1, 3 * s) }) })
-        : p.id === 'eco1'
+        : p.src === 'eco1'
         ? new ol.style.Style({ fill: new ol.style.Fill({ color: hexA(p.color, 0.45) }), stroke: new ol.style.Stroke({ color: p.color, width: Math.max(0.5, 1 * s) }) })
         : new ol.style.Style({
           fill: new ol.style.Fill({ color: hexA(p.color, 0.18) }),
@@ -108,7 +113,7 @@
       if (cache.size > 500) cache.clear();
       cache.set(key, st);
     }
-    if (p.noLabel) return st;
+    if (p.labelNearest && !f.get('labelMe')) return st;
     const label = App.opts.protLabel !== false ? (f.get('name') || '') : '';
     if (!label) return st;
     const lp = labelPoint(f, set);
@@ -234,19 +239,19 @@
 
   // 생태자연도 1등급: 생태자연도 탭에서 받아 둔 자료가 범위를 덮으면 재사용, 아니면 새로 받기 (EPSG:5186)
   async function fetchEco1(p, b, msg) {
-    if (!App.cfg.dataGoKrKey) throw new Error('생태자연도 1등급: data.go.kr 인증키가 없습니다.');
+    if (!App.cfg.dataGoKrKey) throw new Error('생태자연도: data.go.kr 인증키가 없습니다.');
     const c = App.eczmCache;
     let feats;
     if (c && c.bbox[0] <= b[0] && c.bbox[1] <= b[1] && c.bbox[2] >= b[2] && c.bbox[3] >= b[3]) feats = c.features;
     else {
       try {
-        const got = await App.collectEczm(b, (calls, n) => { msg.textContent = `생태자연도 1등급 받는 중... 호출 ${calls}회, 폴리곤 ${n.toLocaleString()}개`; });
+        const got = await App.collectEczm(b, (calls, n) => { msg.textContent = `생태자연도 받는 중... 호출 ${calls}회, 폴리곤 ${n.toLocaleString()}개`; });
         feats = got.features;
         App.eczmCache = { bbox: b, features: feats };
-      } catch (e) { throw new Error(`생태자연도 1등급 자료를 받지 못했습니다 (${e.message})`); }
+      } catch (e) { throw new Error(`생태자연도 자료를 받지 못했습니다 (${e.message})`); }
     }
     return { type: 'FeatureCollection', _src: '생태자연도 실시간', _crs5186: true,
-      features: feats.filter(f => f.geometry && String((f.properties || {}).eczm_grad) === '1').map(f => ({ type: 'Feature', geometry: f.geometry, properties: { name: p.name() } })) };
+      features: feats.filter(f => f.geometry && String((f.properties || {}).eczm_grad) === p.grade).map(f => ({ type: 'Feature', geometry: f.geometry, properties: { name: p.name() } })) };
   }
 
   // 사업지구(전체) 범위 + 반경 -> EPSG:4326 bbox [minLon,minLat,maxLon,maxLat]
@@ -301,9 +306,14 @@
           let np = null; try { if (dist > 0) np = jsts.operation.distance.DistanceOp.nearestPoints(site, jg).map(c => [c.x, c.y]); } catch (e) { np = null; }
           rows.push({ kind: p.id, kindLabel: p.short, name, dist, over, area: jg.getArea(), np });
           const of = fmt3857.readFeature({ type: 'Feature', geometry: g5, properties: {} }, { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' });
-          of.set('kind', p.id); of.set('name', name);
+          of.set('kind', p.id); of.set('name', name); of.set('dist', dist); of.set('area', jg.getArea());
           App.src.prot.addFeature(of);
         });
+        if (p.labelNearest) {   // 조각이 많은 생태자연도는 가장 가까운(겹치면 가장 큰) 조각 하나에만 명칭
+          let best = null;
+          App.src.prot.getFeatures().filter(f => f.get('kind') === p.id).forEach(f => { if (!best || f.get('dist') < best.get('dist') || (f.get('dist') === best.get('dist') && f.get('area') > best.get('area'))) best = f; });
+          if (best) best.set('labelMe', true);
+        }
       }
       // 같은 구분·명칭이 여러 조각이면 한 줄로 (최근접 거리 = 가장 가까운 조각, 중첩 = 합)
       const merged = new Map();

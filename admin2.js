@@ -149,7 +149,7 @@
     const e3 = ol.proj.transformExtent(bb, 'EPSG:4326', 'EPSG:3857');
     const rd = new jsts.io.GeoJSONReader(), wr = new jsts.io.GeoJSONWriter();
     const clip = new jsts.geom.GeometryFactory().toGeometry(new jsts.geom.Envelope(e3[0], e3[2], e3[1], e3[3]));
-    const tol = lvl === 'emd' ? 1.5 : 3;
+    const tol = lvl === 'sido' ? 15 : lvl === 'sigg' ? 6 : 2;   // 3857 단위(m) 단순화 허용치
     return feats.filter(f => f.geometry).map(f => {
       const of = gjf.readFeature({ type: 'Feature', geometry: f.geometry, properties: {} }, { dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857' });
       try { let g = rd.read(gjf.writeGeometryObject(of.getGeometry())); if (!clip.getEnvelopeInternal().contains(g.getEnvelopeInternal())) g = g.intersection(clip); g = jsts.simplify.DouglasPeuckerSimplifier.simplify(g, tol); if (!g.isEmpty()) of.setGeometry(gjf.readGeometry(wr.write(g))); } catch (e) { /* 원본 유지 */ }

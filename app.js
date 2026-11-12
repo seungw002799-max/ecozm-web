@@ -537,11 +537,11 @@ function renderCard(s) {
      <span class="cnt">${l.count}개 · 닫힘 ${l.closed}</span></label>`).join('');
   let crs = '';
   if (s.cands && s.cands.length) {
-    const opts = s.cands.map((c, i) => `<option value="${i}" ${i === s.crsIdx ? 'selected' : ''}>${esc(c.label || c.key)} (${c.hits == null ? '확인불가' : c.hits + '건'})</option>`).join('');
+    const opts = s.cands.map((c, i) => `<option value="${i}" ${i === s.crsIdx ? 'selected' : ''}>${esc(c.label || c.key)} (${c.hits == null ? '확인불가' : '주변 1km ' + c.hits + '건'})</option>`).join('');
     const c = s.cands[s.crsIdx] || s.cands[0];
     const geo = (c.lat != null && c.lon != null) ? `, 경위도 ${Number(c.lat).toFixed(2)}N ${Number(c.lon).toFixed(2)}E` : '';
     crs = `<label class="field"><span>좌표계</span><select data-act="crs">${opts}</select></label>
-      <div class="note">자동 판정: ${esc(c.key)} (${c.hits == null ? '생태자연도 확인 불가' : '생태자연도 ' + c.hits + '건 확인'}${geo})</div>`;
+      <div class="note">자동 판정: ${esc(c.key)} (${c.hits == null ? '생태자연도 확인 불가' : '주변 1km 생태자연도 ' + c.hits + '건'}${geo})</div>`;
     if (s.cands.filter(x => x.hits > 0).length >= 2) {
       crs += '<div class="note warn">다른 좌표계도 육지에 위치합니다. 지도에서 위치를 꼭 확인하세요.</div>';
     }
@@ -609,7 +609,10 @@ async function reprocess(s, keepCrs) {
       let down = false;
       await Promise.all(cands.map(async c => {
         c.hits = null;
-        const b = c.bbox5186;
+        // 도면 범위만 보면 3등급(폴리곤 없음)만 있는 작은 도면은 0건이 되어 엉뚱한 좌표계가 뽑힌다.
+        // 주변 1km 까지 넓혀 '육지(생태자연도 자료가 있는 곳)인지'만 확인하고, 육지인 후보 중 우선순위(5186 먼저)로 고른다.
+        const b0 = c.bbox5186, P = 1000;
+        const b = b0 && [b0[0] - P, b0[1] - P, b0[2] + P, b0[3] + P];
         if (!b || !App.cfg.dataGoKrKey || down) return;
         try {
           const j = await limited(() => fetchJsonRetry(wfsUrl(b, 1), 1, 12000));

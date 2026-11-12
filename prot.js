@@ -41,7 +41,7 @@
     // 야생생물·습지
     { cat: 'bio', group: 'wild', id: 'wild', label: '야생생물 보호구역', short: '야생생물 보호구역', src: 'vworld', data: 'LT_C_UM221', keep: p => !/특별/.test(p.uname || ''), name: sgW, uid: p => [p.dyear, p.dnum].filter(Boolean).join('-'), color: '#C62828', note: VW },
     { cat: 'bio', group: 'wild', id: 'wild_sp', label: '야생생물 특별보호구역', short: '야생생물 특별보호구역', src: 'vworld', data: 'LT_C_UM221', attr: 'uname:like:특별', name: sgW, uid: p => [p.dyear, p.dnum].filter(Boolean).join('-'), color: '#8E0000', note: VW },
-    { cat: 'bio', id: 'winter_bird', label: '겨울철 조류 동시센서스 조사지역', short: '겨울철 철새 도래지', src: 'eiagis', typename: 'WINTER_BIRD', nameField: 'name', nameFmt: n => n + ' 겨울철 철새 도래지', color: '#7B3FA0', note: EIA,
+    { cat: 'bio', id: 'winter_bird', label: '겨울철 조류 동시센서스 조사지역', short: '겨울철 철새 도래지', src: 'eiagis', typename: 'WINTER_BIRD', nameField: 'name', nameFmt: n => n + ' 겨울철 철새 도래지', mapLabel: t => t.replace(/\s*겨울철 철새 도래지$/, '\n겨울철 철새 도래지'), color: '#7B3FA0', note: EIA,
       local: 'data/winter_bird.geojson' },   // EIAGIS 서버가 외부 사이트 접속(CORS)을 막아 둔 경우 쓰는 사본
     { cat: 'bio', group: 'wet', id: 'wetland', label: '습지보호지역 (내륙)', short: '습지보호지역', src: 'vworld', data: 'LT_C_UM901', name: sg, color: '#00838F', note: VW },
     { cat: 'bio', group: 'wet', id: 'wetland_c', label: '연안 습지보호지역 (해양수산부)', short: '연안 습지보호지역', src: 'vworld', data: 'LT_C_WGISARWET', name: p => p.uname || p.name || p.wet_name || '습지보호지역', color: '#006064', note: VW },
@@ -125,7 +125,7 @@
     }
     if (p.labelNearest && !f.get('labelMe')) return st;
     const custom = (App.opts.protLabelText || {})[App.protLabelKey(f)];
-    const label = App.opts.protLabel !== false ? (custom != null && custom !== '' ? custom : (f.get('name') || '')) : '';
+    const label = App.opts.protLabel !== false ? (custom != null && custom !== '' ? custom : (p.mapLabel ? p.mapLabel(f.get('name') || '') : (f.get('name') || ''))) : '';
     if (!label) return st;
     const lp = labelPoint(f, set);
     if (!lp) return st;

@@ -18,7 +18,7 @@
         north: { show: true, x: null, y: null, size: 18, buf: 0.8 },
         scalebar: { show: true, x: null, y: null, buf: 2.4, size: 100 },
         legend: { show: true, x: null, y: null, font: 9, size: 100, buf: 2.2, all: false },
-        areatext: { show: true, x: null, y: null, font: 9 },
+        areatext: { show: false, x: null, y: null, font: 9 },   // 하단 표기: 사용 안 함
       },
     };
   }
@@ -32,6 +32,7 @@
       for (const k of Object.keys(els)) els[k] = Object.assign({}, d.els[k], (s.els || {})[k] || {});
       L = Object.assign(d, { pw: s.pw, ph: s.ph, margin: s.margin, dpi: s.dpi, frame: s.frame, scale: s.scale, center: s.center }, { els });
       ['pw', 'ph', 'margin', 'dpi', 'scale'].forEach(k => { if (!isFinite(Number(L[k])) || L[k] === null) L[k] = d[k]; });
+      L.els.areatext.show = false;
     } catch (e) { L = defaults(); }
   }
   let saveTimer = null;
@@ -206,8 +207,8 @@
       grades.forEach(g => rows.push({ t: g.label, grade: g.key }));
       egrades.forEach(g => rows.push({ t: g.label, ecolor: g.color }));
       const hide = App.opts.legendHide || {};   // 범례에서 뺄 항목 (도면 출력 > 표시 이름·크기·색)
-      cats.filter(k => !hide['cat:' + k]).forEach(k => rows.push({ t: k, cat: k }));
-      (App.theme === 'prot' && App.protLegend ? App.protLegend() : []).filter(p => !hide['p:' + p.id]).forEach(p => { const lk = App.protLook(p); rows.push({ t: lk.name, prot: Object.assign({}, p, { color: lk.color }) }); });
+      // 도면(사업지구 등)은 범례에 넣지 않고 지도 위 글자로 표시
+      (App.theme === 'prot' && App.protLegend ? App.protLegend() : []).filter(p => !hide['p:' + p.id]).forEach(p => { const lk = App.protLook(p); rows.push({ t: lk.name, prot: Object.assign({}, p, { color: lk.color, dash: lk.dash }) }); });
       if (App.opts.adm && App.src.admin.getFeatures().length && !hide.adm) { const al = App.admLook(); rows.push({ t: al.name, adm: al.color }); }
       let tw = 0;
       rows.forEach(r => { tw = Math.max(tw, textW(ctx, r.t, f, !!r.head)); });
@@ -235,7 +236,7 @@
             } else if (r.prot) {
               const n = parseInt(r.prot.color.slice(1), 16);
               ctx.fillStyle = `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},0.18)`; ctx.fillRect(bx, by, sw, bh);
-              ctx.lineWidth = 0.35; ctx.strokeStyle = r.prot.color; ctx.setLineDash([1.2, 0.8]); ctx.strokeRect(bx, by, sw, bh); ctx.setLineDash([]);
+              ctx.lineWidth = 0.35; ctx.strokeStyle = r.prot.color; ctx.setLineDash(r.prot.dash === 'solid' ? [] : r.prot.dash === 'dotted' ? [0.3, 0.6] : [1.2, 0.8]); ctx.strokeRect(bx, by, sw, bh); ctx.setLineDash([]);
             } else if (r.grade) {
               ctx.fillStyle = App.GRADE_COLOR[r.grade] || '#bbb'; ctx.fillRect(bx, by, sw, bh);
               ctx.lineWidth = 0.15; ctx.strokeStyle = '#555'; ctx.strokeRect(bx, by, sw, bh);
@@ -399,6 +400,7 @@
   const openArr = new Set();   // 미세조정 칸이 열린 화살표
   function esc(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
   function arrowFeats() { return App.src.arrows.getFeatures().filter(f => f.get('theme') === App.theme); }
+  function slStep(id, ax, lbl, a, b, v) { return `<div class="stepper"><span class="lbl">${lbl}</span><button type="button" data-slid="${id}" data-slax="${ax}" data-step="-0.5">${a}</button><input type="number" step="0.5" data-slid="${id}" data-slax="${ax}" value="${Number(v) || 0}"><button type="button" data-slid="${id}" data-slax="${ax}" data-step="0.5">${b}</button></div>`; }
   function buildStyleUI(force) {
     const box = $('#styleBox'); if (!box) return;
     const kinds = App.theme === 'prot' && App.protLegend ? App.protLegend() : [];
@@ -417,8 +419,16 @@
         <input type="number" step="0.5" min="4" data-sk="${sk}" data-f="pt" value="${pt}" title="지도 명칭 글자 크기(pt)"><span class="unit">pt</span></div>`;
     let h = '';
     if (sites.length) {
-      h += '<div class="sty-sub">도면 구분·투명도 <small>(앞 체크: 범례에 표시)</small></div>';
-      sites.forEach(s => { const v = Math.round((s.opacity == null ? 1 : Number(s.opacity)) * 100); h += `<div class="slider site-op">${lg('cat:' + s.category)}<span class="site-cat"><select data-sitecat="${s.id}" title="도면 구분 (범례 이름)">${(App.CATS || []).map(c => `<option ${c === s.category ? 'selected' : ''}>${c}</option>`).join('')}</select><small title="${esc(s.name)}">${esc(s.name)}</small></span><input type="range" min="0" max="100" step="5" data-siteop="${s.id}" value="${v}"><span class="pct-box"><input type="number" min="0" max="100" step="5" data-siteop="${s.id}" value="${v}"><span>%</span></span></div>`; });
+      // 도면 명칭: 도면 탭에서 고른 구분(사업지구·계획지구·사업노선·계획노선)이 지도 위 글자로 들어감
+      const so = App.opts.siteLabel || {};
+      h += `<div class="sty-sub">도면 명칭 <label class="check inline"><input type="checkbox" data-sl="show" ${so.show === false ? '' : 'checked'}> 표시</label></div>
+        <div class="sl-opts"><label class="field"><span>글자 크기(pt)</span><input type="number" step="0.5" min="4" data-sl="pt" value="${so.pt || 14}"></label>
+        <label class="field"><span>흰색 버퍼(mm)</span><input type="number" step="0.1" min="0" data-sl="buf" value="${so.buf == null ? 0.8 : so.buf}"></label></div>`;
+      sites.forEach(s => { const off = s.labelOff || [0, 0];
+        h += `<div class="sl-row"><span class="sl-name" title="${esc(s.name)}"><b>${esc(s.category)}</b> <small>${esc(s.name)}</small></span>
+          <div class="pos-row">${slStep(s.id, 0, 'X', '◀', '▶', off[0])}${slStep(s.id, 1, 'Y', '▲', '▼', off[1])}<span class="unit">mm</span>
+          <button type="button" class="btn small" data-slreset="${s.id}" title="가운데로">초기화</button></div></div>`; });
+      h += '<ul class="bullets"><li>글자는 도면 안쪽 가운데에 들어가며, 미리보기에서 끌거나 X·Y로 옮길 수 있습니다</li><li>색은 도면 선 색을 따릅니다</li></ul>';
     }
     if (kinds.length || adm) {
       h += '<div class="sty-head"><span title="범례에 표시">✓</span><span>색</span><span>범례 이름</span><span>명칭 크기</span></div>';
@@ -489,6 +499,8 @@
     const changed = () => { App.saveOpts(); App.liveSets.forEach(s => s.changed()); redraw(); };
     box.addEventListener('input', e => {
       const t = e.target;
+      if (t.dataset.sl) { const so = App.opts.siteLabel = App.opts.siteLabel || {}; so[t.dataset.sl] = t.type === 'checkbox' ? t.checked : Number(t.value); App.saveOpts(); App.liveSets.forEach(x => x.changed()); redraw(); return; }
+      if (t.dataset.slid && t.dataset.slax != null && t.tagName === 'INPUT') { const s = App.sites.find(x => String(x.id) === t.dataset.slid); if (s) { s.labelOff = s.labelOff || [0, 0]; s.labelOff[+t.dataset.slax] = Number(t.value) || 0; App.liveSets.forEach(x => x.changed()); redraw(); } return; }
       if (t.dataset.siteop) {
         const s = App.sites.find(x => String(x.id) === t.dataset.siteop); if (!s) return;
         s.opacity = Math.max(0, Math.min(100, Number(t.value) || 0)) / 100;
@@ -520,6 +532,12 @@
       const inp = box.querySelector(`input[data-ak="${CSS.escape(k)}"][data-af="${f}"]`); if (inp) inp.value = a[f];
       changed();
     };
+    box.addEventListener('click', e => {
+      const sb = e.target.closest('button[data-slid]');
+      if (sb) { const s = App.sites.find(x => String(x.id) === sb.dataset.slid); if (!s) return; s.labelOff = s.labelOff || [0, 0]; const ax = +sb.dataset.slax; s.labelOff[ax] = Math.round(((Number(s.labelOff[ax]) || 0) + Number(sb.dataset.step) * (e.shiftKey ? 10 : 1)) * 10) / 10; const inp = box.querySelector(`input[data-slid="${s.id}"][data-slax="${ax}"]`); if (inp) inp.value = s.labelOff[ax]; App.liveSets.forEach(x => x.changed()); redraw(); return; }
+      const rb = e.target.closest('[data-slreset]');
+      if (rb) { const s = App.sites.find(x => String(x.id) === rb.dataset.slreset); if (s) { s.labelOff = [0, 0]; delete s.labelPos; box.querySelectorAll(`input[data-slid="${s.id}"]`).forEach(i => { i.value = 0; }); App.liveSets.forEach(x => x.changed()); redraw(); } }
+    });
     box.addEventListener('pointerdown', e => {
       const btn = e.target.closest('button[data-ak]'); if (!btn) return;
       e.preventDefault(); const big = e.shiftKey; bump(btn, big);
@@ -582,9 +600,12 @@
     const fs = [];
     if (App.theme === 'prot' && App.opts.protLabel !== false) App.src.prot.getFeatures().forEach(f => { const p = (App.PROT || []).find(x => x.id === f.get('kind')); if (p && (App.opts.protShow || {})[p.id] !== false && (!p.labelNearest || f.get('labelMe'))) fs.push(f); });
     if (App.opts.adm && App.opts.admLabel !== false) App.src.admin.getFeatures().forEach(f => fs.push(f));
+    if ((App.opts.siteLabel || {}).show !== false) App.sites.filter(s => s.feature).forEach(s => fs.push(s.feature));
     fs.forEach(f => {
-      const lp = f.get('kind') === 'adm' && App.admLabelPoint ? App.admLabelPoint(f, set) : App.protLabelPoint(f, set); if (!lp) return;
-      const q = map.getPixelFromCoordinate(lp); if (!q) return;
+      const site = f.get('siteId') != null ? App.sites.find(x => x.id === f.get('siteId')) : null;
+      const lp = site ? App.siteLabelPoint(site) : f.get('kind') === 'adm' && App.admLabelPoint ? App.admLabelPoint(f, set) : App.protLabelPoint(f, set); if (!lp) return;
+      let q = map.getPixelFromCoordinate(lp); if (!q) return;
+      if (site && site.labelOff) q = [q[0] + (Number(site.labelOff[0]) || 0) * ppm, q[1] + (Number(site.labelOff[1]) || 0) * ppm];
       const d = Math.hypot(q[0] - px[0], q[1] - px[1]); if (d < bd) { bd = d; best = f; }
     });
     return best;
@@ -610,7 +631,9 @@
     }, true);
     window.addEventListener('pointermove', e => {
       if (drag && drag.label) {
-        const px = map.getEventPixel(e); drag.label.set('labelPos', map.getCoordinateFromPixel(px));
+        const px = map.getEventPixel(e), cc = map.getCoordinateFromPixel(px);
+        const sid = drag.label.get('siteId');
+        if (sid != null) { const s = App.sites.find(x => x.id === sid); if (s) { s.labelPos = cc; s.labelOff = [0, 0]; } } else drag.label.set('labelPos', cc);
         App.liveSets.forEach(s => s.changed()); e.preventDefault(); return;
       }
       if (drag) {
@@ -631,6 +654,11 @@
       if (!active) return;
       const lf = labelHit(e); if (!lf) return;
       e.stopPropagation(); e.preventDefault();
+      if (lf.get('siteId') != null) {   // 도면 명칭 글자 바꾸기
+        const s = App.sites.find(x => x.id === lf.get('siteId')); if (!s) return;
+        const v = prompt('도면 명칭 (비우면 구분 이름)', s.labelText || s.category); if (v === null) return;
+        s.labelText = v.trim() && v.trim() !== s.category ? v.trim() : ''; App.liveSets.forEach(x => x.changed()); redraw(); return;
+      }
       const key = lf.get('kind') === 'adm' ? 'adm|' + lf.get('name') : App.protLabelKey(lf);
       App.opts.protLabelText = App.opts.protLabelText || {};
       const cur = App.opts.protLabelText[key] || lf.get('name') || '';
@@ -646,7 +674,6 @@
     ['north', [['size', '크기(mm)', 'number'], ['buf', '흰색 버퍼(mm)', 'number']]],
     ['scalebar', [['size', '축척바 크기(%)', 'number'], ['buf', '흰색 버퍼(mm)', 'number']]],
     ['legend', [['font', '글자 크기(pt)', 'number'], ['size', '범례 크기(%)', 'number'], ['buf', '흰색 버퍼(mm)', 'number'], ['all', '자료에 없는 등급도 표시', 'check']]],
-    ['areatext', [['font', '글자 크기(pt)', 'number']]],
   ];
   const EL_HINT = { scalebar: ['길이·글자 크기는 도면 크기와 화면 배율에 맞춰 자동', '축척바 크기(%)로 전체를 줄이거나 키움', '0.5km 미만은 0.1km 단위', '0.5km 이상은 0.5km 단위'] };
   // X(좌우)는 ◀ ▶, Y(위아래)는 ▲ ▼ 버튼으로 1mm씩 (Shift 누르면 10mm)

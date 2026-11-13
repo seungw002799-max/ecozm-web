@@ -358,3 +358,18 @@ body[data-theme=ecvam] #mapOptsLayout .slider[data-row=opA], body[data-theme=ecv
 .measure-hint[hidden] { display: none; }
 .measure-hint > b:first-child { color: #E91E63; font-size: 15px; }
 .measure-hint b { color: #E91E63; }
+
+/* 레이어 선 스타일 (레이어 모음 탭) */
+.prot-style { margin-top: 10px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: #fafbfc; }
+.sty-head.ls, .sty-row.ls { grid-template-columns: 34px 1fr 58px 70px; }
+.sty-head.ls span:nth-child(3), .sty-head.ls span:nth-child(4) { grid-column: auto; }
+.ls-name { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sty-row.ls select { height: 28px; font-size: 12px; }
+/* 도면 명칭 */
+.sl-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.sl-row { display: flex; flex-direction: column; gap: 3px; padding: 4px 0; border-top: 1px dashed #eceff3; }
+.sl-name { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sl-name small { color: var(--muted); }
+.sl-row .pos-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.sl-row .stepper { flex: 1 1 120px; }
+.check.inline { display: inline-flex; margin-left: 8px; font-weight: 400; font-size: 12px; color: var(--text); }

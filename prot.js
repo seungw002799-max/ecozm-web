@@ -71,7 +71,9 @@
   // 도면 출력에서 바꾼 표시 이름·색·글자 크기 (App.opts.protCustom[id])
   App.protLook = p => {
     const c = ((App.opts.protCustom || {})[p.id]) || {};
-    return { name: c.name || p.short, color: /^#[0-9a-fA-F]{6}$/.test(c.color || '') ? c.color : p.color, pt: Number(c.pt) || 9 };
+    const dDash = p.line || p.src === 'eco1' ? 'solid' : 'dashed', dW = p.line ? 3 : p.src === 'eco1' ? 1 : 2;
+    return { name: c.name || p.short, color: /^#[0-9a-fA-F]{6}$/.test(c.color || '') ? c.color : p.color, pt: Number(c.pt) || 9,
+      dash: ['solid', 'dashed', 'dotted'].includes(c.dash) ? c.dash : dDash, width: Number(c.width) > 0 ? Number(c.width) : dW };
   };
   App.protLabelKey = f => f.get('kind') + '|' + (f.get('name') || '');
   App.PROT = PROT;
@@ -118,19 +120,18 @@
     if (!show) return null;
     const nb = p.overlapOnly && !f.get('host');
     const lk = App.protLook(p), col = lk.color;
-    const key = p.id + '|' + s.toFixed(3) + (nb ? '|nb' : '') + '|' + col;
+    const key = p.id + '|' + s.toFixed(3) + (nb ? '|nb' : '') + '|' + col + '|' + lk.dash + '|' + lk.width;
+    const w = Math.max(0.5, lk.width * s), dsh = lk.dash === 'dashed' ? [6 * s, 4 * s] : lk.dash === 'dotted' ? [1.2 * s, 2.5 * s] : undefined;
     let st = cache.get(key);
     if (!st) {
+      // 선 색·굵기·종류는 레이어 모음 탭의 '레이어 선 스타일'에서 바꿈
       st = p.line
-        ? new ol.style.Style({ stroke: new ol.style.Stroke({ color: col, width: Math.max(1, 3 * s) }) })
+        ? new ol.style.Style({ stroke: new ol.style.Stroke({ color: col, width: w, lineDash: dsh }) })
         : nb
         ? new ol.style.Style({ stroke: new ol.style.Stroke({ color: col, width: Math.max(0.8, 1.6 * s), lineDash: [6 * s, 4 * s] }) })
         : p.src === 'eco1'
-        ? new ol.style.Style({ fill: new ol.style.Fill({ color: hexA(col, 0.45) }), stroke: new ol.style.Stroke({ color: col, width: Math.max(0.5, 1 * s) }) })
-        : new ol.style.Style({
-          fill: new ol.style.Fill({ color: hexA(col, 0.18) }),
-          stroke: new ol.style.Stroke({ color: col, width: Math.max(0.8, 2 * s), lineDash: [6 * s, 4 * s] }),
-        });
+        ? new ol.style.Style({ fill: new ol.style.Fill({ color: hexA(col, 0.45) }), stroke: new ol.style.Stroke({ color: col, width: w, lineDash: dsh }) })
+        : new ol.style.Style({ fill: new ol.style.Fill({ color: hexA(col, 0.18) }), stroke: new ol.style.Stroke({ color: col, width: w, lineDash: dsh }) });
       if (cache.size > 500) cache.clear();
       cache.set(key, st);
     }
@@ -414,6 +415,7 @@
 
   // 결과: 구분별로 묶고, 가까운 구분부터 / 구분 안에서도 가까운 순. 많으면 3곳만 보이고 나머지는 펼치기
   function renderTable() {
+    renderStyleBox();
     const t = $('#protTable');
     if (!rows.length) { t.innerHTML = ''; t.hidden = true; return; }
     t.hidden = false;
@@ -436,6 +438,17 @@
           <b>${p.short || g.kind}</b><span class="pr-cnt">${g.rs.length}곳</span><span class="pr-near ${near.dist === 0 ? 'zero' : ''}">최근접 ${near.dist === 0 ? '0.00km' : App.fmtDist(near.dist)}</span></div>
         ${g.rs.slice(0, 3).map(item).join('')}${more}</div>`;
     }).join('');
+  }
+  // 조회된 레이어만 선 스타일(색·굵기·종류) 선택
+  function renderStyleBox() {
+    const box = $('#protStyleBox'); if (!box) return;
+    const kinds = [...new Set(rows.map(r => r.kind))].map(k => BY_ID[k]).filter(Boolean);
+    if (!kinds.length) { box.hidden = true; box.innerHTML = ''; return; }
+    box.hidden = false;
+    box.innerHTML = '<div class="sty-sub">레이어 선 스타일 <small>(조회된 레이어)</small></div><div class="sty-head ls"><span>색</span><span>레이어</span><span>굵기</span><span>선 종류</span></div>' + kinds.map(p => { const lk = App.protLook(p);
+      return `<div class="sty-row ls"><input type="color" data-ls="${p.id}" data-f="color" value="${lk.color}"><span class="ls-name" title="${p.short}">${lk.name}</span>
+        <input type="number" min="0.5" max="10" step="0.5" data-ls="${p.id}" data-f="width" value="${lk.width}">
+        <select data-ls="${p.id}" data-f="dash"><option value="solid" ${lk.dash === 'solid' ? 'selected' : ''}>실선</option><option value="dashed" ${lk.dash === 'dashed' ? 'selected' : ''}>파선</option><option value="dotted" ${lk.dash === 'dotted' ? 'selected' : ''}>점선</option></select></div>`; }).join('');
   }
   App.protRows = () => rows;
   App.protSetArrow = (key, on) => { const r = rows.find(x => x.key === key); if (r) { r.arrow = on; syncArrows(); renderTable(); } };
@@ -497,6 +510,13 @@
     $('#protLabelChk').checked = App.opts.protLabel !== false;
     $('#protLabelChk').addEventListener('change', e => { App.opts.protLabel = e.target.checked; App.saveOpts(); cache.clear(); App.liveSets.forEach(s => s.changed()); App.emit(); });
     $('#btnProt').addEventListener('click', run);
+    const sb = $('#protStyleBox');
+    if (sb) sb.addEventListener('input', e => {
+      const id = e.target.dataset.ls, f = e.target.dataset.f; if (!id || !f) return;
+      App.opts.protCustom = App.opts.protCustom || {}; const c = App.opts.protCustom[id] = App.opts.protCustom[id] || {};
+      c[f] = f === 'width' ? Number(e.target.value) || null : e.target.value;
+      App.saveOpts(); cache.clear(); App.liveSets.forEach(s => s.changed()); App.emit();
+    });
     $('#protTable').addEventListener('change', e => {
       const k = e.target.dataset.arrow; if (!k) return;
       const r = rows.find(x => x.key === k); if (r) { r.arrow = e.target.checked; syncArrows(); }

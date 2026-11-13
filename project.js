@@ -18,7 +18,7 @@
     return {
       app: 'ecozm-web', version: VERSION, savedAt: new Date().toISOString(),
       theme: App.theme,
-      sites: App.sites.filter(s => s.geometry).map(s => ({ name: s.name, category: s.category, geometry: s.geometry, area: s.area, bbox: s.bbox, opacity: s.opacity })),
+      sites: App.sites.filter(s => s.geometry).map(s => ({ name: s.name, category: s.category, geometry: s.geometry, area: s.area, bbox: s.bbox, opacity: s.opacity, labelPos: s.labelPos, labelOff: s.labelOff, labelText: s.labelText })),
       catStyle: App.catStyle, catStyleE: App.catStyleE,
       opts,
       layout: App.layout && App.layout.getL ? App.layout.getL() : null,

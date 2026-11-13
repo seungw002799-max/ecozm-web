@@ -298,6 +298,35 @@ App.setArrows = function (theme, list) {
   App.emit();
 };
 App.catStyleFor = cat => ((App.theme === 'ecvam' ? App.catStyleE : App.catStyle)[cat]) || DEFAULT_CAT_STYLE['사업지구'];
+// 도면 명칭(사업지구·계획지구 등): 도면 안쪽 가운데에 선 색 글자 + 흰 버퍼. 위치는 끌거나 X/Y(mm)로 조정
+App.siteLabelPoint = function (s) {
+  if (!s || !s.feature) return null;
+  if (s.labelPos) return s.labelPos;
+  const g = s.feature.getGeometry();
+  if (s._lpG === g && s._lp) return s._lp;
+  let p = null;
+  try {
+    if (g.getType() === 'Polygon') p = g.getInteriorPoint().getCoordinates();
+    else if (g.getType() === 'MultiPolygon') { let best = null, ba = -1; g.getPolygons().forEach(q => { const a = q.getArea(); if (a > ba) { ba = a; best = q; } }); p = best.getInteriorPoint().getCoordinates(); }
+    else p = ol.extent.getCenter(g.getExtent());
+  } catch (e) { p = ol.extent.getCenter(g.getExtent()); }
+  s._lpG = g; s._lp = [p[0], p[1]];
+  return s._lp;
+};
+function siteStyleFull(f, s) {
+  const site = App.sites.find(x => x.id === f.get('siteId')) || {};
+  const st = siteStyle(f.get('category'), s, site.opacity);
+  const o = App.opts.siteLabel || {};
+  if (o.show === false || !site.feature) return st;
+  const lp = App.siteLabelPoint(site); if (!lp) return st;
+  const PXMM = PX_PER_MM96 * s, off = site.labelOff || [0, 0];
+  const pt = Number(o.pt) || 14, buf = o.buf == null || o.buf === '' ? 0.8 : Math.max(0, Number(o.buf));
+  const col = App.catStyleFor(f.get('category')).color;
+  return [st, new ol.style.Style({ geometry: new ol.geom.Point(lp), zIndex: 10, text: new ol.style.Text({
+    text: site.labelText || site.category || '', font: `bold ${Math.round(pt * 0.3528 * PXMM * 10) / 10}px "EcoFont","Malgun Gothic",sans-serif`,
+    offsetX: (Number(off[0]) || 0) * PXMM, offsetY: (Number(off[1]) || 0) * PXMM,
+    fill: new ol.style.Fill({ color: col }), stroke: buf > 0 ? new ol.style.Stroke({ color: '#fff', width: buf * 2 * PXMM }) : undefined, overflow: true }) })];
+}
 function siteStyle(cat, s, op) {
   const st = App.catStyleFor(cat);
   const a = op == null || op === '' ? 1 : Math.max(0, Math.min(1, Number(op)));   // 도면별 투명도 (도면 출력)
@@ -339,7 +368,7 @@ App.createLayerSet = function (getScale, live) {
   });
   set.sites = new ol.layer.Vector({
     source: App.src.sites, zIndex: 4,
-    style: f => siteStyle(f.get('category'), getScale(), (App.sites.find(x => x.id === f.get('siteId')) || {}).opacity),
+    style: f => siteStyleFull(f, getScale()),
   });
   set.ecvam = new ol.layer.Tile({ zIndex: 2.5, visible: false });   // 국토환경성평가지도 (ecvam.js)
   set.prot = new ol.layer.VectorImage({ imageRatio: 1.5,
@@ -587,7 +616,7 @@ function siteById(id) { return App.sites.find(s => String(s.id) === String(id));
 
 // ---- 작업 저장/열기 (project.js) 에서 쓰는 도우미
 App.restoreSite = function (o) {
-  const s = { id: ++siteSeq, name: o.name, category: o.category, geometry: o.geometry, area: o.area, bbox: o.bbox, opacity: o.opacity, restored: true, seq: 0 };
+  const s = { id: ++siteSeq, name: o.name, category: o.category, geometry: o.geometry, area: o.area, bbox: o.bbox, opacity: o.opacity, labelPos: o.labelPos, labelOff: o.labelOff, labelText: o.labelText, restored: true, seq: 0 };
   App.sites.push(s); renderCard(s); if (s.geometry) setSiteFeature(s);
   return s;
 };

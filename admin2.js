@@ -115,7 +115,7 @@
       if (!res || denom > emdScale()) return null;
     }
     const st = lineStyle(lvl, s);
-    if (App.LABELS_OFF || App.opts.admLabel === false) return st;   // 행정구역 명칭 표시 안 함 (경계선만)
+    if (App.ADM_LABELS_OFF || App.opts.admLabel === false) return st;   // 행정구역 명칭 표시 안 함 (경계선만)
     const lp = admLabelPoint(f, set);
     if (!lp) return st;
     const custom = (App.opts.protLabelText || {})['adm|' + f.get('name')];

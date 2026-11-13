@@ -431,9 +431,6 @@ body { -webkit-font-smoothing: antialiased; }
 #siteLabelBox .sl-row .pos-row { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 6px; align-items: center; flex-wrap: nowrap; }
 #siteLabelBox .sl-row .stepper { min-width: 0; }
 .sub-note { display: block; margin-left: 20px; color: var(--muted); font-size: 11px; font-weight: 400; }
-/* 명칭 표시를 끈 동안: 이름·색 칸의 '명칭 크기'는 숨김 */
-#styleBox .sty-row input[data-f="pt"], #styleBox .sty-row input[data-f="pt"] + .unit { visibility: hidden; }
-#styleBox .sty-head span:last-child { visibility: hidden; }
 
 .chk-txt { display: inline-flex; flex-direction: column; line-height: 1.35; }
 .chk-txt .sub-note { margin-left: 0; }

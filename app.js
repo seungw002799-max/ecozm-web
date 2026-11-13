@@ -299,7 +299,8 @@ App.setArrows = function (theme, list) {
   });
   App.emit();
 };
-App.LABELS_OFF = true;   // 레이어·행정구역 명칭 끔 (새 명칭 양식 정해지면 다시 켬)
+App.LABELS_OFF = false;       // 레이어(보호구역 등) 명칭: 표시
+App.ADM_LABELS_OFF = true;    // 행정구역(시도·시군구·읍면동) 명칭: 양식 정해질 때까지 끔
 App.catStyleFor = cat => ((App.theme === 'ecvam' ? App.catStyleE : App.catStyle)[cat]) || DEFAULT_CAT_STYLE['사업지구'];
 // 도면 명칭(사업지구·계획지구 등): 도면 안쪽 가운데에 선 색 글자 + 흰 버퍼. 위치는 끌거나 X/Y(mm)로 조정
 App.siteLabelPoint = function (s) {

@@ -209,7 +209,7 @@
       const hide = App.opts.legendHide || {};   // 범례에서 뺄 항목 (도면 출력 > 표시 이름·크기·색)
       // 도면(사업지구 등)은 범례에 넣지 않고 지도 위 글자로 표시
       (App.theme === 'prot' && App.protLegend ? App.protLegend() : []).filter(p => !hide['p:' + p.id]).forEach(p => { const lk = App.protLook(p); rows.push({ t: lk.name, prot: Object.assign({}, p, { color: lk.color, dash: lk.dash }) }); });
-      if (App.opts.adm && App.src.admin.getFeatures().length && !hide.adm) { const al = App.admLook(); rows.push({ t: al.name, adm: al.color }); }
+      // 행정구역 경계는 범례에 넣지 않음 (보통 범례에 들어가지 않음)
       let tw = 0;
       rows.forEach(r => { tw = Math.max(tw, textW(ctx, r.t, f, !!r.head)); });
       const w = pad * 2 + (rows.length > 1 ? sw + 2 * z : 0) + tw, h = pad * 2 + rows.length * rowH;
@@ -459,7 +459,7 @@
     if (kinds.length || adm) {
       h += '<div class="sty-head"><span title="범례에 표시">✓</span><span>색</span><span>범례 이름</span><span>명칭 크기</span></div>';
       kinds.forEach(p => { const c = (App.opts.protCustom || {})[p.id] || {}; const lk = App.protLook(p); h += row(p.id, c.name || '', lk.color, lk.pt, p.short); });
-      if (adm) { const c = App.opts.admCustom || {}; const al = App.admLook(); h += row('adm', c.name || '', al.color, al.pt, '행정구역 경계'); }
+      // 행정구역 경계: 범례에 넣지 않으므로 이름·색 칸에서도 뺌
     }
     const step = (k, f, lbl, a, b, inc = 0.5) => `<div class="stepper"><span class="lbl">${lbl}</span><button type="button" data-ak="${esc(k)}" data-af="${f}" data-step="${-inc}">${a}</button><input type="number" step="0.5" data-ak="${esc(k)}" data-af="${f}" value="${((App.opts.arrowAdj || {})[k] || {})[f] || (f === 'len' || f === 'w' ? 100 : 0)}"><button type="button" data-ak="${esc(k)}" data-af="${f}" data-step="${inc}">${b}</button></div>`;
     if (arrs.length) {
@@ -626,7 +626,7 @@
     const px = map.getEventPixel(e); let best = null, bd = 22;
     const fs = [];
     if (!App.LABELS_OFF && App.theme === 'prot' && App.opts.protLabel !== false) App.src.prot.getFeatures().forEach(f => { const p = (App.PROT || []).find(x => x.id === f.get('kind')); if (p && (App.opts.protShow || {})[p.id] !== false && (!p.labelNearest || f.get('labelMe'))) fs.push(f); });
-    if (!App.LABELS_OFF && App.opts.adm && App.opts.admLabel !== false) App.src.admin.getFeatures().forEach(f => fs.push(f));
+    if (!App.ADM_LABELS_OFF && App.opts.adm && App.opts.admLabel !== false) App.src.admin.getFeatures().forEach(f => fs.push(f));
     if ((App.opts.siteLabel || {}).show !== false) App.sites.filter(s => s.feature).forEach(s => fs.push(s.feature));
     fs.forEach(f => {
       const site = f.get('siteId') != null ? App.sites.find(x => x.id === f.get('siteId')) : null;

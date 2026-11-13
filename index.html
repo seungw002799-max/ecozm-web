@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>도면 출력 관련</title>
 <link rel="stylesheet" href="vendor/ol.css">
-<link rel="stylesheet" href="app.css?v=20261113g">
+<link rel="stylesheet" href="app.css?v=20261113h">
 </head>
 <body>
 <header class="topbar">
@@ -14,6 +14,7 @@
     <button class="tab active" data-tab="work" type="button">도면</button>
     <button class="tab" data-tab="eco" type="button">생태자연도</button>
     <button class="tab" data-tab="prot" type="button">레이어 모음</button>
+      <button class="tab" data-tab="pick" type="button">초기 입지 검토</button>
     <button class="tab" data-tab="ecvam" type="button">국토환경성평가</button>
     <button class="tab" data-tab="layout" type="button">도면 출력</button>
   </nav>
@@ -143,6 +144,31 @@
       </section>
     </div>
 
+    <!-- ===================== 초기 입지 검토 탭 ===================== -->
+    <div id="tabPick" class="tabpane" hidden>
+      <section class="card-section">
+        <h2>1. 검토 위치</h2>
+        <div class="row"><button id="btnPickPoint" class="btn primary" type="button">지도에서 위치 찍기</button><button id="btnPickClear" class="btn" type="button">지우기</button></div>
+        <div class="pick-search"><input type="text" id="pickQuery" placeholder="주소·지번·장소 검색 (예: 구미시 선산읍 이문리)"><button id="btnPickSearch" class="btn" type="button">검색</button></div>
+        <div id="pickResults" class="pick-results" hidden></div>
+        <div id="pickCoord" class="hint">위치를 정하지 않았습니다</div>
+      </section>
+      <section class="card-section">
+        <h2>2. 반경</h2>
+        <label class="unit-input"><span class="lbl">반경 원</span><input type="text" id="pickRadii" value="1, 3, 5"><span class="unit">km</span></label>
+        <label class="check"><input type="checkbox" id="pickShow" checked> 지도·도면 출력에 반경 원 표시</label>
+        <ul class="bullets"><li>쉼표로 여러 개 (예: 0.3, 1, 3, 5)</li><li>가장 큰 반경까지 조회합니다</li></ul>
+      </section>
+      <section class="card-section">
+        <h2>3. 주변 조회</h2>
+        <ul class="bullets"><li>조회 항목은 레이어 모음 탭에서 체크한 레이어입니다</li><li>도면 없이 검토 지점 기준 거리로 계산합니다</li></ul>
+        <div class="row"><button id="btnPickLayers" class="btn small" type="button">조회할 레이어 고르기 →</button></div>
+        <div class="row"><button id="btnPickRun" class="btn primary wide" type="button">주변 조회</button></div>
+        <div id="pickMsg" class="progress" hidden></div>
+        <div id="pickTable" class="prot-result" hidden></div>
+      </section>
+    </div>
+
     <!-- ===================== 국토환경성평가 탭 ===================== -->
     <div id="tabEcvam" class="tabpane" hidden>
       <section class="card-section">
@@ -249,14 +275,15 @@
 <script src="vendor/proj4.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jsts.min.js"></script>
-<script src="cad.js?v=20261113g"></script>
-<script src="backend.js?v=20261113g"></script>
-<script src="app.js?v=20261113g"></script>
-<script src="ecvam.js?v=20261113g"></script>
-<script src="prot.js?v=20261113g"></script>
-  <script src="admin2.js?v=20261113g"></script>
-  <script src="measure.js?v=20261113g"></script>
-  <script src="project.js?v=20261113g"></script>
-<script src="app2.js?v=20261113g"></script>
+<script src="cad.js?v=20261113h"></script>
+<script src="backend.js?v=20261113h"></script>
+<script src="app.js?v=20261113h"></script>
+<script src="ecvam.js?v=20261113h"></script>
+<script src="prot.js?v=20261113h"></script>
+  <script src="admin2.js?v=20261113h"></script>
+  <script src="measure.js?v=20261113h"></script>
+  <script src="pick.js?v=20261113h"></script>
+  <script src="project.js?v=20261113h"></script>
+<script src="app2.js?v=20261113h"></script>
 </body>
 </html>

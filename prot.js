@@ -310,8 +310,9 @@
   }
 
   // 사업지구(전체) 범위 + 반경 -> EPSG:4326 bbox [minLon,minLat,maxLon,maxLat]
+  let pointCtx = null;   // 초기 입지 검토: 도면 대신 한 점(EPSG:5186)을 기준으로 조회
   function queryBox(radiusM) {
-    const bs = App.sites.filter(s => s.bbox).map(s => s.bbox);
+    const bs = pointCtx ? [[pointCtx.pt[0], pointCtx.pt[1], pointCtx.pt[0], pointCtx.pt[1]]] : App.sites.filter(s => s.bbox).map(s => s.bbox);
     if (!bs.length) return null;
     const b = [Math.min(...bs.map(x => x[0])) - radiusM, Math.min(...bs.map(x => x[1])) - radiusM,
       Math.max(...bs.map(x => x[2])) + radiusM, Math.max(...bs.map(x => x[3])) + radiusM];
@@ -321,13 +322,13 @@
 
   // ------------------------------------------------------------ 검토
   let rows = [];
-  async function run() {
-    const btn = $('#btnProt'), msg = $('#protMsg');
+  async function run(radiusKm) {
+    const btn = pointCtx ? pointCtx.btn : $('#btnProt'), msg = pointCtx ? pointCtx.msg : $('#protMsg');
     const chosen = PROT.filter(p => (App.opts.protOn || {})[p.id] !== false);
-    if (!App.sites.some(s => s.geometry)) { App.toast && App.toast('먼저 도면을 추가하세요.', 'warn'); return; }
+    if (!pointCtx && !App.sites.some(s => s.geometry)) { App.toast && App.toast('먼저 도면을 추가하세요.', 'warn'); return; }
     if (!chosen.length) { msg.hidden = false; msg.textContent = '검토할 보호구역을 하나 이상 선택하세요.'; return; }
-    const radius = Math.max(0, Number($('#protRadius').value) || 5) * 1000;
-    App.opts.protRadius = radius / 1000; App.saveOpts();
+    const radius = (radiusKm != null ? Math.max(0.1, Number(radiusKm)) : Math.max(0, Number($('#protRadius').value) || 5)) * 1000;
+    if (radiusKm == null) { App.opts.protRadius = radius / 1000; App.saveOpts(); }
     const q = queryBox(radius);
     btn.disabled = true; msg.hidden = false; msg.textContent = '보호구역 자료를 받는 중...';
     App.src.prot.clear();
@@ -336,9 +337,9 @@
     try {
       // 사업지구 합치기 (EPSG:5186)
       const rd = new jsts.io.GeoJSONReader();
-      const siteGeoms = App.sites.filter(s => s.geometry).map(s => rd.read(s.geometry));
-      let site = siteGeoms[0];
-      for (let i = 1; i < siteGeoms.length; i++) site = site.union(siteGeoms[i]);
+      let site;
+      if (pointCtx) site = new jsts.geom.GeometryFactory().createPoint(new jsts.geom.Coordinate(pointCtx.pt[0], pointCtx.pt[1])).buffer(1);   // 검토 지점 (반지름 1m)
+      else { const siteGeoms = App.sites.filter(s => s.geometry).map(s => rd.read(s.geometry)); site = siteGeoms[0]; for (let i = 1; i < siteGeoms.length; i++) site = site.union(siteGeoms[i]); }
       const fmt3857 = new ol.format.GeoJSON();
       // 지도용 도형: 검토 범위(+여유) 밖은 잘라내고 1m 단위로 단순화 (거리·중첩 계산은 원본 도형으로)
       const gwr = new jsts.io.GeoJSONWriter(), gfac = new jsts.geom.GeometryFactory();
@@ -402,7 +403,7 @@
       const seenKind = new Set();
       rows.forEach((r, i) => { r.key = r.kind + '|' + r.name + (r.uid ? '|' + r.uid : ''); r.arrow = false; if (r.np && !seenKind.has(r.kind)) { r.arrow = true; seenKind.add(r.kind); } });
       syncArrows();
-      msg.textContent = (rows.length ? `완료: 반경 ${fmt(radius / 1000)}km 안에 ${rows.length}곳 (사업지구 경계 기준 최근접 거리)` : `반경 ${fmt(radius / 1000)}km 안에 해당 보호구역이 없습니다.`) + ` · 자료: ${srcs.join(', ')}` + (errs.length ? ` · 오류: ${errs.join(' / ')}` : '');
+      msg.textContent = (rows.length ? `완료: 반경 ${fmt(radius / 1000)}km 안에 ${rows.length}곳 (${pointCtx ? '검토 지점' : '사업지구 경계'} 기준 최근접 거리)` : `반경 ${fmt(radius / 1000)}km 안에 해당 보호구역이 없습니다.`) + ` · 자료: ${srcs.join(', ')}` + (errs.length ? ` · 오류: ${errs.join(' / ')}` : '');
     } catch (e) {
       msg.textContent = e.message;
     } finally {
@@ -450,6 +451,8 @@
         <input type="number" min="0.5" max="10" step="0.5" data-ls="${p.id}" data-f="width" value="${lk.width}">
         <select data-ls="${p.id}" data-f="dash"><option value="solid" ${lk.dash === 'solid' ? 'selected' : ''}>실선</option><option value="dashed" ${lk.dash === 'dashed' ? 'selected' : ''}>파선</option><option value="dotted" ${lk.dash === 'dotted' ? 'selected' : ''}>점선</option></select></div>`; }).join('');
   }
+  App.protRunAt = async (pt5186, radiusKm, ui) => { pointCtx = Object.assign({ pt: pt5186 }, ui); try { await run(radiusKm); } finally { pointCtx = null; mirror(); } };
+  function mirror() { const a = $('#protTable'), b = $('#pickTable'); if (a && b) { b.innerHTML = a.innerHTML; b.hidden = a.hidden; } }
   App.protRows = () => rows;
   App.protSetArrow = (key, on) => { const r = rows.find(x => x.key === key); if (r) { r.arrow = on; syncArrows(); renderTable(); } };
   App.protRestore = (rs, msgText) => { rows = rs || []; renderTable(); const m = $('#protMsg'); if (m && msgText) { m.hidden = false; m.textContent = msgText; } };

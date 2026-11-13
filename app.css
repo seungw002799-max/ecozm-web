@@ -373,3 +373,13 @@ body[data-theme=ecvam] #mapOptsLayout .slider[data-row=opA], body[data-theme=ecv
 .sl-row .pos-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .sl-row .stepper { flex: 1 1 120px; }
 .check.inline { display: inline-flex; margin-left: 8px; font-weight: 400; font-size: 12px; color: var(--text); }
+
+/* 초기 입지 검토 */
+.pick-search { display: flex; gap: 6px; margin: 8px 0 4px; }
+.pick-search input { flex: 1; min-width: 0; height: 32px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; }
+.pick-results { display: flex; flex-direction: column; gap: 3px; margin-bottom: 6px; }
+.pick-item { display: flex; flex-direction: column; align-items: flex-start; text-align: left; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; font-size: 12.5px; }
+.pick-item small { color: var(--muted); font-size: 11px; }
+.pick-item:hover { border-color: var(--accent); }
+#btnPickPoint.on { background: #E91E63; border-color: #E91E63; }
+#pickRadii { width: 120px; }

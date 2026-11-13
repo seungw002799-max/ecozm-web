@@ -228,9 +228,11 @@
     const cql = (p.cql ? p.cql + ' AND ' : '') + `BBOX(geom,${b.join(',')},'EPSG:4326')`;
     const u = 'https://api.mcee.go.kr/geoserver/me/wfs?service=WFS&version=1.0.0&request=GetFeature&outputFormat=application/json&srsName=EPSG:4326' +
       `&typeName=${p.typename}&CQL_FILTER=${encodeURIComponent(cql)}`;
-    const ac = new AbortController(); const tm = setTimeout(() => ac.abort(), 40000);
+    const ac = new AbortController(); const tm = setTimeout(() => ac.abort(), 60000);
     try {
-      const r = await fetch(PROXY + encodeURIComponent(u), { signal: ac.signal });
+      // 하천정보관리시스템은 큰 하천(국가하천)이 느릴 때가 있어 한 번 더 시도
+      const get = () => fetch(PROXY + encodeURIComponent(u), { signal: ac.signal });
+      let r; try { r = await get(); if (!r.ok && /river\.go\.kr/.test(p.base)) r = await get(); } catch (e0) { if (e0.name === 'AbortError' || !/river\.go\.kr/.test(p.base)) throw e0; r = await get(); }
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const j = await r.json();
       return { type: 'FeatureCollection', _src: '환경공간정보 실시간',

@@ -460,3 +460,5 @@ body { -webkit-font-smoothing: antialiased; }
 .meas-table small { color: var(--muted, #667); }
 .meas-table tr.bad td { background: #fff4f4; }
 .meas-table .warn { color: #c62828; }
+
+.meas-raw { white-space: pre; overflow-x: auto; }

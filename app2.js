@@ -352,6 +352,8 @@
         x = p[0]; y = p[1];
         if (opts.write) { c.x = Math.round(x * 10) / 10; c.y = Math.round(y * 10) / 10; x = c.x; y = c.y; }
       }
+      // 요소가 용지 밖으로 나가지 않게 (요소 크기가 바뀌어도)
+      x = Math.max(0, Math.min(x, W - b.w)); y = Math.max(0, Math.min(y, H - b.h));
       built[key] = b;
       boxes[key] = { x, y, w: b.w, h: b.h };
     });
@@ -429,7 +431,7 @@
     redraw();
   }
   function fitToSites() {
-    const e = App.sitesExtent();
+    const e = (App.layoutExtent && App.layoutExtent()) || App.sitesExtent();
     if (!e) return App.toast('먼저 도면을 추가하세요.', 'warn');
     const c = ol.extent.getCenter(e), pr = ol.proj.getPointResolution('EPSG:3857', 1, c, 'm');
     const mr = mapRectMm();
@@ -956,6 +958,7 @@
   // ========================================================== 7. 탭 진입/이탈 및 시작
   App.layout = {
     redraw() { redraw(); },
+    fit() { fitToSites(); },
     // 대상지역 설정도로 들어가거나 나올 때: 축척바·범례·표를 그 주제의 기본 위치로
     themeSwitch(prev) { if ((prev === 'target') === (App.theme === 'target')) return; ['scalebar', 'legend', 'table'].forEach(k => { L.els[k].x = null; L.els[k].y = null; }); saveLayout(); buildElUI(); if (active) redraw(); },
     getL() { return JSON.parse(JSON.stringify(L)); },

@@ -87,6 +87,14 @@
     msg.textContent = `${o.rows.length}곳 중 ${o.rows.length - bad}곳 위치 찾음` + (bad ? ` · ${bad}곳은 못 찾음 (목록에서 '지도에서 찍기')` : '');
     codes(); renderList(); saveAll(); fitAll();
   }
+  // 도면 출력 '도면 이동': 측정지점 위치도에서는 지점 + 도면 전체
+  App.layoutExtent = function () {
+    if (App.theme !== 'meas') return null;
+    const fs = App.src.meas.getFeatures(); if (!fs.length) return null;
+    const e = ol.extent.createEmpty(); fs.forEach(f => ol.extent.extend(e, f.getGeometry().getExtent()));
+    const se = App.sitesExtent && App.sitesExtent(); if (se) ol.extent.extend(e, se);
+    return ol.extent.buffer(e, Math.max(100, (e[2] - e[0]) * 0.08));
+  };
   function fitAll() {
     const fs = App.src.meas.getFeatures(); if (!fs.length) return;
     let e = ol.extent.createEmpty(); fs.forEach(f => ol.extent.extend(e, f.getGeometry().getExtent()));
@@ -205,7 +213,7 @@
       const m = 1000, b5 = [Math.min(...bs.map(b => b[0])) - m, Math.min(...bs.map(b => b[1])) - m, Math.max(...bs.map(b => b[2])) + m, Math.max(...bs.map(b => b[3])) + m];
       App.targetLoadRivers(b5, $('#measRiverMsg'), $('#btnMeasRiver'));
     });
-    $('#btnMeasLayout').addEventListener('click', () => { App.switchTab('layout'); App.setTheme('meas'); });
+    $('#btnMeasLayout').addEventListener('click', () => { App.switchTab('layout'); App.setTheme('meas'); setTimeout(() => App.layout && App.layout.fit && App.layout.fit(), 300); });
   }
   const origInit = App.init;
   App.init = async function () { await origInit.apply(this, arguments); build(); };

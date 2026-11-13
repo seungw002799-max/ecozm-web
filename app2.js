@@ -859,7 +859,14 @@
       active = true;
       ensureMap();
       syncControls();
-      if (!L.center && App.sitesExtent()) fitToSites();
+      // 지난 위치가 지금 도면과 동떨어져 있으면(다른 사업 등) 도면 위치로 맞춤
+      const se = App.sitesExtent();
+      if (se) {
+        if (!L.center) fitToSites();
+        else { const pr = ol.proj.getPointResolution('EPSG:3857', 1, L.center, 'm') || 1, mr = mapRectMm(); const hw = (L.scale || 5000) * mr.w / 1000 / 2 / pr, hh = (L.scale || 5000) * mr.h / 1000 / 2 / pr;
+          const view = [L.center[0] - hw, L.center[1] - hh, L.center[0] + hw, L.center[1] + hh];
+          if (!ol.extent.intersects(view, se)) fitToSites(); }
+      }
       layoutPaper();
       requestAnimationFrame(layoutPaper);
     },

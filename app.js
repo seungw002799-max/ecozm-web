@@ -390,7 +390,7 @@ App.createLayerSet = function (getScale, live) {
       // 움직이는 동안에는 이전 명칭 위치를 쓰고, 멈춘 뒤(0.3초) 한 번만 다시 계산
       clearTimeout(set._lpTimer);
       const exs = ex.slice();
-      set._lpTimer = setTimeout(() => { set.viewExtent = exs; set.prot.changed(); if (set.admin) set.admin.changed(); }, o ? 300 : 0);
+      set._lpTimer = setTimeout(() => { set.viewExtent = exs; set.prot.changed(); if (set.admin) set.admin.changed(); if (set.target) set.target.changed(); }, o ? 300 : 0);
     }
   };
   set.prot.on('prerender', onPre);
@@ -400,7 +400,8 @@ App.createLayerSet = function (getScale, live) {
   });
   set.admin.on('prerender', onPre);
   set.pick = new ol.layer.Vector({ source: App.src.pick, zIndex: 5.8, style: f => (App.pickStyle ? App.pickStyle(f, getScale()) : null) });
-  set.target = new ol.layer.Vector({ source: App.src.target, zIndex: 5.7, declutter: false, style: f => (App.targetStyle ? App.targetStyle(f, getScale()) : null) });
+  set.target = new ol.layer.Vector({ source: App.src.target, zIndex: 5.7, declutter: false, style: f => (App.targetStyle ? App.targetStyle(f, getScale(), set) : null) });
+  set.target.on('prerender', onPre);
   set.arrows = new ol.layer.Vector({
     source: App.src.arrows, zIndex: 6, declutter: false,
     style: (f, res) => (f.get('theme') === App.theme && f.get('on') !== false ? arrowStyle(f, getScale(), res) : null),

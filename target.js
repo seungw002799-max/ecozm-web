@@ -37,7 +37,17 @@
     return lum > 140 ? 'rgba(40,40,40,0.85)' : 'rgba(255,255,255,0.95)';   // 밝은 선은 어두운 테두리, 어두운 선은 흰 테두리
   };
   const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
-  App.targetStyle = function (f, s) {
+  // 거리 상자 위치: 지금 보이는 범위 안에 든 범위선 중 가장 위쪽 점
+  function ringTops(f, set) {
+    const ext = set && set.viewExtent; if (!ext) return f.get('tops') || [];
+    const ek = ext.map(v => Math.round(v)).join(','), k = '__rt_' + set.id;
+    if (f[k + 'key'] === ek) return f[k];
+    const w = ext[2] - ext[0], h = ext[3] - ext[1], box = [ext[0] + w * 0.04, ext[1] + h * 0.04, ext[2] - w * 0.04, ext[3] - h * 0.07];
+    const g = f.getGeometry(), polys = g.getType() === 'MultiPolygon' ? g.getPolygons() : [g], out = [];
+    polys.forEach(p => { let best = null; p.getLinearRing(0).getCoordinates().forEach(c => { if (c[0] >= box[0] && c[0] <= box[2] && c[1] >= box[1] && c[1] <= box[3] && (!best || c[1] > best[1])) best = c; }); if (best) out.push(best); });
+    f[k + 'key'] = ek; f[k] = out; return out;
+  }
+  App.targetStyle = function (f, s, set) {
     if (App.theme !== 'target') return null;
     const o = T(), k = f.get('tk'), font = px => `bold ${Math.round(px * s * 10) / 10}px "EcoFont","Malgun Gothic",sans-serif`;
     if (k === 'ring') {
@@ -46,7 +56,7 @@
         new ol.style.Style({ stroke: new ol.style.Stroke({ color: ringStroke(o.ringColor), width: 3.6 * s }) }),
         new ol.style.Style({ stroke: new ol.style.Stroke({ color: o.ringColor || '#fff', width: 1.8 * s }) }),
       ];
-      (f.get('tops') || []).forEach(p => out.push(new ol.style.Style({ geometry: new ol.geom.Point(p), text: new ol.style.Text({
+      ringTops(f, set).forEach(p => out.push(new ol.style.Style({ geometry: new ol.geom.Point(p), text: new ol.style.Text({
         text: f.get('label'), font: font(11), offsetY: -9 * s, fill: new ol.style.Fill({ color: '#111' }),
         backgroundFill: new ol.style.Fill({ color: '#fff' }), backgroundStroke: new ol.style.Stroke({ color: '#111', width: 1.1 * s }),
         padding: [1.5 * s, 4 * s, 0.5 * s, 4 * s], overflow: true }) })));
@@ -55,7 +65,7 @@
     if (k === 'river') {
       const r = RIVER.find(x => x.id === f.get('rid')); if (!r || !o.river[r.id]) return null;
       const st = [new ol.style.Style({ fill: new ol.style.Fill({ color: hexA(r.color, 0.45) }), stroke: new ol.style.Stroke({ color: r.color, width: 1.2 * s }) })];
-      const lp = f.get('lp');
+      const lp = (set && set.viewExtent && App.protLabelPoint) ? (App.protLabelPoint(f, set) || f.get('lp')) : f.get('lp');
       if (lp && f.get('labelMe')) {
         st.push(new ol.style.Style({ geometry: new ol.geom.Point(lp), text: new ol.style.Text({ text: f.get('name'), font: font(10.5), offsetY: -7.5 * s,
           fill: new ol.style.Fill({ color: '#fff' }), backgroundFill: new ol.style.Fill({ color: r.color }), backgroundStroke: new ol.style.Stroke({ color: '#fff', width: 0.8 * s }),
@@ -93,13 +103,20 @@
     const u = siteUnion(); if (!u) { refreshMaps(); return; }
     dists().forEach(d => {
       let b; try { b = u.buffer(d, 24); } catch (e) { return; }
-      const g = to3857(b);
+      const g = densify(to3857(b), d / 3);
       const polys = g.getType() === 'MultiPolygon' ? g.getPolygons() : [g];
       const tops = polys.map(p => { let best = null; p.getLinearRing(0).getCoordinates().forEach(c => { if (!best || c[1] > best[1]) best = c; }); return best; });
       const f = new ol.Feature(g); f.set('tk', 'ring'); f.set('d', d); f.set('label', fmtM(d)); f.set('tops', tops);
       App.src.target.addFeature(f);
     });
     refreshMaps();
+  }
+  function densify(g, stepM) {   // 직선 구간에도 점을 넣어 거리 상자가 화면 안에 놓이도록
+    const st = stepM * 1.25;   // 대략 3857 배율 보정
+    const dr = ring => { const out = []; for (let i = 0; i < ring.length - 1; i++) { const a = ring[i], b = ring[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.ceil(L / st)); for (let j = 0; j < n; j++) out.push([a[0] + (b[0] - a[0]) * j / n, a[1] + (b[1] - a[1]) * j / n]); } out.push(ring[ring.length - 1]); return out; };
+    if (g.getType() === 'Polygon') return new ol.geom.Polygon(g.getCoordinates().map(dr));
+    if (g.getType() === 'MultiPolygon') return new ol.geom.MultiPolygon(g.getCoordinates().map(p => p.map(dr)));
+    return g;
   }
   App.targetRefresh = () => drawRings(false);
 

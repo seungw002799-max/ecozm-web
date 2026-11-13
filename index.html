@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>도면 출력 관련</title>
 <link rel="stylesheet" href="vendor/ol.css">
-<link rel="stylesheet" href="app.css?v=20261113s">
+<link rel="stylesheet" href="app.css?v=20261113t">
 </head>
 <body>
 <header class="topbar">
@@ -182,8 +182,8 @@
             <label class="field"><span>표 제목</span><input type="text" id="tgtTitle"></label>
             <label class="field"><span>칸 머리말</span><input type="text" id="tgtHead"></label>
           </div>
-          <div class="row"><label class="check"><input type="checkbox" id="tgtRingShow" checked> 범위 선 표시</label><label class="check">선 색 <input type="color" id="tgtRingColor" value="#ffffff"></label></div>
-          <ul class="bullets"><li>항공사진에는 흰색, 일반지도에는 검정이 잘 보입니다</li></ul>
+          <div class="row"><label class="check"><input type="checkbox" id="tgtRingShow" checked> 범위 선 표시</label><label class="unit-input"><span class="lbl">선 색</span><select id="tgtRingColor"><option value="auto">자동 (항공사진 흰색, 그 밖에 검정)</option><option value="#ffffff">흰색</option><option value="#222222">검정</option><option value="#e53935">빨강</option><option value="#1e4fd8">파랑</option></select></label></div>
+          
         </section>
         <section class="card-section">
           <h2>주변 하천</h2>
@@ -309,15 +309,15 @@
 <script src="vendor/proj4.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jsts.min.js"></script>
-<script src="cad.js?v=20261113s"></script>
-<script src="backend.js?v=20261113s"></script>
-<script src="app.js?v=20261113s"></script>
-<script src="ecvam.js?v=20261113s"></script>
-<script src="prot.js?v=20261113s"></script> <script src="target.js?v=20261113s"></script>
-  <script src="admin2.js?v=20261113s"></script>
-  <script src="measure.js?v=20261113s"></script>
-  <script src="pick.js?v=20261113s"></script>
-  <script src="project.js?v=20261113s"></script>
-<script src="app2.js?v=20261113s"></script>
+<script src="cad.js?v=20261113t"></script>
+<script src="backend.js?v=20261113t"></script>
+<script src="app.js?v=20261113t"></script>
+<script src="ecvam.js?v=20261113t"></script>
+<script src="prot.js?v=20261113t"></script> <script src="target.js?v=20261113t"></script>
+  <script src="admin2.js?v=20261113t"></script>
+  <script src="measure.js?v=20261113t"></script>
+  <script src="pick.js?v=20261113t"></script>
+  <script src="project.js?v=20261113t"></script>
+<script src="app2.js?v=20261113t"></script>
 </body>
 </html>

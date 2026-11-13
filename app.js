@@ -1042,7 +1042,9 @@ App.fmtDist = (m, unit = true) => { const km = m / 1000; const v = km < 1 ? km.t
 App.theme = 'eco';
 document.body && (document.body.dataset.theme = 'eco');
 App.setTheme = function (t) {
+  const prevTheme = App.theme;
   App.theme = ['prot', 'ecvam', 'target'].includes(t) ? t : 'eco';
+  if (prevTheme !== App.theme && App.layout && App.layout.themeSwitch) App.layout.themeSwitch(prevTheme);
   document.body.dataset.theme = App.theme;
   const sel = document.getElementById('layoutTheme'); if (sel) sel.value = App.theme;
   App.liveSets.forEach(s => { s.refresh(); s.changed(); });

@@ -13,7 +13,7 @@
     aroundHead: '사업지구 주변지역(수계)',
     title: '평 가 대 상 지 역',
     head: '사업지구',
-    ringColor: '#ffffff',
+    ringColor: 'auto',
     ringShow: true,
     river: { river_nat: true, river_loc: true, river_small: true },
   };
@@ -36,6 +36,8 @@
     const n = parseInt((c || '#ffffff').slice(1), 16), lum = ((n >> 16) & 255) * 0.3 + ((n >> 8) & 255) * 0.59 + (n & 255) * 0.11;
     return lum > 140 ? 'rgba(40,40,40,0.85)' : 'rgba(255,255,255,0.95)';   // 밝은 선은 어두운 테두리, 어두운 선은 흰 테두리
   };
+  // 자동: 항공사진이면 흰색, 그 밖에는 검정
+  const ringCol = () => { const c = T().ringColor; return /^#[0-9a-f]{6}$/i.test(c || '') ? c : (App.opts.basemap === 'sat' ? '#ffffff' : '#222222'); };
   const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
   // 거리 상자 위치: 지금 보이는 범위 안에 든 범위선 중 가장 위쪽 점
   function ringTops(f, set) {
@@ -53,8 +55,8 @@
     if (k === 'ring') {
       if (o.ringShow === false) return null;
       const out = [
-        new ol.style.Style({ stroke: new ol.style.Stroke({ color: ringStroke(o.ringColor), width: 3.6 * s }) }),
-        new ol.style.Style({ stroke: new ol.style.Stroke({ color: o.ringColor || '#fff', width: 1.8 * s }) }),
+        new ol.style.Style({ stroke: new ol.style.Stroke({ color: ringStroke(ringCol()), width: 3.6 * s }) }),
+        new ol.style.Style({ stroke: new ol.style.Stroke({ color: ringCol(), width: 1.8 * s }) }),
       ];
       ringTops(f, set).forEach(p => out.push(new ol.style.Style({ geometry: new ol.geom.Point(p), text: new ol.style.Text({
         text: f.get('label'), font: font(11), offsetY: -9 * s, fill: new ol.style.Fill({ color: '#111' }),
@@ -66,7 +68,9 @@
       const r = RIVER.find(x => x.id === f.get('rid')); if (!r || !o.river[r.id]) return null;
       const st = [new ol.style.Style({ fill: new ol.style.Fill({ color: hexA(r.color, 0.45) }), stroke: new ol.style.Stroke({ color: r.color, width: 1.2 * s }) })];
       const lp = (set && set.viewExtent && App.protLabelPoint) ? (App.protLabelPoint(f, set) || f.get('lp')) : f.get('lp');
-      if (lp && f.get('labelMe')) {
+      const nm = f.get('name'), named = nm && nm !== r.cls && !/구역$/.test(nm);
+      if (lp && f.get('labelMe') && !named) st.push(new ol.style.Style({ geometry: new ol.geom.Point(lp), text: new ol.style.Text({ text: r.cls, font: font(10), fill: new ol.style.Fill({ color: '#111' }), backgroundFill: new ol.style.Fill({ color: '#fff' }), backgroundStroke: new ol.style.Stroke({ color: r.color, width: 1 * s }), padding: [1.5 * s, 5 * s, 0.5 * s, 5 * s], overflow: true }) }));
+      if (lp && f.get('labelMe') && named) {
         st.push(new ol.style.Style({ geometry: new ol.geom.Point(lp), text: new ol.style.Text({ text: f.get('name'), font: font(10.5), offsetY: -7.5 * s,
           fill: new ol.style.Fill({ color: '#fff' }), backgroundFill: new ol.style.Fill({ color: r.color }), backgroundStroke: new ol.style.Stroke({ color: '#fff', width: 0.8 * s }),
           padding: [1.5 * s, 5 * s, 0.5 * s, 5 * s], overflow: true }) }));
@@ -188,7 +192,7 @@
     const o = T();
     renderRows();
     $('#tgtAround').value = o.around; $('#tgtTitle').value = o.title; $('#tgtHead').value = o.head;
-    $('#tgtRingShow').checked = o.ringShow !== false; $('#tgtRingColor').value = o.ringColor || '#ffffff';
+    $('#tgtRingShow').checked = o.ringShow !== false; $('#tgtRingColor').value = o.ringColor || 'auto';
     RIVER.forEach(r => { const c = document.querySelector(`[data-triv="${r.id}"]`); if (c) c.checked = o.river[r.id] !== false; });
     $('#tgtRows').addEventListener('input', e => {
       const t = e.target, i = t.dataset.tr; if (i == null) return;
@@ -203,7 +207,7 @@
     $('#tgtTitle').addEventListener('input', e => { o.title = e.target.value; changed(); });
     $('#tgtHead').addEventListener('input', e => { o.head = e.target.value; changed(); });
     $('#tgtRingShow').addEventListener('change', e => { o.ringShow = e.target.checked; changed(); });
-    $('#tgtRingColor').addEventListener('input', e => { o.ringColor = e.target.value; changed(); });
+    $('#tgtRingColor').addEventListener('change', e => { o.ringColor = e.target.value; changed(); });
     document.querySelectorAll('[data-triv]').forEach(c => c.addEventListener('change', e => { o.river[e.target.dataset.triv] = e.target.checked; changed(); }));
     $('#btnTgtRiver').addEventListener('click', loadRivers);
     $('#btnTgtLayout').addEventListener('click', () => { App.switchTab('layout'); App.setTheme('target'); });

@@ -490,3 +490,11 @@ body { -webkit-font-smoothing: antialiased; }
 .mi-row .mi-st { grid-area: st; font-size: 11px; padding: 1px 5px; border-radius: 4px; background: #eef; color: #556; }
 .mi-st.ok { background: #e8f5e9; color: #2e7d32; } .mi-st.bad { background: #ffebee; color: #c62828; }
 .btn.small.on { background: var(--accent, #0b6e69); color: #fff; }
+
+/* 도면 출력 탭: 평가대상지역 표는 대상지역 설정도에서만 */
+body:not([data-theme="target"]) #elList [data-elkey="table"] { display: none; }
+/* 대상지역 설정도·측정지점 위치도 탭 안 출력: 생태자연도·레이어 모음 관련 칸은 숨김 */
+#tabLayout.embedded [data-row="opA"], #tabLayout.embedded [data-row="opI"], #tabLayout.embedded [data-row="opE"] { display: none; }
+#tabLayout.embedded label.check:has([data-f="all"]) { display: none; }
+#tabLayout.embedded .row:has(#btnLabelReset), #tabLayout.embedded #styleSection { display: none; }
+#tabLayout.embedded .card-section .bullets li:nth-child(n+4) { display: none; }

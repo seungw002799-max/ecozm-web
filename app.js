@@ -937,6 +937,8 @@ function switchTab(name) {
   App.curTab = name;
   if (name === 'target' || name === 'meas') { setEmbedView(name, App.embedView[name]); return; }
   homeLayout();
+  // 대상지역 설정도·측정지점 위치도는 각 탭에서만 출력: 도면 출력 탭으로 오면 원래 주제로
+  if (name === 'layout' && ['target', 'meas'].includes(App.theme)) App.setTheme(App.baseTheme || 'eco');
   $('#tabLayout').hidden = name !== 'layout';
   $('#workMapWrap').hidden = name === 'layout';
   $('#paperWrap').hidden = name !== 'layout';
@@ -1075,6 +1077,7 @@ document.body && (document.body.dataset.theme = 'eco');
 App.setTheme = function (t) {
   const prevTheme = App.theme;
   App.theme = ['prot', 'ecvam', 'target', 'meas'].includes(t) ? t : 'eco';
+  if (['eco', 'prot', 'ecvam'].includes(App.theme)) App.baseTheme = App.theme;   // 도면 출력 탭에서 쓰는 주제
   if (prevTheme !== App.theme && App.layout && App.layout.themeSwitch) App.layout.themeSwitch(prevTheme);
   document.body.dataset.theme = App.theme;
   const sel = document.getElementById('layoutTheme'); if (sel) sel.value = App.theme;

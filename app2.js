@@ -772,7 +772,7 @@
       const main = fields.filter(f => f[2] !== 'check').map(one).join('');
       const checks = fields.filter(f => f[2] === 'check').map(one).join('');     // 체크박스는 맨 아래
       const hint = EL_HINT[key] ? `<ul class="bullets full">${EL_HINT[key].map(t => `<li>${t}</li>`).join('')}</ul>` : '';
-      return `<details class="el-box"><summary><input type="checkbox" data-el="${key}" data-f="show" ${c.show ? 'checked' : ''}> ${EL_NAMES[key]}</summary><div class="el-body">${hint}${main}${posRow(key, c)}${checks}</div></details>`;
+      return `<details class="el-box" data-elkey="${key}"><summary><input type="checkbox" data-el="${key}" data-f="show" ${c.show ? 'checked' : ''}> ${EL_NAMES[key]}</summary><div class="el-body">${hint}${main}${posRow(key, c)}${checks}</div></details>`;
     }).join('');
   }
   // 위치 버튼: 누르고 있으면 계속 이동

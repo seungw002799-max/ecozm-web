@@ -236,7 +236,8 @@
   }
 
   async function build() {
-    setName(curName);
+    // 새로 열면 사업명은 비워 둠 (지난 사업 이름으로 새 도면이 덮어써지지 않도록). '이어서 하기'나 목록에서 열면 그 이름으로 바뀜
+    setName('', false);
     nameInput().addEventListener('change', async () => {
       const old = curName, wasAuto = autoNamed, n = nameInput().value.trim();
       setName(n);

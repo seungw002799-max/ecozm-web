@@ -211,7 +211,10 @@
   }
 
   // 환경공간정보서비스 GeoServer WFS (중계 서버 경유), 조건 + 범위 필터
+  // 중계 서버 캐시가 잘 맞도록 조회 범위를 0.02° 격자로 넓혀 맞춤 (같은 동네를 다시 조회하면 바로 응답)
+  const snapB = b => { const s = 0.02; return [Math.floor(b[0] / s) * s, Math.floor(b[1] / s) * s, Math.ceil(b[2] / s) * s, Math.ceil(b[3] / s) * s].map(v => +v.toFixed(4)); };
   async function fetchEgis(p, b) {
+    b = snapB(b);
     const cql = (p.cql ? p.cql + ' AND ' : '') + `BBOX(geom,${b.join(',')},'EPSG:4326')`;
     const u = 'https://api.mcee.go.kr/geoserver/me/wfs?service=WFS&version=1.0.0&request=GetFeature&outputFormat=application/json&srsName=EPSG:4326' +
       `&typeName=${p.typename}&CQL_FILTER=${encodeURIComponent(cql)}`;
@@ -230,6 +233,7 @@
   // KEI 산줄기: 중계 서버로 실시간 요청(12초) -> 실패/잘린 응답이면 사이트에 포함된 같은 자료(신산경표, 고정 자료)를 사용
   const keiCache = {};
   async function fetchKei(p, b) {
+    b = snapB(b);
     const layer = p.typename.split(':')[1];
     const mapF = fs => fs.filter(f => f.geometry).map(f => ({ type: 'Feature', geometry: f.geometry, properties: { name: p.name(f.properties || {}) } }));
     const u = 'https://eiaresearch.kei.re.kr/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&outputFormat=application/json&srsName=EPSG:4326' +
@@ -285,6 +289,7 @@
 
   // 일반 WFS (bbox 조건, 중계 서버 경유): 하천정보관리시스템 하천망도, 환경공간정보 소하천구역
   async function fetchWfsBbox(p, b) {
+    b = snapB(b);
     const u = `${p.base}?service=WFS&version=1.0.0&request=GetFeature&outputFormat=application/json&srsName=EPSG:4326&typeName=${p.typename}&bbox=${b.join(',')},EPSG:4326`;
     const ac = new AbortController(); const tm = setTimeout(() => ac.abort(), 40000);
     try {

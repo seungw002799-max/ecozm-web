@@ -74,6 +74,11 @@
   }
   // 도면 출력 '도면 이동': 측정지점 위치도에서는 지점 + 도면 전체
   App.layoutExtent = function () {
+    if (App.theme === 'target') {   // 대상지역 설정도: 가장 큰 거리 범위까지
+      const rs = App.src.target.getFeatures().filter(f => f.get('tk') === 'ring'); if (!rs.length) return null;
+      const e = ol.extent.createEmpty(); rs.forEach(f => ol.extent.extend(e, f.getGeometry().getExtent()));
+      return ol.extent.buffer(e, (e[2] - e[0]) * 0.06);
+    }
     if (App.theme !== 'meas') return null;
     const fs = App.src.meas.getFeatures(); if (!fs.length) return null;
     const e = ol.extent.createEmpty(); fs.forEach(f => ol.extent.extend(e, f.getGeometry().getExtent()));

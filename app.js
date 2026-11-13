@@ -960,7 +960,7 @@ function setEmbedView(name, view) {
   if (view === 'print') {
     slot.appendChild(tl); tl.classList.add('embedded'); tl.hidden = false;
     $('#workMapWrap').hidden = true; $('#paperWrap').hidden = false;
-    if (App.layout) App.layout.enter();
+    if (App.layout) { App.layout.enter(); if (!App._embedFitted) App._embedFitted = {}; if (!App._embedFitted[name]) { App._embedFitted[name] = true; setTimeout(() => App.layout.fit && App.layout.fit(), 200); } }
   } else {
     homeLayout(); tl.hidden = true;
     $('#workMapWrap').hidden = false; $('#paperWrap').hidden = true;

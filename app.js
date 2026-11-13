@@ -321,7 +321,7 @@ function siteStyleFull(f, s) {
   if (o.show === false || !site.feature) return st;
   const lp = App.siteLabelPoint(site); if (!lp) return st;
   const PXMM = PX_PER_MM96 * s, off = site.labelOff || [0, 0];
-  const pt = Number(o.pt) || 14, buf = o.buf == null || o.buf === '' ? 0.8 : Math.max(0, Number(o.buf));
+  const pt = (Number(o.pt) || 14) * ((Number(o.scale) || 100) / 100), buf = o.buf == null || o.buf === '' ? 0.8 : Math.max(0, Number(o.buf));
   const col = App.catStyleFor(f.get('category')).color;
   return [st, new ol.style.Style({ geometry: new ol.geom.Point(lp), zIndex: 10, text: new ol.style.Text({
     text: site.labelText || site.category || '', font: `bold ${Math.round(pt * 0.3528 * PXMM * 10) / 10}px "EcoFont","Malgun Gothic",sans-serif`,
@@ -758,7 +758,7 @@ function initSiteList() {
     const card = t.closest('.site-card'); const s = siteById(card.dataset.sid); if (!s) return;
     if (act === 'cat') {
       s.category = t.value;
-      if (s.feature) { s.feature.set('category', s.category); App.emit(); }
+      if (s.feature) { s.feature.set('category', s.category); App.liveSets.forEach(x => x.changed()); App.emit(); }
     } else if (act === 'layer') {
       s.layers[Number(t.dataset.i)].checked = t.checked;
       clearTimeout(s.layerTimer);

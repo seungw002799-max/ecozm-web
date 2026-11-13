@@ -73,7 +73,7 @@
   }
   function areaBlockH() {
     const c = L.els.areatext;
-    return c.show ? areaLines().length * c.font * PT * 1.5 + 2 : 0;
+    return 0;   // 하단 표기 사용 안 함
   }
   function mapRectMm() {
     const { W, H } = dims(); const m = Math.max(0, Number(L.margin) || 0);
@@ -268,8 +268,8 @@
       };
     },
   };
-  const POS_ORDER = ['north', 'scalebar', 'legend', 'areatext'];
-  const Z_ORDER = ['legend', 'scalebar', 'north', 'areatext'];
+  const POS_ORDER = ['north', 'scalebar', 'legend'];   // 하단 표기(areatext)는 그리지 않음
+  const Z_ORDER = ['legend', 'scalebar', 'north'];
   const EL_NAMES = { north: '방위표', scalebar: '축척바', legend: '범례', areatext: '하단 표기 (면적·거리)' };
 
   function defaultPos(key, b, W, H, m) {
@@ -401,6 +401,43 @@
   function esc(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
   function arrowFeats() { return App.src.arrows.getFeatures().filter(f => f.get('theme') === App.theme); }
   function slStep(id, ax, lbl, a, b, v) { return `<div class="stepper"><span class="lbl">${lbl}</span><button type="button" data-slid="${id}" data-slax="${ax}" data-step="-0.5">${a}</button><input type="number" step="0.5" data-slid="${id}" data-slax="${ax}" value="${Number(v) || 0}"><button type="button" data-slid="${id}" data-slax="${ax}" data-step="0.5">${b}</button></div>`; }
+  // 도면 명칭(사업지구·계획지구 등): 요소 목록의 다른 상자(방위표·축척바·범례)와 같은 모양
+  let slSig = null;
+  function buildSiteLabelUI(force) {
+    const box = $('#siteLabelBox'); if (!box) return;
+    const sites = App.sites.filter(s => s.geometry);
+    const sig = sites.map(s => s.id + s.category + s.name + (s.labelText || '')).join(',');
+    if (!force && sig === slSig) return;
+    if (!force && box.contains(document.activeElement)) return;
+    slSig = sig;
+    const so = App.opts.siteLabel || {};
+    const wasOpen = box.querySelector('details') && box.querySelector('details').open;
+    box.innerHTML = `<details class="el-box" ${wasOpen ? 'open' : ''}><summary><input type="checkbox" data-sl="show" ${so.show === false ? '' : 'checked'}> 도면 명칭 (사업지구 등)</summary><div class="el-body">
+      <ul class="bullets full"><li>도면 탭에서 고른 구분이 도면 안쪽 가운데에 들어갑니다</li><li>미리보기에서 끌거나 두 번 눌러 글자를 바꿀 수 있습니다</li></ul>
+      <label class="field"><span>글자 크기(pt)</span><input type="number" step="0.5" min="4" data-sl="pt" value="${so.pt || 14}"></label>
+      <label class="field"><span>크기(%)</span><input type="number" step="5" min="20" data-sl="scale" value="${so.scale || 100}"></label>
+      <label class="field"><span>흰색 버퍼(mm)</span><input type="number" step="0.1" min="0" data-sl="buf" value="${so.buf == null ? 0.8 : so.buf}"></label>
+      ${sites.length ? sites.map(s => { const off = s.labelOff || [0, 0];
+        return `<div class="sl-row full"><span class="sl-name" title="${esc(s.name)}"><b>${esc(s.labelText || s.category)}</b> <small>${esc(s.name)}</small></span>
+          <div class="pos-row">${slStep(s.id, 0, 'X', '◀', '▶', off[0])}${slStep(s.id, 1, 'Y', '▲', '▼', off[1])}<span class="unit">mm</span>
+          <button type="button" class="btn small" data-slreset="${s.id}" title="가운데로">초기화</button></div></div>`; }).join('') : '<div class="hint full">도면을 올리면 위치를 조정할 수 있습니다</div>'}
+    </div></details>`;
+  }
+  function initSiteLabelUI() {
+    const box = $('#siteLabelBox'); if (!box) return;
+    const changed = () => { App.saveOpts(); App.liveSets.forEach(x => x.changed()); redraw(); };
+    box.addEventListener('input', e => {
+      const t = e.target;
+      if (t.dataset.sl) { const so = App.opts.siteLabel = App.opts.siteLabel || {}; so[t.dataset.sl] = t.type === 'checkbox' ? t.checked : Number(t.value); changed(); return; }
+      if (t.dataset.slid && t.tagName === 'INPUT') { const s = App.sites.find(x => String(x.id) === t.dataset.slid); if (s) { s.labelOff = s.labelOff || [0, 0]; s.labelOff[+t.dataset.slax] = Number(t.value) || 0; changed(); } }
+    });
+    box.addEventListener('click', e => {
+      const sb = e.target.closest('button[data-slid]');
+      if (sb) { const s = App.sites.find(x => String(x.id) === sb.dataset.slid); if (!s) return; s.labelOff = s.labelOff || [0, 0]; const ax = +sb.dataset.slax; s.labelOff[ax] = Math.round(((Number(s.labelOff[ax]) || 0) + Number(sb.dataset.step) * (e.shiftKey ? 10 : 1)) * 10) / 10; const inp = box.querySelector(`input[data-slid="${s.id}"][data-slax="${ax}"]`); if (inp) inp.value = s.labelOff[ax]; changed(); return; }
+      const rb = e.target.closest('[data-slreset]');
+      if (rb) { const s = App.sites.find(x => String(x.id) === rb.dataset.slreset); if (s) { s.labelOff = [0, 0]; delete s.labelPos; box.querySelectorAll(`input[data-slid="${s.id}"]`).forEach(i => { i.value = 0; }); changed(); } }
+    });
+  }
   function buildStyleUI(force) {
     const box = $('#styleBox'); if (!box) return;
     const kinds = App.theme === 'prot' && App.protLegend ? App.protLegend() : [];
@@ -418,18 +455,6 @@
         <input type="text" data-sk="${sk}" data-f="name" value="${esc(name)}" placeholder="${esc(ph)}" title="범례 이름">
         <input type="number" step="0.5" min="4" data-sk="${sk}" data-f="pt" value="${pt}" title="지도 명칭 글자 크기(pt)"><span class="unit">pt</span></div>`;
     let h = '';
-    if (sites.length) {
-      // 도면 명칭: 도면 탭에서 고른 구분(사업지구·계획지구·사업노선·계획노선)이 지도 위 글자로 들어감
-      const so = App.opts.siteLabel || {};
-      h += `<div class="sty-sub">도면 명칭 <label class="check inline"><input type="checkbox" data-sl="show" ${so.show === false ? '' : 'checked'}> 표시</label></div>
-        <div class="sl-opts"><label class="field"><span>글자 크기(pt)</span><input type="number" step="0.5" min="4" data-sl="pt" value="${so.pt || 14}"></label>
-        <label class="field"><span>흰색 버퍼(mm)</span><input type="number" step="0.1" min="0" data-sl="buf" value="${so.buf == null ? 0.8 : so.buf}"></label></div>`;
-      sites.forEach(s => { const off = s.labelOff || [0, 0];
-        h += `<div class="sl-row"><span class="sl-name" title="${esc(s.name)}"><b>${esc(s.category)}</b> <small>${esc(s.name)}</small></span>
-          <div class="pos-row">${slStep(s.id, 0, 'X', '◀', '▶', off[0])}${slStep(s.id, 1, 'Y', '▲', '▼', off[1])}<span class="unit">mm</span>
-          <button type="button" class="btn small" data-slreset="${s.id}" title="가운데로">초기화</button></div></div>`; });
-      h += '<ul class="bullets"><li>글자는 도면 안쪽 가운데에 들어가며, 미리보기에서 끌거나 X·Y로 옮길 수 있습니다</li><li>색은 도면 선 색을 따릅니다</li></ul>';
-    }
     if (kinds.length || adm) {
       h += '<div class="sty-head"><span title="범례에 표시">✓</span><span>색</span><span>범례 이름</span><span>명칭 크기</span></div>';
       kinds.forEach(p => { const c = (App.opts.protCustom || {})[p.id] || {}; const lk = App.protLook(p); h += row(p.id, c.name || '', lk.color, lk.pt, p.short); });
@@ -565,6 +590,7 @@
   function redraw() {
     if (!active || !map) return;
     buildStyleUI();
+    buildSiteLabelUI();
     const { W, H } = dims();
     const dpr = window.devicePixelRatio || 1;
     const ctx = overlay.getContext('2d');
@@ -731,6 +757,7 @@
 
   function initControls() {
     initStyleUI();
+    initSiteLabelUI();
     $('#layoutTheme').addEventListener('change', e => { App.setTheme(e.target.value); L.els.areatext.x = null; L.els.areatext.y = null; layoutPaper(); });
     $('#btnFit').addEventListener('click', fitToSites);
 
@@ -894,6 +921,7 @@
           const view = [L.center[0] - hw, L.center[1] - hh, L.center[0] + hw, L.center[1] + hh];
           if (!ol.extent.intersects(view, se)) fitToSites(); }
       }
+      if (set) set.changed();   // 도면 탭에서 바꾼 구분·선 색 반영
       layoutPaper();
       requestAnimationFrame(layoutPaper);
     },

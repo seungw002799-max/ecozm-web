@@ -213,6 +213,7 @@
       if (App.theme === 'meas' && App.measLegend) App.measLegend().forEach(r => rows.push(r));
     if ((App.theme === 'target' || App.theme === 'meas') && App.targetLegend) App.targetLegend().filter(r => !hide['t:' + r.t]).forEach(r => rows.push({ t: r.t, prot: { color: r.color, dash: 'solid', id: 't' } }));
     // 행정구역 경계는 범례에 넣지 않음 (보통 범례에 들어가지 않음)
+    if (rows.length === 1 && (App.theme === 'target' || App.theme === 'meas')) return null;   // 넣을 항목이 없으면 범례 상자도 안 그림
       let tw = 0;
       rows.forEach(r => { tw = Math.max(tw, textW(ctx, r.t, f, !!r.head)); });
       const w = pad * 2 + (rows.length > 1 ? sw + 2 * z : 0) + tw, h = pad * 2 + rows.length * rowH;

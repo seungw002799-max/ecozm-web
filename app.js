@@ -39,7 +39,8 @@ const App = {
     sites: new ol.source.Vector(),
     prot: new ol.source.Vector(),
     admin: new ol.source.Vector(),
-    pick: new ol.source.Vector(),     // 초기 입지 검토: 검토 지점 + 반경 원 (pick.js)    // 시군구 경계 (브이월드)
+    pick: new ol.source.Vector(), target: new ol.source.Vector(),   // 대상지역 설정도: 거리 범위 + 하천 (target.js)
+        // 초기 입지 검토: 검토 지점 + 반경 원 (pick.js)    // 시군구 경계 (브이월드)
     arrows: new ol.source.Vector(),   // 최근접 거리 화살표 (theme 별)     // 보호구역 검토 레이어 (prot.js)
   },
 };
@@ -399,11 +400,12 @@ App.createLayerSet = function (getScale, live) {
   });
   set.admin.on('prerender', onPre);
   set.pick = new ol.layer.Vector({ source: App.src.pick, zIndex: 5.8, style: f => (App.pickStyle ? App.pickStyle(f, getScale()) : null) });
+  set.target = new ol.layer.Vector({ source: App.src.target, zIndex: 5.7, declutter: false, style: f => (App.targetStyle ? App.targetStyle(f, getScale()) : null) });
   set.arrows = new ol.layer.Vector({
     source: App.src.arrows, zIndex: 6, declutter: false,
     style: (f, res) => (f.get('theme') === App.theme && f.get('on') !== false ? arrowStyle(f, getScale(), res) : null),
   });
-  set.layers = [set.base, set.label, set.ecvam, set.around, set.inside, set.prot, set.admin, set.pick, set.sites, set.arrows];
+  set.layers = [set.base, set.label, set.ecvam, set.around, set.inside, set.prot, set.target, set.admin, set.pick, set.sites, set.arrows];
   set.errors = 0;
   set.refresh = function (over) {
     const o = Object.assign({}, App.opts, over || {});
@@ -925,12 +927,12 @@ function switchTab(name) {
   $('#tabWork').hidden = name !== 'work';
   $('#tabEco').hidden = name !== 'eco';
   $('#tabProt').hidden = name !== 'prot';
-  const tp = $('#tabPick'); if (tp) tp.hidden = name !== 'pick';
+  const tp = $('#tabPick'); if (tp) tp.hidden = name !== 'pick'; const tt = $('#tabTarget'); if (tt) tt.hidden = name !== 'target';
   $('#tabEcvam').hidden = name !== 'ecvam';
   $('#tabLayout').hidden = name !== 'layout';
   $('#workMapWrap').hidden = name === 'layout';
   if (name === 'eco' || name === 'prot' || name === 'ecvam') App.setTheme(name);
-  if (name === 'pick') App.setTheme('prot');
+  if (name === 'pick') App.setTheme('prot'); if (name === 'target') { App.setTheme('target'); if (App.targetRefresh) App.targetRefresh(); }
   $('#paperWrap').hidden = name !== 'layout';
   if (name === 'layout') { if (App.layout) App.layout.enter(); }
   else { if (App.layout) App.layout.leave(); App.workMap.updateSize(); }
@@ -1039,7 +1041,7 @@ App.fmtDist = (m, unit = true) => { const km = m / 1000; const v = km < 1 ? km.t
 App.theme = 'eco';
 document.body && (document.body.dataset.theme = 'eco');
 App.setTheme = function (t) {
-  App.theme = ['prot', 'ecvam'].includes(t) ? t : 'eco';
+  App.theme = ['prot', 'ecvam', 'target'].includes(t) ? t : 'eco';
   document.body.dataset.theme = App.theme;
   const sel = document.getElementById('layoutTheme'); if (sel) sel.value = App.theme;
   App.liveSets.forEach(s => { s.refresh(); s.changed(); });

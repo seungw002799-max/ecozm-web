@@ -28,7 +28,7 @@
     egis: { label: '환경공간정보서비스', note: { src: '환경공간정보서비스 API', tags: ['실시간', '중계'], extra: ['기후에너지환경부'] } },
   };
   // 출처(제공 기관)별로 분류: 검증할 때 어디 자료인지 바로 보이도록
-  const CATS = { ecobank: '에코뱅크 (국립생태원)', vworld: '브이월드 (국토교통부 등)', egis: '환경공간정보서비스 (기후에너지환경부)', kei: 'KEI 지역환경정보시스템', rim: '하천정보관리시스템 (RIMGIS)', nibr: '국립생물자원관', nier: '물환경정보시스템 (국립환경과학원)' };
+  const CATS = { ecobank: '에코뱅크 (국립생태원)', vworld: '브이월드 (국토교통부 등)', egis: '환경공간정보서비스 (기후에너지환경부)', kei: 'KEI 지역환경정보시스템', rim: '하천정보관리시스템 (RIMGIS)', nibr: '국립생물자원관', knps: '국립공원공단', nier: '물환경정보시스템 (국립환경과학원)' };
   const PROT = [
     // ecobank
     { cat: 'ecobank', id: 'eco1', grade: '1', label: '생태자연도 1등급', short: '생태자연도 1등급', src: 'eco1', name: () => '생태자연도 1등급', labelNearest: true, color: '#1AA800', note: ECZ },
@@ -64,6 +64,9 @@
     // nibr
     { cat: 'nibr', id: 'winter_bird', label: '겨울철 조류 동시센서스 조사지역', short: '겨울철 철새 도래지', src: 'local', nameField: 'name', nameFmt: n => n + ' 겨울철 철새 도래지', mapLabel: t => t.replace(/\s*겨울철 철새 도래지$/, '\n겨울철 철새 도래지'), color: '#7B3FA0', note: { src: '국립생물자원관 철새정보시스템', tags: ['2025-2026'], extra: ['동시센서스 조사지역 200개소 (2026.04.10 편집)', '자료실 지도파일을 사이트에 넣어 사용'] },
       local: 'data/winter_bird_2025.geojson' },   // 해마다 새 조사지역 파일이 올라오면 교체 (이전: EIAGIS 2014년 자료)
+    // knps
+    { cat: 'knps', id: 'geosite', label: '국가지질공원 지질명소 (자연공원법)', short: '지질공원 지질명소', src: 'local', point: true, srcName: '국립공원공단', nameField: 'name', mapLabel: t => t.replace(/\s*\(.*\)$/, ''), color: '#8D5524', note: { src: '국립공원공단 국가지질공원 지질명소 (공공데이터포털)', tags: ['2024.09'], extra: ['지질공원 16곳, 지질명소 248곳 (점 자료)', '지질공원 구역 경계는 공개 공간자료가 없어 명소 위치로 대신함'] },
+      local: 'data/geosite_2024.geojson' },
     // nier
     { cat: 'nier', id: 'tmdl', label: '수질오염총량 관리지역 (단위유역)', short: '수질오염총량 단위유역', src: 'nier', typename: 'water_new:tmdl_polygon', name: p => (p.tm_unit_nm || '') + ' 단위유역', overlapOnly: true, color: '#546E7A', note: NIER },
   ];
@@ -77,6 +80,8 @@
   };
   App.protLabelKey = f => f.get('kind') + '|' + (f.get('name') || '');
   App.PROT = PROT;
+  // 대상지역 설정도(target.js)에서 하천 등 한 레이어만 받을 때
+  App.protFetchLayer = (id, b4326) => { const p = BY_ID[id]; if (!p) return Promise.reject(new Error('레이어 없음')); return fetchWfsBbox(p, b4326); };
 
   const fmt = n => Number(n).toLocaleString('ko-KR', { maximumFractionDigits: 0 });
   const hexA = (hex, a) => {
@@ -125,7 +130,9 @@
     let st = cache.get(key);
     if (!st) {
       // 선 색·굵기·종류는 레이어 모음 탭의 '레이어 선 스타일'에서 바꿈
-      st = p.line
+      st = p.point
+        ? new ol.style.Style({ image: new ol.style.RegularShape({ points: 3, radius: Math.max(4, 6 * s), fill: new ol.style.Fill({ color: col }), stroke: new ol.style.Stroke({ color: '#fff', width: Math.max(1, 1.5 * s) }) }) })
+        : p.line
         ? new ol.style.Style({ stroke: new ol.style.Stroke({ color: col, width: w, lineDash: dsh }) })
         : nb
         ? new ol.style.Style({ stroke: new ol.style.Stroke({ color: col, width: Math.max(0.8, 1.6 * s), lineDash: [6 * s, 4 * s] }) })
@@ -144,7 +151,7 @@
     if (!lp) return st;
     return [st, new ol.style.Style({ geometry: new ol.geom.Point(lp), text: new ol.style.Text({
       text: label, font: `bold ${Math.round(lk.pt * 0.3528 * App.PX_PER_MM96 * s * 10) / 10}px "EcoFont","Malgun Gothic",sans-serif`,
-      fill: new ol.style.Fill({ color: col }), stroke: new ol.style.Stroke({ color: '#fff', width: 3 * s }), overflow: true }) })];
+      fill: new ol.style.Fill({ color: col }), stroke: new ol.style.Stroke({ color: '#fff', width: 3 * s }), overflow: true, offsetY: p.point ? -11 * s : 0 }) })];
   };
 
   // ------------------------------------------------------------ 자료 받기
@@ -324,7 +331,7 @@
     }
     const all = localCache[p.id];
     const inBox = g => { const e = [Infinity, Infinity, -Infinity, -Infinity]; const walk = c => { if (typeof c[0] === 'number') { e[0] = Math.min(e[0], c[0]); e[1] = Math.min(e[1], c[1]); e[2] = Math.max(e[2], c[0]); e[3] = Math.max(e[3], c[1]); } else c.forEach(walk); }; walk(g.coordinates); return e[0] <= b[2] && e[2] >= b[0] && e[1] <= b[3] && e[3] >= b[1]; };   // 범위가 겹치면 포함
-    return { type: 'FeatureCollection', _src: '국립생물자원관 ' + (all.fetched || ''), features: all.features.filter(f => f.geometry && inBox(f.geometry)) };
+    return { type: 'FeatureCollection', _src: (p.srcName || '국립생물자원관') + ' ' + (all.fetched || ''), features: all.features.filter(f => f.geometry && inBox(f.geometry)) };
   }
 
   // 사업지구(전체) 범위 + 반경 -> EPSG:4326 bbox [minLon,minLat,maxLon,maxLat]
@@ -475,7 +482,7 @@
       const col = App.protLook && p.id ? App.protLook(p).color : (p.color || '#888');
       const more = g.rs.length > 3 ? `<details class="pr-more"><summary>외 ${g.rs.length - 3}곳 더 보기</summary>${g.rs.slice(3).map(item).join('')}</details>` : '';
       return `<div class="pr-group">
-        <div class="pr-gh"><input type="checkbox" data-show="${g.kind}" ${(App.opts.protShow || {})[g.kind] !== false ? 'checked' : ''} title="지도에 표시"><span class="swatch${p.line ? ' swatch-line' : ''}" style="border-color:${col};background:${p.line ? 'transparent' : hexA(col, 0.18)}"></span>
+        <div class="pr-gh"><input type="checkbox" data-show="${g.kind}" ${(App.opts.protShow || {})[g.kind] !== false ? 'checked' : ''} title="지도에 표시"><span class="swatch${p.line ? ' swatch-line' : ''}${p.point ? ' swatch-pt' : ''}" style="border-color:${col};background:${p.line ? 'transparent' : hexA(col, 0.18)}"></span>
           <b>${p.short || g.kind}</b><span class="pr-cnt">${g.rs.length}곳</span><span class="pr-near ${near.dist === 0 ? 'zero' : ''}">최근접 ${near.dist === 0 ? '0.00km' : App.fmtDist(near.dist)}</span></div>
         ${g.rs.slice(0, 3).map(item).join('')}${more}</div>`;
     }).join('') + srcHtml();
@@ -511,7 +518,7 @@
     const noteHtml = (n, withSrc) => (withSrc ? `<span class="src-line">${n.src}<span class="tags">${(n.tags || []).map(t => `<span class="tag ${/중계|사본/.test(t) ? 'tag-gray' : ''}">${t}</span>`).join('')}</span></span>` : '') +
       [].concat(n.extra || []).map(x => `<span class="src-extra">${x}</span>`).join('');
     const on = id => App.opts.protOn[id] !== false;
-    const sw = p => `<span class="swatch${p.line ? ' swatch-line' : ''}" style="border-color:${p.color};background:${p.line ? 'transparent' : hexA(p.color, 0.18)}"></span>`;
+    const sw = p => `<span class="swatch${p.line ? ' swatch-line' : ''}${p.point ? ' swatch-pt' : ''}" style="border-color:${p.color};background:${p.line ? 'transparent' : hexA(p.color, 0.18)}"></span>`;
     let html = '', lastCat = null; const done = new Set();
     PROT.forEach(p => {
       if (p.cat !== lastCat) { html += `<div class="prot-cat">${CATS[p.cat]}</div>`; lastCat = p.cat; }

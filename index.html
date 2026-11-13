@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>도면 출력 관련</title>
 <link rel="stylesheet" href="vendor/ol.css">
-<link rel="stylesheet" href="app.css?v=20261113q">
+<link rel="stylesheet" href="app.css?v=20261113r">
 </head>
 <body>
 <header class="topbar">
@@ -15,7 +15,7 @@
       <button class="tab active" data-tab="work" type="button">도면</button>
       <button class="tab" data-tab="ecvam" type="button">국토환경성평가</button>
       <button class="tab" data-tab="eco" type="button">생태자연도</button>
-      <button class="tab" data-tab="prot" type="button">레이어 모음</button>
+      <button class="tab" data-tab="prot" type="button">레이어 모음</button> <button class="tab" data-tab="target" type="button">대상지역 설정도</button>
       <button class="tab" data-tab="layout" type="button">도면 출력</button>
   </nav>
   <div class="topbar-right" id="healthInfo"></div>
@@ -170,7 +170,39 @@
       </section>
     </div>
 
-    <!-- ===================== 국토환경성평가 탭 ===================== -->
+    <!-- ===================== 대상지역 설정도 탭 ===================== -->
+      <div id="tabTarget" class="tabpane" hidden>
+        <section class="card-section">
+          <h2>거리 범위와 조사항목</h2>
+          <ul class="bullets"><li>도면 탭에서 올린 사업지구·노선을 기준으로 거리 범위를 그립니다</li><li>도면이 여러 개면 합쳐서 하나의 범위로 그립니다</li><li>조사항목은 쉼표로 구분합니다 (괄호 안 쉼표는 그대로)</li></ul>
+          <div id="tgtRows" class="tgt-rows"></div>
+          <div class="row"><button id="btnTgtAdd" class="btn small" type="button">범위 추가</button><button id="btnTgtReset" class="btn small" type="button">기본값으로</button></div>
+          <label class="field full"><span>사업지구 주변지역(수계) 항목</span><textarea id="tgtAround" rows="3"></textarea></label>
+          <div class="grid2">
+            <label class="field"><span>표 제목</span><input type="text" id="tgtTitle"></label>
+            <label class="field"><span>칸 머리말</span><input type="text" id="tgtHead"></label>
+          </div>
+          <div class="row"><label class="check"><input type="checkbox" id="tgtRingShow" checked> 범위 선 표시</label><label class="check">선 색 <input type="color" id="tgtRingColor" value="#ffffff"></label></div>
+          <ul class="bullets"><li>항공사진에는 흰색, 일반지도에는 검정이 잘 보입니다</li></ul>
+        </section>
+        <section class="card-section">
+          <h2>주변 하천</h2>
+          <div class="row">
+            <label class="check"><input type="checkbox" data-triv="river_nat" checked> 국가하천</label>
+            <label class="check"><input type="checkbox" data-triv="river_loc" checked> 지방하천</label>
+            <label class="check"><input type="checkbox" data-triv="river_small" checked> 소하천</label>
+          </div>
+          <ul class="bullets"><li>국가·지방하천: 하천정보관리시스템 (RIMGIS)</li><li>소하천: 환경공간정보서비스</li><li>가장 큰 범위 + 1.5km 안을 불러옵니다</li></ul>
+          <div class="row"><button id="btnTgtRiver" class="btn primary wide" type="button">하천 불러오기</button></div>
+          <div id="tgtMsg" class="progress" hidden></div>
+        </section>
+        <section class="card-section">
+          <h2>출력</h2>
+          <ul class="bullets"><li>도면 출력에서 주제를 '대상지역 설정도'로 고르면 표가 함께 나옵니다</li><li>배경지도는 도면 출력에서 항공사진으로 바꿀 수 있습니다</li></ul>
+          <div class="row"><button id="btnTgtLayout" class="btn" type="button">도면 출력으로 →</button></div>
+        </section>
+      </div>
+      <!-- ===================== 국토환경성평가 탭 ===================== -->
     <div id="tabEcvam" class="tabpane" hidden>
       <section class="card-section">
         <h2>1. 국토환경성평가지도 표시</h2>
@@ -221,7 +253,7 @@
 
       <section class="card-section">
         <h2>지도 표시</h2>
-        <label class="field"><span>도면 주제</span><select id="layoutTheme"><option value="eco">생태자연도</option><option value="prot">레이어 모음 (최근접 거리)</option><option value="ecvam">국토환경성평가지도</option></select></label>
+        <label class="field"><span>도면 주제</span><select id="layoutTheme"><option value="eco">생태자연도</option><option value="prot">레이어 모음 (최근접 거리)</option><option value="ecvam">국토환경성평가지도</option><option value="target">대상지역 설정도</option></select></label>
         <div class="mapopts" id="mapOptsLayout"></div>
         <label class="check"><input type="checkbox" id="admChk2"> 행정구역 경계 표시</label>
         <div class="adm-opts">
@@ -277,15 +309,15 @@
 <script src="vendor/proj4.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jsts.min.js"></script>
-<script src="cad.js?v=20261113q"></script>
-<script src="backend.js?v=20261113q"></script>
-<script src="app.js?v=20261113q"></script>
-<script src="ecvam.js?v=20261113q"></script>
-<script src="prot.js?v=20261113q"></script>
-  <script src="admin2.js?v=20261113q"></script>
-  <script src="measure.js?v=20261113q"></script>
-  <script src="pick.js?v=20261113q"></script>
-  <script src="project.js?v=20261113q"></script>
-<script src="app2.js?v=20261113q"></script>
+<script src="cad.js?v=20261113r"></script>
+<script src="backend.js?v=20261113r"></script>
+<script src="app.js?v=20261113r"></script>
+<script src="ecvam.js?v=20261113r"></script>
+<script src="prot.js?v=20261113r"></script> <script src="target.js?v=20261113r"></script>
+  <script src="admin2.js?v=20261113r"></script>
+  <script src="measure.js?v=20261113r"></script>
+  <script src="pick.js?v=20261113r"></script>
+  <script src="project.js?v=20261113r"></script>
+<script src="app2.js?v=20261113r"></script>
 </body>
 </html>

@@ -18,7 +18,8 @@
         north: { show: true, x: null, y: null, size: 18, buf: 0.8 },
         scalebar: { show: true, x: null, y: null, buf: 2.4, size: 100 },
         legend: { show: true, x: null, y: null, font: 9, size: 100, buf: 2.2, all: false },
-        areatext: { show: false, x: null, y: null, font: 9 },   // 하단 표기: 사용 안 함
+        areatext: { show: false, x: null, y: null, font: 9 }, table: { show: true, x: null, y: null, font: 8, size: 100 },   // 대상지역 설정도: 평가대상지역 표
+   // 하단 표기: 사용 안 함
       },
     };
   }
@@ -209,7 +210,8 @@
       const hide = App.opts.legendHide || {};   // 범례에서 뺄 항목 (도면 출력 > 표시 이름·크기·색)
       // 도면(사업지구 등)은 범례에 넣지 않고 지도 위 글자로 표시
       (App.theme === 'prot' && App.protLegend ? App.protLegend() : []).filter(p => !hide['p:' + p.id]).forEach(p => { const lk = App.protLook(p); rows.push({ t: lk.name, prot: Object.assign({}, p, { color: lk.color, dash: lk.dash }) }); });
-      // 행정구역 경계는 범례에 넣지 않음 (보통 범례에 들어가지 않음)
+      if (App.theme === 'target' && App.targetLegend) App.targetLegend().filter(r => !hide['t:' + r.t]).forEach(r => rows.push({ t: r.t, prot: { color: r.color, dash: 'solid', id: 't' } }));
+    // 행정구역 경계는 범례에 넣지 않음 (보통 범례에 들어가지 않음)
       let tw = 0;
       rows.forEach(r => { tw = Math.max(tw, textW(ctx, r.t, f, !!r.head)); });
       const w = pad * 2 + (rows.length > 1 ? sw + 2 * z : 0) + tw, h = pad * 2 + rows.length * rowH;
@@ -230,7 +232,7 @@
             } else if (r.adm) {
               ctx.strokeStyle = r.adm; ctx.lineWidth = Math.max(0.3, bh * 0.18); ctx.setLineDash([2.2, 0.8, 0.5, 0.8]);
               ctx.beginPath(); ctx.moveTo(bx, by + bh / 2); ctx.lineTo(bx + sw, by + bh / 2); ctx.stroke(); ctx.setLineDash([]);
-            } else if (r.prot && r.prot.line) {
+            } else if (r.prot && r.prot.point) { ctx.fillStyle = r.prot.color; ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(0.3, bh * 0.08); const cx = bx + sw / 2, tr = bh * 0.55; ctx.beginPath(); ctx.moveTo(cx, by + bh / 2 - tr); ctx.lineTo(cx + tr * 0.95, by + bh / 2 + tr * 0.6); ctx.lineTo(cx - tr * 0.95, by + bh / 2 + tr * 0.6); ctx.closePath(); ctx.fill(); ctx.stroke(); } else if (r.prot && r.prot.line) {
               ctx.strokeStyle = r.prot.color; ctx.lineWidth = Math.max(0.4, bh * 0.35); ctx.setLineDash([]);
               ctx.beginPath(); ctx.moveTo(bx, by + bh / 2); ctx.lineTo(bx + sw, by + bh / 2); ctx.stroke();
             } else if (r.prot) {
@@ -254,6 +256,43 @@
         },
       };
     },
+    // 평가대상지역 표 (대상지역 설정도): 제목 / 거리별 칸 + 주변지역(수계) 칸, 항목은 ○ 글머리
+    table(ctx, c) {
+      if (App.theme !== 'target' || !App.targetTable) return null;
+      const tb = App.targetTable(); if (!tb.cols.length && !tb.around.length) return null;
+      const k = Math.max(0.2, (Number(c.size) || 100) / 100), f = (Number(c.font) || 8) * k, fm = f * PT, lh = fm * 1.32, pad = 1.2 * k, lw = 0.25;
+      const wrap = (t, maxW, bold) => { const out = []; let cur = ''; for (const ch of String(t)) { const nx = cur + ch; if (cur && textW(ctx, nx, f, bold) > maxW) { out.push(cur); cur = ch.trim() ? '   ' + ch : '   '; } else cur = nx; } if (cur) out.push(cur); return out; };
+      const colW = 24 * k, arW = 23 * k;
+      const aroundCols = tb.around.length > 4 ? 2 : 1;
+      const cols = tb.cols.map(cl => ({ w: colW, head: cl.h.split('\n'), lines: cl.items.flatMap(it => wrap('○ ' + it, colW - pad * 2)) }));
+      if (tb.around.length) { const per = Math.ceil(tb.around.length / aroundCols); const subs = []; for (let i = 0; i < aroundCols; i++) subs.push(tb.around.slice(i * per, (i + 1) * per).flatMap(it => wrap('○ ' + it, arW - pad * 2))); cols.push({ w: arW * aroundCols, head: [tb.aroundHead || '주변지역'], subs, sw: arW }); }
+      cols.forEach(cl => { const hw = Math.max(...cl.head.map(t => textW(ctx, t, f, true))) + pad * 2; if (hw > cl.w) cl.w = hw; });
+      const W = cols.reduce((s, cl) => s + cl.w, 0);
+      const titleH = lh + pad * 2, headH = Math.max(...cols.map(cl => cl.head.length)) * lh + pad * 2;
+      const bodyH = Math.max(1, ...cols.map(cl => cl.subs ? Math.max(...cl.subs.map(s => s.length)) : cl.lines.length)) * lh + pad * 2;
+      const H = titleH + headH + bodyH;
+      return { w: W, h: H, draw(x, y) {
+        ctx.save(); ctx.fillStyle = '#fff'; ctx.fillRect(x, y, W, H);
+        ctx.strokeStyle = '#000'; ctx.lineWidth = lw; ctx.textBaseline = 'top'; ctx.fillStyle = '#000';
+        ctx.strokeRect(x, y, W, H);
+        const hl = yy => { ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x + W, yy); ctx.stroke(); };
+        hl(y + titleH); hl(y + titleH + headH);
+        setFont(ctx, f, true); ctx.textAlign = 'center'; ctx.fillText(tb.title || '', x + W / 2, y + pad + fm * 0.12);
+        let cx = x;
+        cols.forEach((cl, i) => {
+          if (i > 0) { ctx.beginPath(); ctx.moveTo(cx, y + titleH); ctx.lineTo(cx, y + H); ctx.stroke(); }
+          setFont(ctx, f, true); ctx.textAlign = 'center';
+          const hy = y + titleH + (headH - cl.head.length * lh) / 2 + fm * 0.12;
+          cl.head.forEach((t, j) => ctx.fillText(t, cx + cl.w / 2, hy + j * lh));
+          setFont(ctx, f, false); ctx.textAlign = 'left';
+          const by = y + titleH + headH + pad + fm * 0.12;
+          if (cl.subs) cl.subs.forEach((s, si) => s.forEach((t, j) => ctx.fillText(t, cx + si * (cl.w / cl.subs.length) + pad, by + j * lh)));
+          else cl.lines.forEach((t, j) => ctx.fillText(t, cx + pad, by + j * lh));
+          cx += cl.w;
+        });
+        ctx.restore();
+      } };
+    },
     // 하단 면적 문구: "1등급 면적 : … ㎡   2등급 면적 : …"
     areatext(ctx, c) {
       const lines = areaLines(), lh = c.font * PT * 1.5;
@@ -268,16 +307,17 @@
       };
     },
   };
-  const POS_ORDER = ['north', 'scalebar', 'legend'];   // 하단 표기(areatext)는 그리지 않음
-  const Z_ORDER = ['legend', 'scalebar', 'north'];
-  const EL_NAMES = { north: '방위표', scalebar: '축척바', legend: '범례', areatext: '하단 표기 (면적·거리)' };
+  const POS_ORDER = ['north', 'scalebar', 'legend', 'table'];   // 하단 표기(areatext)는 그리지 않음
+  const Z_ORDER = ['table', 'legend', 'scalebar', 'north'];
+  const EL_NAMES = { north: '방위표', scalebar: '축척바', legend: '범례', table: '평가대상지역 표 (대상지역 설정도)', areatext: '하단 표기 (면적·거리)' };
 
   function defaultPos(key, b, W, H, m) {
     const g = 3, mr = mapRectMm();
     switch (key) {
       case 'north': return [mr.x + mr.w - b.w - g, mr.y + g];
-      case 'scalebar': return [mr.x + g, mr.y + mr.h - b.h - g];
-      case 'legend': return [mr.x + mr.w - b.w - g, mr.y + mr.h - b.h - g];
+      case 'scalebar': return App.theme === 'target' ? [mr.x + mr.w - b.w - g, mr.y + mr.h - b.h - g] : [mr.x + g, mr.y + mr.h - b.h - g];
+      case 'legend': return App.theme === 'target' ? [mr.x + g, mr.y + g] : [mr.x + mr.w - b.w - g, mr.y + mr.h - b.h - g];
+      case 'table': return [mr.x + g, mr.y + mr.h - b.h - g];
       case 'areatext': return [mr.x, mr.y + mr.h + 1.5];
     }
     return [m, m];
@@ -300,6 +340,7 @@
       const c = cfg.els[key];
       if (!c.show) return;
       const b = BUILD[key](ctx, c, env);
+      if (!b) return;
       let x = c.x, y = c.y;
       if (x == null || y == null) {
         const p = defaultPos(key, b, W, H, m);
@@ -475,7 +516,7 @@
         const col = p ? App.protLook(p).color : '#1AA800', gname = p ? App.protLook(p).name : '생태자연도 1등급';
         const nOn = g.fs.filter(f => f.get('on') !== false).length;
         h += `<div class="ar-group"><div class="ar-gh"><input type="checkbox" data-agrp="${esc(g.kind)}" ${nOn === g.fs.length ? 'checked' : ''} ${nOn > 0 && nOn < g.fs.length ? 'data-ind="1"' : ''}>
-          <span class="swatch${p && p.line ? ' swatch-line' : ''}" style="border-color:${col};background:${p && p.line ? 'transparent' : col + '2e'}"></span><b>${esc(gname)}</b><span class="pr-cnt">${g.fs.length}곳</span></div>`;
+          <span class="swatch${p && p.line ? ' swatch-line' : ''}${p && p.point ? ' swatch-pt' : ''}" style="border-color:${col};background:${p && p.line ? 'transparent' : col + '2e'}"></span><b>${esc(gname)}</b><span class="pr-cnt">${g.fs.length}곳</span></div>`;
         g.fs.forEach(f => {
           const k = f.get('key'), a = (App.opts.arrowAdj || {})[k] || {};
           const nm = k === 'eco1' ? '1등급' : (k.split('|')[1] || k);
@@ -700,9 +741,10 @@
   const EL_UI = [
     ['north', [['size', '크기(mm)', 'number'], ['buf', '흰색 버퍼(mm)', 'number']]],
     ['scalebar', [['size', '축척바 크기(%)', 'number'], ['buf', '흰색 버퍼(mm)', 'number']]],
+    ['table', [['font', '글자 크기(pt)', 'number'], ['size', '표 크기(%)', 'number']]],
     ['legend', [['font', '글자 크기(pt)', 'number'], ['size', '범례 크기(%)', 'number'], ['buf', '흰색 버퍼(mm)', 'number'], ['all', '<span class="chk-txt">자료 없는 등급 표시<small class="sub-note">(생태자연도 및 국토환경성평가지도용)</small></span>', 'check']]],
   ];
-  const EL_HINT = { scalebar: ['길이·글자 크기는 도면 크기와 화면 배율에 맞춰 자동', '축척바 크기(%)로 전체를 줄이거나 키움', '0.5km 미만은 0.1km 단위', '0.5km 이상은 0.5km 단위'] };
+  const EL_HINT = { table: ['도면 주제가 대상지역 설정도일 때만 나옵니다', '내용(거리·조사항목)은 대상지역 설정도 탭에서 바꿉니다'], scalebar: ['길이·글자 크기는 도면 크기와 화면 배율에 맞춰 자동', '축척바 크기(%)로 전체를 줄이거나 키움', '0.5km 미만은 0.1km 단위', '0.5km 이상은 0.5km 단위'] };
   // X(좌우)는 ◀ ▶, Y(위아래)는 ▲ ▼ 버튼으로 1mm씩 (Shift 누르면 10mm)
   function posRow(key, c) {
     const val = v => (v == null ? '' : v);
@@ -759,7 +801,7 @@
   function initControls() {
     initStyleUI();
     initSiteLabelUI();
-    $('#layoutTheme').addEventListener('change', e => { App.setTheme(e.target.value); L.els.areatext.x = null; L.els.areatext.y = null; layoutPaper(); });
+    $('#layoutTheme').addEventListener('change', e => { const was = App.theme; App.setTheme(e.target.value); L.els.areatext.x = null; L.els.areatext.y = null; if ((was === 'target') !== (App.theme === 'target')) ['scalebar', 'legend', 'table'].forEach(k => { L.els[k].x = null; L.els[k].y = null; }); if (App.theme === 'target' && App.targetRefresh) App.targetRefresh(); buildElUI(); layoutPaper(); });
     $('#btnFit').addEventListener('click', fitToSites);
 
     const onPaper = () => {
@@ -908,6 +950,7 @@
 
   // ========================================================== 7. 탭 진입/이탈 및 시작
   App.layout = {
+    redraw() { redraw(); },
     getL() { return JSON.parse(JSON.stringify(L)); },
     setL(o) { const d = defaults(); L = Object.assign(d, o || {}); L.els = Object.assign(d.els, (o && o.els) || {}); Object.keys(d.els).forEach(k => { L.els[k] = Object.assign(defaults().els[k], (o && o.els && o.els[k]) || {}); }); saveLayout(); syncControls(); buildElUI(); styleSig = null; if (active) { if (map && L.center) map.getView().setCenter(L.center); layoutPaper(); } },
     enter() {

@@ -926,7 +926,7 @@ App.downloadBlob = downloadBlob;
 
 // ============================================================ 11. 탭 / 시작
 function switchTab(name) {
-  $('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   $('#tabWork').hidden = name !== 'work';
   $('#tabEco').hidden = name !== 'eco';
   $('#tabProt').hidden = name !== 'prot';
@@ -1019,8 +1019,8 @@ async function init() {
   initOptUI();
   initCatStyles();
   initSiteList();
-  $('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
-  $('[data-embed] [data-view]').forEach(b => b.addEventListener('click', () => setEmbedView(b.closest('[data-embed]').dataset.embed, b.dataset.view)));
+  $$('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+  $$('[data-embed] [data-view]').forEach(b => b.addEventListener('click', () => setEmbedView(b.closest('[data-embed]').dataset.embed, b.dataset.view)));
   $('#btnSaveCfg').addEventListener('click', saveConfig);
   $('#btnKeyEdit').addEventListener('click', () => renderKeys(true));
   $('#btnFresh').addEventListener('click', checkFresh);

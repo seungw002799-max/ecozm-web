@@ -263,7 +263,7 @@
       const k = Math.max(0.2, (Number(c.size) || 100) / 100), f = (Number(c.font) || 8) * k, fm = f * PT, lh = fm * 1.32, pad = 1.2 * k, lw = 0.25;
       const wrap = (t, maxW, bold) => { const out = []; let cur = ''; for (const ch of String(t)) { const nx = cur + ch; if (cur && textW(ctx, nx, f, bold) > maxW) { out.push(cur); cur = ch.trim() ? '   ' + ch : '   '; } else cur = nx; } if (cur) out.push(cur); return out; };
       const longest = arr => Math.max(0, ...arr.map(it => textW(ctx, '○ ' + it, f)));
-      const colW = Math.min(40 * k, Math.max(22 * k, longest(tb.cols.flatMap(cl => cl.items)) * 0.62 + pad * 2)), arW = Math.min(34 * k, Math.max(20 * k, longest(tb.around) + pad * 2));
+      const colW = Math.min(30 * k, Math.max(22 * k, longest(tb.cols.flatMap(cl => cl.items)) * 0.5 + pad * 2)), arW = Math.min(34 * k, Math.max(20 * k, longest(tb.around) + pad * 2));
       const aroundCols = tb.around.length > 4 ? 2 : 1;
       const cols = tb.cols.map(cl => ({ w: colW, head: cl.h.split('\n'), lines: cl.items.flatMap(it => wrap('○ ' + it, colW - pad * 2)) }));
       if (tb.around.length) { const per = Math.ceil(tb.around.length / aroundCols); const subs = []; for (let i = 0; i < aroundCols; i++) subs.push(tb.around.slice(i * per, (i + 1) * per).flatMap(it => wrap('○ ' + it, arW - pad * 2))); cols.push({ w: arW * aroundCols, head: [tb.aroundHead || '주변지역'], subs, sw: arW }); }

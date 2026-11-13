@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>도면 출력 관련</title>
 <link rel="stylesheet" href="vendor/ol.css">
-<link rel="stylesheet" href="app.css?v=20261114d">
+<link rel="stylesheet" href="app.css?v=20261114e">
 </head>
 <body>
 <header class="topbar">
@@ -14,7 +14,7 @@
     <button class="tab" data-tab="pick" type="button">초기 입지 검토</button>
       <button class="tab active" data-tab="work" type="button">도면</button>
       <button class="tab" data-tab="ecvam" type="button">국토환경성평가</button>
-      <button class="tab" data-tab="eco" type="button">생태자연도</button>
+      <button class="tab" data-tab="eco" type="button">생태자연도</button> <button class="tab" data-tab="lc" type="button">토지피복지도</button>
       <button class="tab" data-tab="prot" type="button">레이어 모음</button> <button class="tab" data-tab="target" type="button">대상지역 설정도</button> <button class="tab" data-tab="meas" type="button">측정지점 위치도</button>
       <button class="tab" data-tab="layout" type="button">도면 출력</button>
   </nav>
@@ -171,7 +171,29 @@
       </section>
     </div>
 
-    <!-- ===================== 대상지역 설정도 탭 ===================== -->
+    <!-- ===================== 토지피복지도 탭 ===================== -->
+      <div id="tabLc" class="tabpane" hidden>
+        <div class="view-toggle" data-embed="lc"><button type="button" data-view="map">작업 지도</button><button type="button" data-view="print" class="on">출력 미리보기</button></div>
+        <section class="card-section">
+          <h2>토지피복 면적 계산</h2>
+          <ul class="bullets"><li>환경공간정보서비스 토지피복지도 (기후에너지환경부) 실시간 연결</li><li>해마다 전국 갱신본 중 가장 최근 연도를 자동으로 씁니다</li><li>도면 탭에서 올린 사업지구·노선 안의 분류별 면적을 구분별로 계산합니다</li></ul>
+          <div class="grid2">
+            <label class="field"><span>분류 수준</span><select id="lcLevel"><option value="3">세분류 (41개)</option><option value="2">중분류 (22개)</option><option value="1">대분류 (7개)</option></select></label>
+            <label class="field"><span>연도</span><select id="lcYear"><option value="auto">자동 (최신)</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option></select></label>
+          </div>
+          <label class="unit-input"><span class="lbl">주변 표시 범위</span><input type="number" id="lcMargin" min="0" step="100" value="500"><span class="unit">m</span></label>
+          <div class="row"><button id="btnLcRun" class="btn primary wide" type="button">토지피복 불러오기 · 면적 계산</button></div>
+          <div id="lcMsg" class="progress" hidden></div>
+          <div class="mapopts" id="lcOpts"></div>
+          <div id="lcResult" hidden>
+            <div class="fix-box"><span class="key-name">면적 보정</span><ul class="bullets"><li>발주처 면적을 넣으면 분류별 면적을 같은 비율로 맞춥니다</li><li>비우면 도면 면적 그대로</li></ul><div id="lcFix"></div></div>
+            <div class="table-wrap"><table id="lcTable" class="area-table"></table></div>
+            <div class="row"><button id="btnLcCopy" class="btn" type="button">표 복사</button></div>
+          </div>
+        </section>
+        <div id="lcLayoutSlot" class="layout-slot"></div>
+      </div>
+      <!-- ===================== 대상지역 설정도 탭 ===================== -->
       <div id="tabTarget" class="tabpane" hidden>
         <div class="view-toggle" data-embed="target"><button type="button" data-view="map">작업 지도</button><button type="button" data-view="print" class="on">출력 미리보기</button></div>
         <section class="card-section">
@@ -334,15 +356,15 @@
 <script src="vendor/proj4.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jsts.min.js"></script>
-<script src="cad.js?v=20261114d"></script>
-<script src="backend.js?v=20261114d"></script>
-<script src="app.js?v=20261114d"></script>
-<script src="ecvam.js?v=20261114d"></script>
-<script src="prot.js?v=20261114d"></script> <script src="target.js?v=20261114d"></script> <script src="meas.js?v=20261114d"></script>
-  <script src="admin2.js?v=20261114d"></script>
-  <script src="measure.js?v=20261114d"></script>
-  <script src="pick.js?v=20261114d"></script>
-  <script src="project.js?v=20261114d"></script>
-<script src="app2.js?v=20261114d"></script>
+<script src="cad.js?v=20261114e"></script>
+<script src="backend.js?v=20261114e"></script>
+<script src="app.js?v=20261114e"></script>
+<script src="ecvam.js?v=20261114e"></script>
+<script src="prot.js?v=20261114e"></script> <script src="target.js?v=20261114e"></script> <script src="meas.js?v=20261114e"></script> <script src="lc.js?v=20261114e"></script>
+  <script src="admin2.js?v=20261114e"></script>
+  <script src="measure.js?v=20261114e"></script>
+  <script src="pick.js?v=20261114e"></script>
+  <script src="project.js?v=20261114e"></script>
+<script src="app2.js?v=20261114e"></script>
 </body>
 </html>

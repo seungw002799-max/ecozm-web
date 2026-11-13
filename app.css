@@ -498,3 +498,8 @@ body:not([data-theme="target"]) #elList [data-elkey="table"] { display: none; }
 #tabLayout.embedded label.check:has([data-f="all"]) { display: none; }
 #tabLayout.embedded .row:has(#btnLabelReset), #tabLayout.embedded #styleSection { display: none; }
 #tabLayout.embedded .card-section .bullets li:nth-child(n+4) { display: none; }
+
+/* 토지피복지도 */
+.lc-sw { display: inline-block; width: 12px; height: 12px; border: 1px solid #888; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+#lcTable small { color: var(--muted, #667); }
+.fix-box { margin: 8px 0; }

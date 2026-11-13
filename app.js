@@ -39,7 +39,8 @@ const App = {
     sites: new ol.source.Vector(),
     prot: new ol.source.Vector(),
     admin: new ol.source.Vector(),
-    pick: new ol.source.Vector(), target: new ol.source.Vector(), meas: new ol.source.Vector(),   // 측정지점 위치도 (meas.js)
+    pick: new ol.source.Vector(), target: new ol.source.Vector(), meas: new ol.source.Vector(), lc: new ol.source.Vector(),   // 토지피복지도 (lc.js)
+      // 측정지점 위치도 (meas.js)
       // 대상지역 설정도: 거리 범위 + 하천 (target.js)
         // 초기 입지 검토: 검토 지점 + 반경 원 (pick.js)    // 시군구 경계 (브이월드)
     arrows: new ol.source.Vector(),   // 최근접 거리 화살표 (theme 별)     // 보호구역 검토 레이어 (prot.js)
@@ -403,12 +404,13 @@ App.createLayerSet = function (getScale, live) {
   set.pick = new ol.layer.Vector({ source: App.src.pick, zIndex: 5.8, style: f => (App.pickStyle ? App.pickStyle(f, getScale()) : null) });
   set.target = new ol.layer.Vector({ source: App.src.target, zIndex: 5.7, declutter: false, style: f => (App.targetStyle ? App.targetStyle(f, getScale(), set) : null) });
   set.target.on('prerender', onPre);
+  set.lc = new ol.layer.VectorImage({ imageRatio: 1.5, source: App.src.lc, zIndex: 2.6, visible: false, style: f => (App.lcStyle ? App.lcStyle(f) : null) });
   set.meas = new ol.layer.Vector({ source: App.src.meas, zIndex: 6.5, declutter: false, style: (f, res) => (App.measStyle ? App.measStyle(f, getScale(), res) : null) });
   set.arrows = new ol.layer.Vector({
     source: App.src.arrows, zIndex: 6, declutter: false,
     style: (f, res) => (f.get('theme') === App.theme && f.get('on') !== false ? arrowStyle(f, getScale(), res) : null),
   });
-  set.layers = [set.base, set.label, set.ecvam, set.around, set.inside, set.prot, set.target, set.admin, set.pick, set.sites, set.arrows, set.meas];
+  set.layers = [set.base, set.label, set.lc, set.ecvam, set.around, set.inside, set.prot, set.target, set.admin, set.pick, set.sites, set.arrows, set.meas];
   set.errors = 0;
   set.refresh = function (over) {
     const o = Object.assign({}, App.opts, over || {});
@@ -422,6 +424,8 @@ App.createLayerSet = function (getScale, live) {
     const ev = App.theme === 'ecvam' && !!App.ecvamSource;
     if (ev) { const src = App.ecvamSource(); if (set.ecvam.getSource() !== src) set.ecvam.setSource(src); }
     set.ecvam.setVisible(ev);
+    set.lc.setVisible(App.theme === 'lc');
+    set.lc.setOpacity(o.opLC == null ? 0.8 : Number(o.opLC));
     set.ecvam.setOpacity(o.opE == null ? 0.7 : Number(o.opE));
     set.around.setOpacity(1);   // 등급별 투명도는 스타일에서 적용
     set.inside.setOpacity(1);   // 내부는 스타일에서 등급별로 투명도 적용
@@ -930,15 +934,15 @@ function switchTab(name) {
   $('#tabWork').hidden = name !== 'work';
   $('#tabEco').hidden = name !== 'eco';
   $('#tabProt').hidden = name !== 'prot';
-  const tp = $('#tabPick'); if (tp) tp.hidden = name !== 'pick'; const tt = $('#tabTarget'); if (tt) tt.hidden = name !== 'target'; const tm = $('#tabMeas'); if (tm) tm.hidden = name !== 'meas';
+  const tp = $('#tabPick'); if (tp) tp.hidden = name !== 'pick'; const tt = $('#tabTarget'); if (tt) tt.hidden = name !== 'target'; const tm = $('#tabMeas'); if (tm) tm.hidden = name !== 'meas'; const tlc = $('#tabLc'); if (tlc) tlc.hidden = name !== 'lc';
   $('#tabEcvam').hidden = name !== 'ecvam';
   if (name === 'eco' || name === 'prot' || name === 'ecvam') App.setTheme(name);
-  if (name === 'pick') App.setTheme('prot'); if (name === 'meas') App.setTheme('meas'); if (name === 'target') { App.setTheme('target'); if (App.targetRefresh) App.targetRefresh(); }
+  if (name === 'pick') App.setTheme('prot'); if (name === 'meas') App.setTheme('meas'); if (name === 'lc') App.setTheme('lc'); if (name === 'target') { App.setTheme('target'); if (App.targetRefresh) App.targetRefresh(); }
   App.curTab = name;
-  if (name === 'target' || name === 'meas') { setEmbedView(name, App.embedView[name]); return; }
+  if (name === 'target' || name === 'meas' || name === 'lc') { setEmbedView(name, App.embedView[name]); return; }
   homeLayout();
   // 대상지역 설정도·측정지점 위치도는 각 탭에서만 출력: 도면 출력 탭으로 오면 원래 주제로
-  if (name === 'layout' && ['target', 'meas'].includes(App.theme)) App.setTheme(App.baseTheme || 'eco');
+  if (name === 'layout' && ['target', 'meas', 'lc'].includes(App.theme)) App.setTheme(App.baseTheme || 'eco');
   $('#tabLayout').hidden = name !== 'layout';
   $('#workMapWrap').hidden = name === 'layout';
   $('#paperWrap').hidden = name !== 'layout';
@@ -946,7 +950,7 @@ function switchTab(name) {
   else { if (App.layout) App.layout.leave(); App.workMap.updateSize(); }
 }
 // 대상지역 설정도·측정지점 위치도: 탭 안에서 바로 도면 출력 (작업 지도 / 출력 미리보기 전환)
-App.embedView = { target: 'print', meas: 'print' };
+App.embedView = { target: 'print', meas: 'print', lc: 'print' };
 let layoutHome = null;
 function homeLayout() {
   const tl = $('#tabLayout'); if (!tl) return;
@@ -957,7 +961,7 @@ function setEmbedView(name, view) {
   App.embedView[name] = view;
   document.querySelectorAll(`[data-embed="${name}"] [data-view]`).forEach(b => b.classList.toggle('on', b.dataset.view === view));
   if (App.curTab !== name) return;
-  const tl = $('#tabLayout'), slot = $(name === 'target' ? '#tgtLayoutSlot' : '#measLayoutSlot');
+  const tl = $('#tabLayout'), slot = $({ target: '#tgtLayoutSlot', meas: '#measLayoutSlot', lc: '#lcLayoutSlot' }[name]);
   if (!layoutHome) layoutHome = { parent: tl.parentNode, next: tl.nextSibling };
   if (view === 'print') {
     slot.appendChild(tl); tl.classList.add('embedded'); tl.hidden = false;
@@ -1076,7 +1080,7 @@ App.theme = 'eco';
 document.body && (document.body.dataset.theme = 'eco');
 App.setTheme = function (t) {
   const prevTheme = App.theme;
-  App.theme = ['prot', 'ecvam', 'target', 'meas'].includes(t) ? t : 'eco';
+  App.theme = ['prot', 'ecvam', 'target', 'meas', 'lc'].includes(t) ? t : 'eco';
   if (['eco', 'prot', 'ecvam'].includes(App.theme)) App.baseTheme = App.theme;   // 도면 출력 탭에서 쓰는 주제
   if (prevTheme !== App.theme && App.layout && App.layout.themeSwitch) App.layout.themeSwitch(prevTheme);
   document.body.dataset.theme = App.theme;

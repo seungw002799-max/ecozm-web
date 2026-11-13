@@ -12,40 +12,42 @@
   const KEI = { src: 'KEI 지역환경정보시스템 API', tags: ['실시간', '중계'], extra: '신산경표 산줄기 (박성태, 2010)' };
   const NIER = { src: '물환경정보시스템 API', tags: ['실시간'], extra: ['국립환경과학원 수질오염총량 단위유역', '표에는 사업지구가 속한 유역만, 지도에는 맞닿은 주변 유역도 표시'] };
   const EIA = { src: 'EIAGIS API', tags: ['실시간', '중계'], extra: ['환경영향평가 지리정보서비스', '국립생물자원관 2014년 자료'] };
-  const ECZ = { src: '생태자연도 API (data.go.kr)', tags: ['실시간'], extra: ['국립생태원 · 1등급, 별도관리지역만 표시', '반경이 크면 받는 데 시간이 걸립니다'] };
+  const ECZ = { src: '에코뱅크 생태자연도 API (국립생태원)', tags: ['실시간'], extra: ['1등급 권역만 표시', '반경이 크면 받는 데 시간이 걸립니다'] };
+  // 별도관리지역: 생태자연도 등급과 별개인 법정 보호지역 모음. 모두 브이월드(국토교통부 토지이용규제 등), 생태·경관보전지역만 브이월드에 없어 환경공간정보서비스
+  const SEP = { src: '브이월드 2D데이터 API', tags: ['실시간'], extra: ['생태자연도 별도관리지역에 해당하는 보호지역', '생태·경관보전지역만 환경공간정보서비스 (브이월드에 없음)'] };
+  const uo = p => { const t = [p.alias, p.remark].find(x => /천연기념물/.test(x || '')) || p.alias || p.remark || ''; return t.trim() || '천연기념물'; };
   const sg = p => [p.sigg_name, p.uname].filter(Boolean).join(' ');
   // 야생생물 보호구역: 자료 명칭이 옛 법령 이름(야생동·식물)이라 현행 이름으로 표기
   const sgW = p => sg(p).replace(/야생동·식물/g, '야생생물');
   // 묶음(group)은 목록에서 한 칸으로 보이고, 안의 항목을 각각 켜고 끌 수 있다. cat 은 비슷한 것끼리 모으는 구분
   const GROUPS = {
-    eczm: { label: '생태자연도', note: ECZ },
-    park: { label: '자연공원', note: VW },
+    sep: { label: '별도관리지역', note: SEP },
     ridge: { label: '백두대간 및 산줄기 (정맥·기맥·지맥)', note: KEI },
-    wild: { label: '야생생물 보호구역', note: VW },
-    wet: { label: '습지보호지역', note: VW },
     river: { label: '하천 (국가·지방·소하천)', note: { src: '하천정보관리시스템(RIMGIS) API', tags: ['실시간', '중계'], extra: ['국가·지방하천: 하천망도 (기후에너지환경부)', '소하천: 환경공간정보서비스 소하천구역'] } },
   };
-  const CATS = { eco: '자연·생태', bio: '야생생물·습지', water: '수질·수자원', air: '대기' };
+  const CATS = { eco: '자연·생태', bio: '조류·습지', water: '수질·수자원', air: '대기' };
   const PROT = [
     // 자연·생태
-    { cat: 'eco', group: 'eczm', id: 'eco1', grade: '1', label: '1등급', short: '생태자연도 1등급', src: 'eco1', name: () => '생태자연도 1등급', labelNearest: true, color: '#1AA800', note: ECZ },
-    { cat: 'eco', group: 'eczm', id: 'eco9', grade: '9', label: '별도관리지역', short: '별도관리지역', src: 'eco1', name: () => '별도관리지역', labelNearest: true, color: '#FF8000', note: ECZ },
-    { cat: 'eco', group: 'park', id: 'np_nat', label: '국립공원', short: '국립공원', src: 'vworld', data: 'LT_C_WGISNPGUG', name: p => p.park_name, color: '#1B7F3B', note: VW },
-    { cat: 'eco', group: 'park', id: 'np_do', label: '도립공원', short: '도립공원', src: 'vworld', data: 'LT_C_WGISNPDO', name: p => p.park_name, color: '#5E9E1F', note: VW },
-    { cat: 'eco', group: 'park', id: 'np_gun', label: '군립공원', short: '군립공원', src: 'vworld', data: 'LT_C_WGISNPGUN', name: p => p.park_name, color: '#A08A00', note: VW },
-    { cat: 'eco', id: 'forest_gen', label: '산림유전자원보호구역', short: '산림유전자원보호구역', src: 'vworld', data: 'LT_C_UF151', attr: 'uname:like:산림유전자원', name: sg, color: '#33691E', note: Object.assign({}, VW, { extra: '산림보호구역 중 산림유전자원보호구역' }) },
-    { cat: 'eco', id: 'eco_land', label: '생태·경관보전지역', short: '생태·경관보전지역', src: 'egis', typename: 'me:na_plg_conservation', cql: "type_code IN ('ESCA','SCAW')", name: p => p.name || '생태·경관보전지역', color: '#2E7D32', note: EG },
+    { cat: 'eco', id: 'eco1', grade: '1', label: '생태자연도 1등급', short: '생태자연도 1등급', src: 'eco1', name: () => '생태자연도 1등급', labelNearest: true, color: '#1AA800', note: ECZ },
+    { cat: 'eco', group: 'sep', id: 'forest_gen', label: '산림유전자원보호구역 (산림보호구역 중)', short: '산림유전자원보호구역', src: 'vworld', data: 'LT_C_UF151', attr: 'uname:like:산림유전자원', name: sg, color: '#33691E', note: SEP },
+    { cat: 'eco', group: 'sep', id: 'eco_land', label: '생태·경관보전지역 (환경공간정보)', short: '생태·경관보전지역', src: 'egis', typename: 'me:na_plg_conservation', cql: "type_code IN ('ESCA','SCAW')", name: p => p.name || '생태·경관보전지역', color: '#2E7D32', note: SEP },
+    { cat: 'eco', group: 'sep', id: 'np_nat', label: '국립공원', short: '국립공원', src: 'vworld', data: 'LT_C_WGISNPGUG', name: p => p.park_name, color: '#1B7F3B', note: SEP },
+    { cat: 'eco', group: 'sep', id: 'np_do', label: '도립공원', short: '도립공원', src: 'vworld', data: 'LT_C_WGISNPDO', name: p => p.park_name, color: '#5E9E1F', note: SEP },
+    { cat: 'eco', group: 'sep', id: 'np_gun', label: '군립공원', short: '군립공원', src: 'vworld', data: 'LT_C_WGISNPGUN', name: p => p.park_name, color: '#A08A00', note: SEP },
+    { cat: 'eco', group: 'sep', id: 'monument', label: '천연기념물 (국가유산보호도)', short: '천연기념물', src: 'vworld', data: 'LT_C_UO301', attrs: ['remark:like:천연기념물', 'alias:like:천연기념물'], keep: p => !/역사문화환경보존|현상변경/.test(p.uname || ''), name: uo, color: '#BF360C', note: SEP },
+    { cat: 'eco', group: 'sep', id: 'wild', label: '야생생물 보호구역', short: '야생생물 보호구역', src: 'vworld', data: 'LT_C_UM221', keep: p => !/특별/.test(p.uname || ''), name: sgW, uid: p => [p.dyear, p.dnum].filter(Boolean).join('-'), color: '#C62828', note: SEP },
+    { cat: 'eco', group: 'sep', id: 'wild_sp', label: '야생생물 특별보호구역', short: '야생생물 특별보호구역', src: 'vworld', data: 'LT_C_UM221', attr: 'uname:like:특별', name: sgW, uid: p => [p.dyear, p.dnum].filter(Boolean).join('-'), color: '#8E0000', note: SEP },
+    { cat: 'eco', group: 'sep', id: 'fishery', label: '수산자원보호구역', short: '수산자원보호구역', src: 'vworld', data: 'LT_C_UQ141', attr: 'uname:like:수산자원', name: sg, color: '#D81B60', note: SEP },
+    { cat: 'eco', group: 'sep', id: 'wetland', label: '습지보호지역 (내륙)', short: '습지보호지역', src: 'vworld', data: 'LT_C_UM901', name: sg, color: '#00838F', note: SEP },
+    { cat: 'eco', group: 'sep', id: 'wetland_c', label: '습지보호지역 (연안, 해양수산부)', short: '연안 습지보호지역', src: 'vworld', data: 'LT_C_WGISARWET', name: p => p.uname || p.name || p.wet_name || '습지보호지역', color: '#006064', note: SEP },
+    { cat: 'eco', group: 'sep', id: 'baekdu', label: '백두대간보호지역', short: '백두대간보호지역', src: 'vworld', data: 'LT_C_UF901', name: p => '백두대간보호지역' + (p.uname && p.uname !== '백두대간보호지역' ? ' (' + p.uname + ')' : ''), color: '#6D4C41', note: SEP },
     { cat: 'eco', group: 'ridge', id: 'ridge1', label: '백두대간', short: '백두대간', src: 'kei', typename: 'keilocal:mtridge_l1_pl', name: p => p.mbsnnm || '백두대간', color: '#4E342E', line: true, note: KEI },
     { cat: 'eco', group: 'ridge', id: 'ridge2', label: '정맥', short: '정맥', src: 'kei', typename: 'keilocal:mtridge_l2_pl', name: p => p.mbsnnm || '정맥', color: '#795548', line: true, note: KEI },
     { cat: 'eco', group: 'ridge', id: 'ridge3', label: '기맥', short: '기맥', src: 'kei', typename: 'keilocal:mtridge_l3_pl', name: p => p.sbsnnm || '기맥', color: '#A1887F', line: true, note: KEI },
     { cat: 'eco', group: 'ridge', id: 'ridge4', label: '지맥', short: '지맥', src: 'kei', typename: 'keilocal:mtridge_l4_pl', name: p => p.sbsnnm || '지맥', color: '#8D6E63', line: true, note: KEI },
     // 야생생물·습지
-    { cat: 'bio', group: 'wild', id: 'wild', label: '야생생물 보호구역', short: '야생생물 보호구역', src: 'vworld', data: 'LT_C_UM221', keep: p => !/특별/.test(p.uname || ''), name: sgW, uid: p => [p.dyear, p.dnum].filter(Boolean).join('-'), color: '#C62828', note: VW },
-    { cat: 'bio', group: 'wild', id: 'wild_sp', label: '야생생물 특별보호구역', short: '야생생물 특별보호구역', src: 'vworld', data: 'LT_C_UM221', attr: 'uname:like:특별', name: sgW, uid: p => [p.dyear, p.dnum].filter(Boolean).join('-'), color: '#8E0000', note: VW },
     { cat: 'bio', id: 'winter_bird', label: '겨울철 조류 동시센서스 조사지역', short: '겨울철 철새 도래지', src: 'local', nameField: 'name', nameFmt: n => n + ' 겨울철 철새 도래지', mapLabel: t => t.replace(/\s*겨울철 철새 도래지$/, '\n겨울철 철새 도래지'), color: '#7B3FA0', note: { src: '국립생물자원관 철새정보시스템', tags: ['2025-2026'], extra: ['동시센서스 조사지역 200개소 (2026.04.10 편집)', '자료실 지도파일을 사이트에 넣어 사용'] },
       local: 'data/winter_bird_2025.geojson' },   // 해마다 새 조사지역 파일이 올라오면 교체 (이전: EIAGIS 2014년 자료)
-    { cat: 'bio', group: 'wet', id: 'wetland', label: '습지보호지역 (내륙)', short: '습지보호지역', src: 'vworld', data: 'LT_C_UM901', name: sg, color: '#00838F', note: VW },
-    { cat: 'bio', group: 'wet', id: 'wetland_c', label: '연안 습지보호지역 (해양수산부)', short: '연안 습지보호지역', src: 'vworld', data: 'LT_C_WGISARWET', name: p => p.uname || p.name || p.wet_name || '습지보호지역', color: '#006064', note: VW },
     { cat: 'bio', id: 'inland_wet', label: '내륙습지', short: '내륙습지', src: 'egis', typename: 'me:na_plg_wetland', name: p => p.wl_nm || '내륙습지', color: '#26A69A', note: Object.assign({}, EG, { extra: '국가 내륙습지 목록 (인공습지 포함)' }) },
     // 수질·수자원
     { cat: 'water', group: 'river', id: 'river_nat', label: '국가하천', short: '국가하천', src: 'wfsb', base: 'https://www.river.go.kr/geoserver/rimgis/wfs', typename: 'rimgis:tb_riverlist_1', name: p => p.rivnm || '국가하천', color: '#1A237E', note: VW },
@@ -56,7 +58,6 @@
     { cat: 'water', id: 'wq_special', label: '상수원 수질보전 특별대책지역', short: '상수원 수질보전 특별대책지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='수질보전특별대책지역'", name: () => '특별대책지역', nameG: (p, g) => { let y = null; const w = c => { if (y !== null) return; if (typeof c[0] === 'number') y = c[1]; else c.forEach(w); }; w(g.coordinates); return (y > 37 ? '팔당호' : '대청호') + ' 특별대책지역'; }, color: '#00897B', note: Object.assign({}, EG, { extra: '팔당·대청호 2곳' }) },
     { cat: 'water', id: 'water', label: '상수원보호구역', short: '상수원보호구역', src: 'vworld', data: 'LT_C_UM710', name: p => p.alias || [p.sigg_name, p.uname || '상수원보호구역'].filter(Boolean).join(' '), color: '#1565C0', note: VW },
     { cat: 'water', id: 'tmdl', label: '수질오염총량 관리지역 (단위유역)', short: '수질오염총량 단위유역', src: 'nier', typename: 'water_new:tmdl_polygon', name: p => (p.tm_unit_nm || '') + ' 단위유역', overlapOnly: true, color: '#546E7A', note: NIER },
-    { cat: 'water', id: 'fishery', label: '수산자원보호구역', short: '수산자원보호구역', src: 'vworld', data: 'LT_C_UQ141', attr: 'uname:like:수산자원', name: sg, color: '#D81B60', note: Object.assign({}, VW, { extra: '국토계획 용도구역' }) },
     // 대기
     { cat: 'air', id: 'air', label: '대기환경규제지역', short: '대기환경규제지역', src: 'vworld', data: 'LT_C_UM301', name: p => sg(p) || '대기환경규제지역', color: '#FFB300', note: Object.assign({}, VW, { extra: ['대기관리권역 등', '전국 5건, 세부 구분 없음'] }) },
   ];
@@ -178,6 +179,11 @@
   }
   App.jsonp = jsonp;
   async function fetchVworld(p, bbox4326) {
+    if (p.attrs && p.attrs.length) {   // 조건 여러 개: 각각 받아 합침 (같은 구역은 한 번만)
+      const seen = new Set(), feats = [];
+      for (const a of p.attrs) { const r = await fetchVworld(Object.assign({}, p, { attrs: null, attr: a }), bbox4326); r.features.forEach(f => { const k = JSON.stringify(f.geometry.coordinates).slice(0, 200); if (!seen.has(k)) { seen.add(k); feats.push(f); } }); }
+      return { type: 'FeatureCollection', features: feats, _src: '브이월드 실시간' };
+    }
     const key = App.cfg.vworldKey;
     if (!key) throw new Error('브이월드 인증키가 없습니다.');
     const feats = [];

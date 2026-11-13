@@ -785,8 +785,8 @@ async function calculate() {
 App.tableModel = function () {
   const r = App.area; if (!r) return null;
   const as3 = !!App.opts.rest3;
-  const keys = r.gradeKeys.slice();
-  ['1', '2', '3', '9'].forEach(k => { if (!keys.includes(k)) keys.push(k); });   // 등급 4개는 항상 표시 (없으면 0)
+  const keys = r.gradeKeys.filter(k => k !== '9');   // 별도관리지역은 면적표에서 제외 (도면 표시만)
+  ['1', '2', '3'].forEach(k => { if (!keys.includes(k)) keys.push(k); });   // 등급 3개는 항상 표시 (없으면 0)
   if (as3 && !keys.includes('3')) keys.push('3');
   const order = { '1': 0, '2': 1, '3': 2, '9': 3 };
   keys.sort((a, b) => ((order[a] != null ? order[a] : 9) - (order[b] != null ? order[b] : 9)) || a.localeCompare(b));
@@ -795,7 +795,8 @@ App.tableModel = function () {
   // 면적 보정: 발주처 면적(㎡)을 넣으면 등급별 면적을 같은 비율로 맞춤 (합계 = 발주처 면적)
   const tg = App.opts.areaTarget || {};
   const rows = CATS.map(c => r.rows.find(x => x.category === c)).filter(Boolean).map(row => {
-    const raw = cols.map(c => c.key === 'none' ? row.noData : ((row.areas[c.key] || 0) + (c.key === '3' && as3 ? row.noData : 0)));
+    const a9 = row.areas['9'] || 0;   // 예전 저장 작업: 별도관리지역 면적은 등급 없음/3등급 쪽으로
+    const raw = cols.map(c => c.key === 'none' ? row.noData + a9 : ((row.areas[c.key] || 0) + (c.key === '3' && as3 ? row.noData + a9 : 0)));
     const t = Number(tg[row.category]);
     const k = t > 0 && row.total > 0 ? t / row.total : 1;
     return { category: row.category, total: row.total * k, rawTotal: row.total, factor: k, corrected: k !== 1, vals: raw.map(v => v * k) };

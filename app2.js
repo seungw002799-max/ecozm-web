@@ -59,9 +59,9 @@
       return er.rows.map(r => (er.rows.length > 1 ? '[' + r.category + ']  ' : '') + GE.map(g => g.label + ' 면적 : ' + Math.round(r.areas[g.key]).toLocaleString('en-US') + '㎡').join('   '));
     }
     const m = App.tableModel();
-    const G = [['1', '1등급'], ['2', '2등급'], ['3', '3등급'], ['9', '별도관리지역']];
+    const G = [['1', '1등급'], ['2', '2등급'], ['3', '3등급']];
     const f = v => Math.round(v).toLocaleString('en-US') + '㎡';
-    if (!m) return ['1등급 면적 : -   2등급 면적 : -   3등급 면적 : -   별도관리지역 면적 : -'];
+    if (!m) return ['1등급 면적 : -   2등급 면적 : -   3등급 면적 : -'];
     return m.rows.map(r => {
       const val = k => { const i = m.cols.findIndex(c => c.key === k); return i >= 0 ? r.vals[i] : 0; };
       let t = G.map(([k, n]) => n + ' 면적 : ' + f(val(k))).join('   ');
@@ -99,7 +99,9 @@
   function legendGrades(c) {
     const m = App.tableModel();
     if (c && c.all) return [{ key: '1', label: '1등급' }, { key: '2', label: '2등급' }, { key: '3', label: '3등급' }, { key: '9', label: '별도관리지역' }];   // 자료에 없는 등급도 표시
-    const keys = m ? m.cols.filter(c => c.key !== 'none' && ((App.area.gradeKeys || []).includes(c.key) || (c.key === '3' && App.opts.rest3))) : [{ key: '1', label: '1등급' }, { key: '2', label: '2등급' }, { key: '3', label: '3등급' }, { key: '9', label: '별도관리지역' }];
+    const has9 = !!(App.area && (App.area.has9 || (App.area.gradeKeys || []).includes('9')));   // 별도관리지역: 면적표엔 없지만 도면에 보이면 범례에 표시
+    if (m) { const ks = m.cols.filter(c => c.key !== 'none' && ((App.area.gradeKeys || []).includes(c.key) || (c.key === '3' && App.opts.rest3))); if (has9) ks.push({ key: '9', label: '별도관리지역' }); return ks; }
+    const keys = m ? [] : [{ key: '1', label: '1등급' }, { key: '2', label: '2등급' }, { key: '3', label: '3등급' }, { key: '9', label: '별도관리지역' }];
     return keys;
   }
 

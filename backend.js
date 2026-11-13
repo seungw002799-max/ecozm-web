@@ -187,7 +187,8 @@
   }
 
   // ---------------------------------------------------------------- 면적 산정 (server.py compute_area 와 같은 규칙)
-  const GRADE_ORDER = ['9', '1', '2', '3'];   // 중첩 시 우선 배정 (보전 가치 높은 순)
+  // 별도관리지역(9)은 생태자연도 등급과 별개 → 면적 배정에서 빼고 도면 표시만 (중첩 시 1 > 2 > 3 순)
+  const GRADE_ORDER = ['1', '2', '3'];
   const GRADE_LABEL = { '1': '1등급', '2': '2등급', '3': '3등급', '9': '별도관리지역' };
   const gkey = v => { if (v == null) return '기타'; const s = String(v).trim(); const n = Number(s); return isFinite(n) && s !== '' ? String(Math.trunc(n)) : s; };
 
@@ -200,7 +201,7 @@
       const k = gkey((f.properties || {}).eczm_grad);
       (byGrade[k] = byGrade[k] || []).push(g);
     });
-    const keys = GRADE_ORDER.filter(k => byGrade[k]).concat(Object.keys(byGrade).filter(k => !GRADE_ORDER.includes(k)).sort());
+    const keys = GRADE_ORDER.filter(k => byGrade[k]).concat(Object.keys(byGrade).filter(k => !GRADE_ORDER.includes(k) && k !== '9').sort());
     const tree = new jsts.index.strtree.STRtree();
     keys.forEach(k => byGrade[k].forEach(g => tree.insert(g.getEnvelopeInternal(), { g, k })));
     const cats = {};
@@ -225,9 +226,11 @@
       const sum = Object.values(areas).reduce((a, b) => a + b, 0);
       const rest = assigned ? J0.fix(site.difference(assigned)) : site;
       polys(rest).forEach(p => { if (p.getArea() > 0.01) clipped.push({ type: 'Feature', geometry: J0.write(p), properties: { category: cat, grade: 'rest', area: p.getArea() } }); });
+      // 별도관리지역: 면적에는 넣지 않고 도면에만 위에 겹쳐 표시
+      if (byGrade['9']) { try { const g9 = byGrade['9'].filter(g => g.intersects(site)); if (g9.length) polys(J0.fix(site.intersection(J0.union(g9)))).forEach(p => { if (p.getArea() > 0.01) clipped.push({ type: 'Feature', geometry: J0.write(p), properties: { category: cat, grade: '9', area: p.getArea(), displayOnly: true } }); }); } catch (e) { /* 표시 생략 */ } }
       rows.push({ category: cat, total, areas, noData: Math.max(total - sum, 0), overlapRemoved: overlap });
     });
-    return { rows, gradeKeys: keys, gradeLabels: Object.fromEntries(keys.map(k => [k, GRADE_LABEL[k] || ('코드 ' + k)])),
+    return { rows, has9: !!byGrade['9'], gradeKeys: keys, gradeLabels: Object.fromEntries(keys.map(k => [k, GRADE_LABEL[k] || ('코드 ' + k)])),
       clipped: { type: 'FeatureCollection', features: clipped }, eczmCount: seen.size };
   }
 
@@ -239,9 +242,9 @@
   }
   async function makeXlsx(p) {
     await loadExcel();
-    const as3 = !!p.remainderAs3, order = { '1': 0, '2': 1, '3': 2, '9': 3 };
-    let gks = p.gradeKeys.slice(); const labels = Object.assign({}, p.gradeLabels);
-    ['1', '2', '3', '9'].forEach(k => { if (!gks.includes(k)) { gks.push(k); labels[k] = labels[k] || GRADE_LABEL[k]; } });   // 등급 4개 항상 표시
+    const as3 = !!p.remainderAs3, order = { '1': 0, '2': 1, '3': 2 };
+    let gks = p.gradeKeys.filter(k => k !== '9'); const labels = Object.assign({}, p.gradeLabels);
+    ['1', '2', '3'].forEach(k => { if (!gks.includes(k)) { gks.push(k); labels[k] = labels[k] || GRADE_LABEL[k]; } });   // 등급 4개 항상 표시
     gks.sort((a, b) => (order[a] ?? 9) - (order[b] ?? 9));
     let rows = p.rows;
     if (as3) rows = rows.map(r => Object.assign({}, r, { areas: Object.assign({}, r.areas, { '3': (r.areas['3'] || 0) + r.noData }), noData: 0 }));
@@ -274,7 +277,8 @@
     });
     r++;
     const notes = ['※ 면적은 EPSG:5186(GRS80 중부원점) 평면좌표 기준으로 산정', '※ 생태자연도 출처: 국립생태원 생태자연도 서비스(공공데이터포털 15057288)'];
-    if (as3) notes.push('※ 1·2등급 및 별도관리지역 외 지역은 3등급으로 산정(자연환경보전법 제34조)');
+    if (as3) notes.push('※ 1·2등급 외 지역은 3등급으로 산정(자연환경보전법 제34조)');
+    notes.push('※ 별도관리지역은 생태자연도 등급과 별개로, 면적에 넣지 않고 도면에만 표시');
     Object.entries(p.meta || {}).forEach(([k, v]) => notes.push('※ ' + k + ': ' + v));
     notes.forEach(n => { const x = ws.getCell(r++, 1); x.value = n; x.font = { size: 9, color: { argb: 'FF555555' } }; });
     ws.getColumn(1).width = 16;

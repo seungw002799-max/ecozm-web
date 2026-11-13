@@ -57,19 +57,56 @@
     });
     f[k + 'key'] = ek; f[k] = out; return out;
   }
+  // ------------------------------------------------------------ 이름표(배지): 캔버스로 직접 그려 글자를 상자 정가운데에 맞춤
+  // spec: { rows: [{ t, fg, bg }], border, font(px), anchor: 'center'|'above'|'below'|'left'|'right', gap(px) }
+  const BCACHE = new Map();
+  const FONT_FAMILY = '"EcoFont","KoPub돋움체 Bold","Malgun Gothic",sans-serif';
+  let fontReady = !document.fonts || document.fonts.check('bold 12px EcoFont');
+  if (!fontReady && document.fonts) document.fonts.load('bold 12px EcoFont').then(() => { fontReady = true; BCACHE.clear(); App.liveSets.forEach(x => x.changed && x.changed()); }).catch(() => {});
+  App.badge = function (spec, s) {
+    const key = JSON.stringify(spec) + '|' + s.toFixed(3);
+    let ic = BCACHE.get(key); if (ic) return ic;
+    const K = 2, sc = s * K;   // 2배로 그려서 선명하게
+    const fpx = (spec.font || 11) * sc, padX = 5 * sc, rowH = fpx * 1.42, rad = 3 * sc, lw = Math.max(1, 1.1 * sc), m = 4 * sc;
+    const cv = document.createElement('canvas'), ctx = cv.getContext('2d');
+    ctx.font = `bold ${fpx}px ${FONT_FAMILY}`;
+    const W = Math.ceil(Math.max(...spec.rows.map(r => ctx.measureText(r.t).width)) + padX * 2), H = Math.ceil(rowH * spec.rows.length);
+    cv.width = W + m * 2; cv.height = H + m * 2;
+    const c2 = cv.getContext('2d');
+    const rr = (x, y, w, h, r) => { c2.beginPath(); c2.moveTo(x + r, y); c2.arcTo(x + w, y, x + w, y + h, r); c2.arcTo(x + w, y + h, x, y + h, r); c2.arcTo(x, y + h, x, y, r); c2.arcTo(x, y, x + w, y, r); c2.closePath(); };
+    // 그림자 + 바탕
+    c2.save(); c2.shadowColor = 'rgba(0,0,0,0.35)'; c2.shadowBlur = 3 * sc; c2.shadowOffsetY = 1 * sc;
+    rr(m, m, W, H, rad); c2.fillStyle = '#fff'; c2.fill(); c2.restore();
+    // 줄마다 바탕색
+    c2.save(); rr(m, m, W, H, rad); c2.clip();
+    spec.rows.forEach((r, i) => { c2.fillStyle = r.bg || '#fff'; c2.fillRect(m, m + i * rowH, W, rowH + 0.5); });
+    c2.strokeStyle = spec.border || '#111'; c2.lineWidth = Math.max(0.6, 0.6 * sc);
+    for (let i = 1; i < spec.rows.length; i++) { if ((spec.rows[i].bg || '#fff') !== (spec.rows[i - 1].bg || '#fff')) continue; c2.globalAlpha = 0.45; c2.beginPath(); c2.moveTo(m + padX * 0.6, m + i * rowH); c2.lineTo(m + W - padX * 0.6, m + i * rowH); c2.stroke(); c2.globalAlpha = 1; }
+    c2.restore();
+    rr(m + lw / 2, m + lw / 2, W - lw, H - lw, rad); c2.strokeStyle = spec.border || '#111'; c2.lineWidth = lw; c2.stroke();
+    // 글자: 가로·세로 정가운데
+    c2.font = `bold ${fpx}px ${FONT_FAMILY}`; c2.textAlign = 'center'; c2.textBaseline = 'alphabetic';
+    spec.rows.forEach((r, i) => {
+      const mt = c2.measureText(r.t), asc = mt.actualBoundingBoxAscent || fpx * 0.8, desc = mt.actualBoundingBoxDescent || fpx * 0.1;
+      c2.fillStyle = r.fg || '#111'; c2.fillText(r.t, m + W / 2, m + i * rowH + rowH / 2 + (asc - desc) / 2);
+    });
+    const g = (spec.gap || 0) * sc, a = spec.anchor || 'center';
+    const anc = a === 'above' ? [m + W / 2, m + H + g] : a === 'below' ? [m + W / 2, m - g] : a === 'left' ? [m + W + g, m + H / 2] : a === 'right' ? [m - g, m + H / 2] : [m + W / 2, m + H / 2];
+    ic = new ol.style.Icon({ img: cv, imgSize: [cv.width, cv.height], anchor: anc, anchorXUnits: 'pixels', anchorYUnits: 'pixels', scale: 1 / K });
+    if (fontReady) { if (BCACHE.size > 400) BCACHE.clear(); BCACHE.set(key, ic); }
+    return ic;
+  };
   App.targetStyle = function (f, s, set) {
     if (App.theme !== 'target' && !(App.theme === 'meas' && f.get('tk') === 'river')) return null;   // 측정지점 위치도에서는 하천만
-    const o = T(), k = f.get('tk'), fsc = (Number(o.fontPct) || 100) / 100, font = px => `bold ${Math.round(px * fsc * s * 10) / 10}px "EcoFont","Malgun Gothic",sans-serif`;
+    const o = T(), k = f.get('tk'), fsc = (Number(o.fontPct) || 100) / 100;
     if (k === 'ring') {
       if (o.ringShow === false) return null;
       const out = [
         new ol.style.Style({ stroke: new ol.style.Stroke({ color: ringStroke(ringCol()), width: 3.6 * s }) }),
         new ol.style.Style({ stroke: new ol.style.Stroke({ color: ringCol(), width: 1.8 * s }) }),
       ];
-      ringTops(f, set).forEach(p => out.push(new ol.style.Style({ geometry: new ol.geom.Point(p), text: new ol.style.Text({
-        text: f.get('label'), font: font(11), offsetY: -9 * fsc * s, fill: new ol.style.Fill({ color: '#111' }),
-        backgroundFill: new ol.style.Fill({ color: '#fff' }), backgroundStroke: new ol.style.Stroke({ color: '#111', width: 1.1 * s }),
-        padding: [1.5 * s, 4 * s, 0.5 * s, 4 * s], overflow: true }) })));
+      const ic = App.badge({ rows: [{ t: f.get('label'), fg: '#111', bg: '#fff' }], border: '#111', font: 11 * fsc, anchor: 'center' }, s);
+      ringTops(f, set).forEach(p => out.push(new ol.style.Style({ geometry: new ol.geom.Point(p), image: ic, zIndex: 10 })));
       return out;
     }
     if (k === 'river') {
@@ -77,14 +114,9 @@
       const st = [new ol.style.Style({ fill: new ol.style.Fill({ color: hexA(r.color, 0.45) }), stroke: new ol.style.Stroke({ color: r.color, width: 1.2 * s }) })];
       const lp = (set && set.viewExtent && App.protLabelPoint) ? (App.protLabelPoint(f, set) || f.get('lp')) : f.get('lp');
       const nm = f.get('name'), named = nm && nm !== r.cls && !/구역$/.test(nm);
-      if (lp && f.get('labelMe') && !named) st.push(new ol.style.Style({ geometry: new ol.geom.Point(lp), text: new ol.style.Text({ text: r.cls, font: font(10), fill: new ol.style.Fill({ color: '#111' }), backgroundFill: new ol.style.Fill({ color: '#fff' }), backgroundStroke: new ol.style.Stroke({ color: r.color, width: 1 * s }), padding: [1.5 * s, 5 * s, 0.5 * s, 5 * s], overflow: true }) }));
-      if (lp && f.get('labelMe') && named) {
-        st.push(new ol.style.Style({ geometry: new ol.geom.Point(lp), text: new ol.style.Text({ text: f.get('name'), font: font(10.5), offsetY: -7.5 * fsc * s,
-          fill: new ol.style.Fill({ color: '#fff' }), backgroundFill: new ol.style.Fill({ color: r.color }), backgroundStroke: new ol.style.Stroke({ color: '#fff', width: 0.8 * s }),
-          padding: [1.5 * s, 5 * s, 0.5 * s, 5 * s], overflow: true }) }));
-        st.push(new ol.style.Style({ geometry: new ol.geom.Point(lp), text: new ol.style.Text({ text: r.cls, font: font(10), offsetY: 8 * fsc * s,
-          fill: new ol.style.Fill({ color: '#111' }), backgroundFill: new ol.style.Fill({ color: '#fff' }), backgroundStroke: new ol.style.Stroke({ color: r.color, width: 1 * s }),
-          padding: [1.5 * s, 5 * s, 0.5 * s, 5 * s], overflow: true }) }));
+      if (lp && f.get('labelMe')) {
+        const rows = named ? [{ t: nm, fg: '#fff', bg: r.color }, { t: r.cls, fg: '#111', bg: '#fff' }] : [{ t: r.cls, fg: '#111', bg: '#fff' }];
+        st.push(new ol.style.Style({ geometry: new ol.geom.Point(lp), image: App.badge({ rows, border: r.color, font: 10.5 * fsc, anchor: 'center' }, s), zIndex: 9 }));
       }
       return st;
     }

@@ -26,25 +26,14 @@
   const refreshMaps = () => App.liveSets.forEach(s => s.changed && s.changed());
   const saveAll = () => { App.saveOpts(); draw(); if (App.layout && App.layout.redraw) App.layout.redraw(); App.emit(); };
 
-  // ------------------------------------------------------------ 입력 해석 (엑셀 붙여넣기: 탭 구분, 항목 칸이 비면 위 항목을 이어 씀)
-  function parse(text) {
-    const out = []; let last = '';
-    String(text || '').split(/\r?\n/).forEach(line => {
-      if (!line.trim()) return;
-      let c = line.split('\t'); if (c.length < 2) c = line.split(/\s*,\s*/);
-      c = c.map(x => x.trim());
-      if (/주소/.test(c[1] || '') && /항목|구분/.test(c[0] || '')) return;   // 머리글 줄
-      const cat = c[0] || last; last = cat;
-      const addr = c[1] || '', name = c.slice(2).filter(Boolean).join(' ');
-      if (!addr) return;
-      out.push({ cat, addr, name });
-    });
-    return out;
+  // ------------------------------------------------------------ 입력: 항목마다 개수를 정하고 1, 2, 3 ... 칸에 주소·명칭을 붙여넣음
+  const ent = c => { const o = M(); o.ent = o.ent || {}; o.cnt = o.cnt || {}; const a = o.ent[c.k] = o.ent[c.k] || []; const n = o.cnt[c.k] == null ? 1 : o.cnt[c.k]; while (a.length < n) a.push({ addr: '', name: '', pos: 'u' }); return a; };
+  const cnt = c => { const o = M(); o.cnt = o.cnt || {}; return o.cnt[c.k] == null ? 1 : Number(o.cnt[c.k]) || 0; };
+  function rebuildRows() {   // 지도·범례용 목록 (부호 = 항목 부호 - 칸 번호)
+    const o = M(); o.rows = [];
+    o.cats.forEach(c => { const a = ent(c); for (let i = 0; i < cnt(c); i++) { const e = a[i]; if (!e || !e.addr.trim()) continue; e.code = `${c.pre}-${i + 1}`; o.rows.push(Object.assign(e, { cat: c.k })); } });
   }
-  function codes() {   // 항목별 순번: A-1, A-2 ...
-    const n = {};
-    M().rows.forEach(r => { const c = catOf(r.cat); const pre = c ? c.pre : (r.cat || '?').slice(0, 2); n[pre] = (n[pre] || 0) + 1; r.code = `${pre}-${n[pre]}`; });
-  }
+  function codes() { rebuildRows(); }
 
   // ------------------------------------------------------------ 주소 → 좌표 (브이월드 주소 API: 지번 → 도로명 → 장소 검색)
   const geoCache = {};
@@ -66,26 +55,22 @@
     return null;
   }
   async function locate() {
-    const o = M(), btn = $('#btnMeasRun'), msg = $('#measMsg');
+    const btn = $('#btnMeasRun'), msg = $('#measMsg');
     if (!App.cfg.vworldKey) { App.toast('브이월드 키가 필요합니다 (도면 탭 1. 설정).', 'warn'); return; }
-    const parsed = parse($('#measRaw').value);
-    if (!parsed.length) { App.toast('항목 / 주소 / 명칭을 붙여넣으세요.', 'warn'); return; }
-    o.raw = $('#measRaw').value;
-    // 같은 줄(항목+주소+명칭)은 전에 찾은 위치·글자 방향을 유지
-    const prev = new Map(o.rows.map(r => [r.cat + '|' + r.addr + '|' + r.name, r]));
-    o.rows = parsed.map(p => { const q = prev.get(p.cat + '|' + p.addr + '|' + p.name); return q && q.ll ? q : Object.assign({ pos: 'r' }, p); });
+    rebuildRows(); const rows = M().rows;
+    if (!rows.length) { App.toast('주소를 하나 이상 넣으세요.', 'warn'); return; }
     btn.disabled = true; msg.hidden = false;
     let done = 0, bad = 0;
-    for (const r of o.rows) {
-      if (!r.ll || r.how === '실패') {
-        const g = await geocode(r.addr);
+    for (const r of rows) {
+      if (!r.ll || (r.how === '실패')) {
+        const g = await geocode(r.addr.trim());
         if (g) { r.ll = g.ll; r.how = g.how; r.refined = g.refined; } else { r.ll = null; r.how = '실패'; bad++; }
       }
-      done++; msg.textContent = `위치 찾는 중... ${done} / ${o.rows.length}`;
+      done++; msg.textContent = `위치 찾는 중... ${done} / ${rows.length}`;
     }
     btn.disabled = false;
-    msg.textContent = `${o.rows.length}곳 중 ${o.rows.length - bad}곳 위치 찾음` + (bad ? ` · ${bad}곳은 못 찾음 (목록에서 '지도에서 찍기')` : '');
-    codes(); renderList(); saveAll(); fitAll();
+    msg.textContent = `${rows.length}곳 중 ${rows.length - bad}곳 위치 찾음` + (bad ? ` · ${bad}곳은 못 찾음 ('찍기'로 지정)` : '');
+    renderInputs(); saveAll(); fitAll();
   }
   // 도면 출력 '도면 이동': 측정지점 위치도에서는 지점 + 도면 전체
   App.layoutExtent = function () {
@@ -96,6 +81,7 @@
     return ol.extent.buffer(e, Math.max(100, (e[2] - e[0]) * 0.08));
   };
   function fitAll() {
+    if (App.embedView && App.embedView.meas === 'print' && App.layout && App.layout.fit) { App.layout.fit(); return; }
     const fs = App.src.meas.getFeatures(); if (!fs.length) return;
     let e = ol.extent.createEmpty(); fs.forEach(f => ol.extent.extend(e, f.getGeometry().getExtent()));
     const se = App.sitesExtent && App.sitesExtent(); if (se) ol.extent.extend(e, se);
@@ -104,14 +90,14 @@
 
   // ------------------------------------------------------------ 지도 그림
   function draw() {
-    const o = M(); App.src.meas.clear();
+    rebuildRows(); const o = M(); App.src.meas.clear();
     // 같은 위치 + 같은 모양이면 한 점에 부호를 위아래로 (예: A-1 / NV-1)
     const groups = new Map();
     o.rows.forEach((r, i) => {
       if (!r.ll) return;
       const c = catOf(r.cat) || { shape: 'circle', color: '#9E9E9E' };
       const key = r.ll.map(v => v.toFixed(6)).join(',') + '|' + c.shape + c.color;
-      if (!groups.has(key)) groups.set(key, { ll: r.ll, c, codes: [], idx: i, pos: r.pos || 'r' });
+      if (!groups.has(key)) groups.set(key, { ll: r.ll, c, codes: [], idx: i, pos: r.pos || 'u' });
       groups.get(key).codes.push(r.code);
     });
     const at = new Map();   // 같은 자리에 모양이 다른 점이 겹치면 옆으로 조금 비킴
@@ -135,14 +121,12 @@
     const o = M(), fsc = (Number(o.fontPct) || 100) / 100, r = 6.5 * fsc * s;
     let g = f.getGeometry(); const n = f.get('nudge');
     if (n && res) { const c = g.getCoordinates(); g = new ol.geom.Point([c[0] + n * r * 2.4 * res, c[1]]); }
-    const pos = f.get('pos') || 'r', lines = String(f.get('label') || '').split('\n').length;
-    const off = { r: [r + 6 * s, 0, 'left'], l: [-(r + 6 * s), 0, 'right'], u: [0, -(r + 6 * s + lines * 7 * fsc * s), 'center'], d: [0, r + 6 * s + lines * 7 * fsc * s, 'center'] }[pos] || [r + 6 * s, 0, 'left'];
+    const pos = f.get('pos') || 'u';
+    const anchor = { u: 'above', d: 'below', l: 'left', r: 'right' }[pos] || 'above';
+    const rows = String(f.get('label') || '').split('\n').map(t => ({ t, fg: '#111', bg: '#fff' }));
     return [
-      new ol.style.Style({ geometry: g, image: symbol(f.get('shape'), f.get('color'), r, s) }),
-      new ol.style.Style({ geometry: g, text: new ol.style.Text({ text: f.get('label'), font: `bold ${Math.round(11 * fsc * s * 10) / 10}px "EcoFont","Malgun Gothic",sans-serif`,
-        textAlign: off[2], offsetX: off[0], offsetY: off[1], fill: new ol.style.Fill({ color: '#111' }),
-        backgroundFill: new ol.style.Fill({ color: '#fff' }), backgroundStroke: new ol.style.Stroke({ color: '#111', width: 1.1 * s }),
-        padding: [2 * s, 4 * s, 1 * s, 4 * s], overflow: true }) }),
+      new ol.style.Style({ geometry: g, image: symbol(f.get('shape'), f.get('color'), r, s), zIndex: 1 }),
+      new ol.style.Style({ geometry: g, image: App.badge({ rows, border: '#222', font: 11 * fsc, anchor, gap: 6.5 * fsc + 5 }, s), zIndex: 2 }),
     ];
   };
   // 범례: 모양·색이 같은 항목은 한 줄로 (예: 대기질·소음진동 측정지점)
@@ -162,58 +146,76 @@
       <select data-mc="${i}" data-f="shape">${SHAPES.map(s => `<option value="${s[0]}" ${c.shape === s[0] ? 'selected' : ''}>${s[1]}</option>`).join('')}</select>
       <input type="color" data-mc="${i}" data-f="color" value="${esc(c.color)}"></div>`).join('');
   }
-  let pickRow = null;
-  function renderList() {
-    const o = M(), box = $('#measList');
-    if (!o.rows.length) { box.hidden = true; return; }
-    box.hidden = false;
-    box.innerHTML = `<table class="meas-table"><thead><tr><th>부호</th><th>명칭 · 주소</th><th>글자</th><th></th></tr></thead><tbody>` + o.rows.map((r, i) => `<tr class="${r.ll ? '' : 'bad'}">
-      <td><b>${esc(r.code)}</b><br><small>${esc(r.cat)}</small></td>
-      <td>${esc(r.name) || '-'}<br><small>${esc(r.addr)}${r.ll ? ` · ${esc(r.how)}` : ' · <b class="warn">못 찾음</b>'}</small></td>
-      <td><select data-mpos="${i}">${[['r', '오른쪽'], ['l', '왼쪽'], ['u', '위'], ['d', '아래']].map(p => `<option value="${p[0]}" ${(r.pos || 'r') === p[0] ? 'selected' : ''}>${p[1]}</option>`).join('')}</select></td>
-      <td><button type="button" class="btn small" data-mpick="${i}">${pickRow === i ? '지도 누르기' : '지도에서 찍기'}</button></td></tr>`).join('') + '</tbody></table><ul class="bullets"><li>같은 주소·같은 모양은 한 점에 부호를 위아래로 씁니다 (예: A-1 / NV-1)</li><li>위치가 다르면 \'지도에서 찍기\'로 고칠 수 있습니다</li></ul>';
+  let pickRow = null;   // [항목, 칸 번호]
+  const POS = [['u', '위'], ['d', '아래'], ['l', '왼쪽'], ['r', '오른쪽']];
+  function renderInputs() {
+    const o = M(), box = $('#measInputs');
+    box.innerHTML = o.cats.map((c, ci) => { const a = ent(c), n = cnt(c);
+      return `<div class="mi-cat"><div class="mi-head"><span class="mi-sym" style="--c:${esc(c.color)}" data-shape="${esc(c.shape)}"></span><b>${esc(c.k)}</b><span class="mi-pre">${esc(c.pre)}</span>
+        <label class="mi-cnt">개수 <input type="number" min="0" max="30" step="1" data-mcnt="${ci}" value="${n}"></label>
+        ${ci > 0 ? `<button type="button" class="btn small" data-mcopy="${ci}" title="바로 위 항목의 주소·명칭을 그대로 복사">위와 같게</button>` : ''}</div>
+        ${Array.from({ length: n }, (_, i) => { const e = a[i]; const st = !e.addr.trim() ? '' : e.ll ? (e.how === '직접 지정' ? '<span class="mi-st ok">직접</span>' : '<span class="mi-st ok">찾음</span>') : (e.how === '실패' ? '<span class="mi-st bad">못 찾음</span>' : '<span class="mi-st">대기</span>');
+          const pk = pickRow && pickRow[0] === ci && pickRow[1] === i;
+          return `<div class="mi-row"><span class="mi-code">${esc(c.pre)}-${i + 1}</span>
+            <input type="text" class="mi-addr" placeholder="주소 (붙여넣기)" data-mci="${ci}" data-mi="${i}" data-mf="addr" value="${esc(e.addr)}">
+            <input type="text" class="mi-name" placeholder="명칭" data-mci="${ci}" data-mi="${i}" data-mf="name" value="${esc(e.name)}">
+            <select data-mci="${ci}" data-mi="${i}" data-mf="pos" title="부호 상자 위치">${POS.map(p => `<option value="${p[0]}" ${(e.pos || 'u') === p[0] ? 'selected' : ''}>${p[1]}</option>`).join('')}</select>
+            <button type="button" class="btn small${pk ? ' on' : ''}" data-mpick="${ci}:${i}" title="지도에서 위치 지정">${pk ? '누르기' : '찍기'}</button>${st}</div>`; }).join('')}</div>`; }).join('');
   }
-  async function readFile(file) {
-    let rows = [];
-    if (/\.csv$/i.test(file.name) || /\.txt$/i.test(file.name)) {
-      const buf = await file.arrayBuffer(); let t = new TextDecoder('utf-8').decode(buf); if (t.includes('\uFFFD')) t = new TextDecoder('euc-kr').decode(buf);
-      rows = t.split(/\r?\n/).map(l => l.split(/\t|,/));
-    } else {
-      if (!window.ExcelJS) await new Promise((ok, no) => { const s = document.createElement('script'); s.src = EXCELJS; s.onload = ok; s.onerror = () => no(new Error('엑셀 읽기 도구를 불러오지 못했습니다')); document.head.appendChild(s); });
-      const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer());
-      const ws = wb.worksheets[0];
-      ws.eachRow({ includeEmpty: false }, row => { const v = []; for (let c = 1; c <= Math.max(3, row.cellCount); c++) { const x = row.getCell(c); let t = x.isMerged && x.master !== x ? '' : x.text; v.push(String(t || '').trim()); } rows.push(v); });
-    }
-    $('#measRaw').value = rows.filter(r => r.some(x => String(x).trim())).map(r => r.slice(0, 3).join('\t')).join('\n');
-  }
+  function renderList() { renderInputs(); }
   function build() {
     const o = M();
-    $('#measRaw').value = o.raw || '';
     $('#measFontPct').value = o.fontPct || 100;
-    renderCats(); codes(); renderList(); draw();
+    renderCats(); renderInputs(); draw();
     $('#btnMeasRun').addEventListener('click', locate);
-    $('#measFile').addEventListener('change', async e => { const f = e.target.files[0]; if (!f) return; try { await readFile(f); App.toast('파일을 읽었습니다. "위치 찾기"를 누르세요.'); } catch (err) { App.toast(err.message, 'warn'); } e.target.value = ''; });
-    $('#btnMeasExample').addEventListener('click', () => { $('#measRaw').value = ['대기질\t강원 화천군 하남면 안평리 574-1\t안평리경로당', '\t강원 화천군 하남면 안평리 528-1\t주거시설', '소음진동\t강원 화천군 하남면 안평리 574-1\t안평리경로당', '\t강원 화천군 하남면 안평리 528-1\t주거시설', '지표수질\t강원 화천군 하남면 안평리 1484\t논미천 상류(회동교)', '\t강원 화천군 하남면 안평리 472-31\t논미천 하류(홍촌교)', '지하수질\t강원 화천군 하남면 안평리 886\t농어업용(전작용)', '\t강원 화천군 하남면 안평리 522-6\t생활용(가정용)', '토양\t강원 화천군 하남면 안평리 921-8\t대지 내부'].join('\n'); });
-    $('#btnMeasClear').addEventListener('click', () => { o.rows = []; o.raw = ''; $('#measRaw').value = ''; renderList(); saveAll(); });
-    $('#measCats').addEventListener('input', e => { const t = e.target, i = t.dataset.mc; if (i == null) return; o.cats[+i][t.dataset.f] = t.value; codes(); renderList(); saveAll(); });
-    $('#btnMeasCatReset').addEventListener('click', () => { o.cats = JSON.parse(JSON.stringify(DEFCAT)); renderCats(); codes(); renderList(); saveAll(); });
-    $('#measFontPct').addEventListener('input', e => { o.fontPct = Math.max(30, Number(e.target.value) || 100); saveAll(); });
-    $('#measList').addEventListener('change', e => { const i = e.target.dataset.mpos; if (i == null) return; o.rows[+i].pos = e.target.value; saveAll(); });
-    $('#measList').addEventListener('click', e => { const b = e.target.closest('[data-mpick]'); if (!b) return; const i = +b.dataset.mpick; pickRow = pickRow === i ? null : i; App.workMap.getTargetElement().style.cursor = pickRow != null ? 'crosshair' : ''; renderList(); });
-    App.workMap.on('singleclick', e => {
-      if (pickRow == null) return;
-      const r = o.rows[pickRow]; r.ll = ol.proj.toLonLat(e.coordinate); r.how = '직접 지정';
-      pickRow = null; App.workMap.getTargetElement().style.cursor = ''; renderList(); saveAll();
+    const box = $('#measInputs');
+    box.addEventListener('input', e => {
+      const t = e.target;
+      if (t.dataset.mcnt != null) { const c = o.cats[+t.dataset.mcnt]; o.cnt[c.k] = Math.max(0, Math.min(30, Number(t.value) || 0)); ent(c); App.saveOpts(); clearTimeout(box._t); box._t = setTimeout(() => { renderInputs(); saveAll(); }, 400); return; }
+      if (t.dataset.mf && t.tagName === 'INPUT') { const c = o.cats[+t.dataset.mci], en = ent(c)[+t.dataset.mi]; en[t.dataset.mf] = t.value; if (t.dataset.mf === 'addr') { en.ll = null; en.how = ''; } App.saveOpts(); clearTimeout(box._d); box._d = setTimeout(saveAll, 500); }
     });
+    box.addEventListener('change', e => { const t = e.target; if (t.tagName === 'SELECT' && t.dataset.mf === 'pos') { ent(o.cats[+t.dataset.mci])[+t.dataset.mi].pos = t.value; saveAll(); } });
+    // 여러 줄을 한 번에 붙여넣으면 (엑셀에서 주소 열 복사) 아래 칸으로 차례로 채움. 탭으로 나뉘면 두 번째 칸은 명칭
+    box.addEventListener('paste', e => {
+      const t = e.target; if (!t.dataset || t.dataset.mf !== 'addr') return;
+      const txt = (e.clipboardData || window.clipboardData).getData('text'); const lines = txt.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2 && !/\t/.test(txt)) return;
+      e.preventDefault();
+      const c = o.cats[+t.dataset.mci], start = +t.dataset.mi;
+      if (start + lines.length > cnt(c)) o.cnt[c.k] = start + lines.length;
+      const a = ent(c);
+      lines.forEach((l, j) => { const p = l.split('\t').map(x => x.trim()); const en = a[start + j]; en.addr = p[0] || ''; if (p[1]) en.name = p.slice(1).filter(Boolean).join(' '); en.ll = null; en.how = ''; });
+      renderInputs(); saveAll();
+    });
+    box.addEventListener('click', e => {
+      const cp = e.target.closest('[data-mcopy]');
+      if (cp) { const ci = +cp.dataset.mcopy, from = o.cats[ci - 1], to = o.cats[ci]; o.cnt[to.k] = cnt(from); o.ent[to.k] = ent(from).map(x => ({ addr: x.addr, name: x.name, pos: x.pos, ll: x.ll, how: x.how })); renderInputs(); saveAll(); return; }
+      const b = e.target.closest('[data-mpick]'); if (!b) return;
+      const [ci, i] = b.dataset.mpick.split(':').map(Number);
+      pickRow = pickRow && pickRow[0] === ci && pickRow[1] === i ? null : [ci, i];
+      if (pickRow) App.setEmbedView && App.setEmbedView('meas', 'map');
+      App.workMap.getTargetElement().style.cursor = pickRow ? 'crosshair' : ''; renderInputs();
+    });
+    App.workMap.on('singleclick', e => {
+      if (!pickRow) return;
+      const en = ent(o.cats[pickRow[0]])[pickRow[1]]; en.ll = ol.proj.toLonLat(e.coordinate); en.how = '직접 지정'; if (!en.addr.trim()) en.addr = '(지도에서 지정)';
+      pickRow = null; App.workMap.getTargetElement().style.cursor = ''; renderInputs(); saveAll();
+    });
+    $('#btnMeasClear').addEventListener('click', () => { o.ent = {}; o.cnt = {}; renderInputs(); saveAll(); });
+    $('#measCats').addEventListener('input', e => { const t = e.target, i = t.dataset.mc; if (i == null) return; const c = o.cats[+i];
+      if (t.dataset.f === 'k' && t.value && t.value !== c.k) { o.ent[t.value] = o.ent[c.k]; o.cnt[t.value] = o.cnt[c.k]; delete o.ent[c.k]; delete o.cnt[c.k]; }
+      c[t.dataset.f] = t.value; renderInputs(); saveAll(); });
+    $('#btnMeasCatReset').addEventListener('click', () => { o.cats = JSON.parse(JSON.stringify(DEFCAT)); renderCats(); renderInputs(); saveAll(); });
+    $('#measFontPct').addEventListener('input', e => { o.fontPct = Math.max(30, Number(e.target.value) || 100); saveAll(); });
     $('#btnMeasRiver').addEventListener('click', () => {
+      rebuildRows();
       const pts = o.rows.filter(r => r.ll).map(r => proj4('EPSG:4326', 'EPSG:5186', r.ll));
       const bs = App.sites.filter(s => s.bbox).map(s => s.bbox);
       pts.forEach(p => bs.push([p[0], p[1], p[0], p[1]]));
       if (!bs.length) { App.toast('먼저 위치를 찾거나 도면을 올리세요.', 'warn'); return; }
-      const m = 1000, b5 = [Math.min(...bs.map(b => b[0])) - m, Math.min(...bs.map(b => b[1])) - m, Math.max(...bs.map(b => b[2])) + m, Math.max(...bs.map(b => b[3])) + m];
+      const mg = 1000, b5 = [Math.min(...bs.map(b => b[0])) - mg, Math.min(...bs.map(b => b[1])) - mg, Math.max(...bs.map(b => b[2])) + mg, Math.max(...bs.map(b => b[3])) + mg];
       App.targetLoadRivers(b5, $('#measRiverMsg'), $('#btnMeasRiver'));
     });
-    $('#btnMeasLayout').addEventListener('click', () => { App.switchTab('layout'); App.setTheme('meas'); setTimeout(() => App.layout && App.layout.fit && App.layout.fit(), 300); });
   }
   const origInit = App.init;
   App.init = async function () { await origInit.apply(this, arguments); build(); };

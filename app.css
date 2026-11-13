@@ -462,3 +462,31 @@ body { -webkit-font-smoothing: antialiased; }
 .meas-table .warn { color: #c62828; }
 
 .meas-raw { white-space: pre; overflow-x: auto; }
+
+/* 탭 안 출력 (대상지역 설정도·측정지점 위치도) */
+.view-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin: 10px 14px 4px; border: 1px solid var(--line, #ccd); border-radius: 8px; overflow: hidden; }
+.view-toggle button { border: 0; background: #fff; padding: 8px 0; font: inherit; font-size: 13px; cursor: pointer; color: var(--muted, #556); }
+.view-toggle button.on { background: var(--accent, #0b6e69); color: #fff; font-weight: 700; }
+#tabLayout.embedded { display: block; border-top: 2px solid var(--line, #e3e6ee); margin-top: 6px; }
+#tabLayout.embedded label.field:has(#layoutTheme) { display: none; }
+/* 측정지점 입력 */
+.meas-inputs { display: flex; flex-direction: column; gap: 8px; margin: 6px 0; }
+.mi-cat { border: 1px solid var(--line, #e3e6ee); border-radius: 8px; padding: 6px 8px; background: #fafbfd; }
+.mi-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.mi-head b { font-size: 13px; }
+.mi-pre { font-size: 11px; color: var(--muted, #667); }
+.mi-cnt { margin-left: auto; font-size: 12px; display: flex; align-items: center; gap: 4px; }
+.mi-cnt input { width: 46px; }
+.mi-sym { width: 12px; height: 12px; border: 1.5px solid #222; background: var(--c); border-radius: 50%; display: inline-block; }
+.mi-sym[data-shape=square] { border-radius: 1px; }
+.mi-row { display: grid; grid-template-columns: 40px 1fr; grid-template-areas: "code addr" "code more"; gap: 3px 6px; padding: 4px 0; border-top: 1px dashed #e3e6ee; align-items: center; }
+.mi-row .mi-code { grid-area: code; font-weight: 700; font-size: 12px; text-align: center; background: #fff; border: 1px solid #ccd; border-radius: 6px; padding: 3px 0; }
+.mi-row .mi-addr { grid-area: addr; width: 100%; box-sizing: border-box; }
+.mi-row .mi-name, .mi-row select, .mi-row button, .mi-row .mi-st { grid-row: 2; }
+.mi-row { grid-template-columns: 40px 1fr 62px 46px auto; grid-template-areas: "code addr addr addr addr" "code name pos pick st"; }
+.mi-row .mi-name { grid-area: name; width: 100%; box-sizing: border-box; }
+.mi-row select { grid-area: pos; }
+.mi-row button { grid-area: pick; }
+.mi-row .mi-st { grid-area: st; font-size: 11px; padding: 1px 5px; border-radius: 4px; background: #eef; color: #556; }
+.mi-st.ok { background: #e8f5e9; color: #2e7d32; } .mi-st.bad { background: #ffebee; color: #c62828; }
+.btn.small.on { background: var(--accent, #0b6e69); color: #fff; }

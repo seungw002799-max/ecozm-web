@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>도면 출력 관련</title>
 <link rel="stylesheet" href="vendor/ol.css">
-<link rel="stylesheet" href="app.css?v=20261113x">
+<link rel="stylesheet" href="app.css?v=20261113y">
 </head>
 <body>
 <header class="topbar">
@@ -173,6 +173,7 @@
 
     <!-- ===================== 대상지역 설정도 탭 ===================== -->
       <div id="tabTarget" class="tabpane" hidden>
+        <div class="view-toggle" data-embed="target"><button type="button" data-view="map">작업 지도</button><button type="button" data-view="print" class="on">출력 미리보기</button></div>
         <section class="card-section">
           <h2>거리 범위와 조사항목</h2>
           <ul class="bullets"><li>도면 탭에서 올린 사업지구·노선을 기준으로 거리 범위를 그립니다</li><li>도면이 여러 개면 합쳐서 하나의 범위로 그립니다</li><li>조사항목은 쉼표로 구분합니다 (괄호 안 쉼표는 그대로)</li></ul>
@@ -198,26 +199,18 @@
           <div class="row"><button id="btnTgtRiver" class="btn primary wide" type="button">하천 불러오기</button></div>
           <div id="tgtMsg" class="progress" hidden></div>
         </section>
-        <section class="card-section">
-          <h2>출력</h2>
-          <ul class="bullets"><li>도면 출력에서 주제를 '대상지역 설정도'로 고르면 표가 함께 나옵니다</li><li>배경지도는 도면 출력에서 항공사진으로 바꿀 수 있습니다</li></ul>
-          <div class="row"><button id="btnTgtLayout" class="btn" type="button">도면 출력으로 →</button></div>
-        </section>
+        <div id="tgtLayoutSlot" class="layout-slot"></div>
       </div>
       <!-- ===================== 측정지점 위치도 탭 ===================== -->
       <div id="tabMeas" class="tabpane" hidden>
+        <div class="view-toggle" data-embed="meas"><button type="button" data-view="map">작업 지도</button><button type="button" data-view="print" class="on">출력 미리보기</button></div>
         <section class="card-section">
           <h2>측정지점 입력</h2>
-          <ul class="bullets"><li>엑셀에서 항목 / 주소 / 명칭 세 칸을 복사해 붙여넣습니다</li><li>항목 칸이 비어 있으면 위 항목을 이어 씁니다</li><li>지번 주소를 먼저 찾고, 없으면 도로명·장소 검색으로 찾습니다</li></ul>
-          <textarea id="measRaw" class="meas-raw" rows="8" placeholder="대기질&#9;강원 화천군 하남면 안평리 574-1&#9;안평리경로당"></textarea>
-          <div class="row">
-            <label class="btn small file-btn">엑셀 파일 열기<input type="file" id="measFile" accept=".xlsx,.csv,.txt" hidden></label>
-            <button id="btnMeasExample" class="btn small" type="button">예시 넣기</button>
-            <button id="btnMeasClear" class="btn small" type="button">지우기</button>
-          </div>
+          <ul class="bullets"><li>항목마다 개수를 정하면 1, 2, 3 ... 칸이 생깁니다</li><li>주소를 붙여넣고 '위치 찾기'를 누르세요 (지번 → 도로명 → 장소 순서로 찾음)</li><li>엑셀에서 주소 여러 줄을 복사해 첫 칸에 붙여넣으면 아래 칸으로 차례로 들어갑니다</li></ul>
+          <div id="measInputs" class="meas-inputs"></div>
           <div class="row"><button id="btnMeasRun" class="btn primary wide" type="button">위치 찾기</button></div>
+          <div class="row"><button id="btnMeasClear" class="btn small" type="button">모두 지우기</button></div>
           <div id="measMsg" class="progress" hidden></div>
-          <div id="measList" class="meas-list" hidden></div>
         </section>
         <section class="card-section">
           <h2>표시 모양</h2>
@@ -232,11 +225,7 @@
           <div class="row"><button id="btnMeasRiver" class="btn primary wide" type="button">하천 불러오기</button></div>
           <div id="measRiverMsg" class="progress" hidden></div>
         </section>
-        <section class="card-section">
-          <h2>출력</h2>
-          <ul class="bullets"><li>도면 출력에서 주제를 '측정지점 위치도'로 고르면 기호 범례가 함께 나옵니다</li></ul>
-          <div class="row"><button id="btnMeasLayout" class="btn" type="button">도면 출력으로 →</button></div>
-        </section>
+        <div id="measLayoutSlot" class="layout-slot"></div>
       </div>
       <!-- ===================== 국토환경성평가 탭 ===================== -->
     <div id="tabEcvam" class="tabpane" hidden>
@@ -345,15 +334,15 @@
 <script src="vendor/proj4.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jsts.min.js"></script>
-<script src="cad.js?v=20261113x"></script>
-<script src="backend.js?v=20261113x"></script>
-<script src="app.js?v=20261113x"></script>
-<script src="ecvam.js?v=20261113x"></script>
-<script src="prot.js?v=20261113x"></script> <script src="target.js?v=20261113x"></script> <script src="meas.js?v=20261113x"></script>
-  <script src="admin2.js?v=20261113x"></script>
-  <script src="measure.js?v=20261113x"></script>
-  <script src="pick.js?v=20261113x"></script>
-  <script src="project.js?v=20261113x"></script>
-<script src="app2.js?v=20261113x"></script>
+<script src="cad.js?v=20261113y"></script>
+<script src="backend.js?v=20261113y"></script>
+<script src="app.js?v=20261113y"></script>
+<script src="ecvam.js?v=20261113y"></script>
+<script src="prot.js?v=20261113y"></script> <script src="target.js?v=20261113y"></script> <script src="meas.js?v=20261113y"></script>
+  <script src="admin2.js?v=20261113y"></script>
+  <script src="measure.js?v=20261113y"></script>
+  <script src="pick.js?v=20261113y"></script>
+  <script src="project.js?v=20261113y"></script>
+<script src="app2.js?v=20261113y"></script>
 </body>
 </html>

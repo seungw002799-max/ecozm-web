@@ -926,20 +926,48 @@ App.downloadBlob = downloadBlob;
 
 // ============================================================ 11. 탭 / 시작
 function switchTab(name) {
-  $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  $('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   $('#tabWork').hidden = name !== 'work';
   $('#tabEco').hidden = name !== 'eco';
   $('#tabProt').hidden = name !== 'prot';
   const tp = $('#tabPick'); if (tp) tp.hidden = name !== 'pick'; const tt = $('#tabTarget'); if (tt) tt.hidden = name !== 'target'; const tm = $('#tabMeas'); if (tm) tm.hidden = name !== 'meas';
   $('#tabEcvam').hidden = name !== 'ecvam';
-  $('#tabLayout').hidden = name !== 'layout';
-  $('#workMapWrap').hidden = name === 'layout';
   if (name === 'eco' || name === 'prot' || name === 'ecvam') App.setTheme(name);
   if (name === 'pick') App.setTheme('prot'); if (name === 'meas') App.setTheme('meas'); if (name === 'target') { App.setTheme('target'); if (App.targetRefresh) App.targetRefresh(); }
+  App.curTab = name;
+  if (name === 'target' || name === 'meas') { setEmbedView(name, App.embedView[name]); return; }
+  homeLayout();
+  $('#tabLayout').hidden = name !== 'layout';
+  $('#workMapWrap').hidden = name === 'layout';
   $('#paperWrap').hidden = name !== 'layout';
   if (name === 'layout') { if (App.layout) App.layout.enter(); }
   else { if (App.layout) App.layout.leave(); App.workMap.updateSize(); }
 }
+// 대상지역 설정도·측정지점 위치도: 탭 안에서 바로 도면 출력 (작업 지도 / 출력 미리보기 전환)
+App.embedView = { target: 'print', meas: 'print' };
+let layoutHome = null;
+function homeLayout() {
+  const tl = $('#tabLayout'); if (!tl) return;
+  if (layoutHome && tl.parentNode !== layoutHome.parent) layoutHome.parent.insertBefore(tl, layoutHome.next);
+  tl.classList.remove('embedded');
+}
+function setEmbedView(name, view) {
+  App.embedView[name] = view;
+  document.querySelectorAll(`[data-embed="${name}"] [data-view]`).forEach(b => b.classList.toggle('on', b.dataset.view === view));
+  if (App.curTab !== name) return;
+  const tl = $('#tabLayout'), slot = $(name === 'target' ? '#tgtLayoutSlot' : '#measLayoutSlot');
+  if (!layoutHome) layoutHome = { parent: tl.parentNode, next: tl.nextSibling };
+  if (view === 'print') {
+    slot.appendChild(tl); tl.classList.add('embedded'); tl.hidden = false;
+    $('#workMapWrap').hidden = true; $('#paperWrap').hidden = false;
+    if (App.layout) App.layout.enter();
+  } else {
+    homeLayout(); tl.hidden = true;
+    $('#workMapWrap').hidden = false; $('#paperWrap').hidden = true;
+    if (App.layout) App.layout.leave(); App.workMap.updateSize();
+  }
+}
+App.setEmbedView = setEmbedView;
 
 // 브이월드 키 실제 확인 (2D데이터 API 1건 요청). 결과를 설정 칸에 표시
 async function checkVworldKey() {
@@ -991,7 +1019,8 @@ async function init() {
   initOptUI();
   initCatStyles();
   initSiteList();
-  $$('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+  $('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+  $('[data-embed] [data-view]').forEach(b => b.addEventListener('click', () => setEmbedView(b.closest('[data-embed]').dataset.embed, b.dataset.view)));
   $('#btnSaveCfg').addEventListener('click', saveConfig);
   $('#btnKeyEdit').addEventListener('click', () => renderKeys(true));
   $('#btnFresh').addEventListener('click', checkFresh);

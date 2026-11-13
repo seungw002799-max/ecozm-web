@@ -29,16 +29,23 @@
   const layer = new ol.layer.Vector({ source: src, style: measureStyle, zIndex: 50 });
   let draw = null;
 
+  // 재는 동안 지도 위에 굵은 안내문을 계속 띄움
+  function showHint(on) {
+    let h = document.getElementById('measureHint');
+    if (!h) { h = document.createElement('div'); h.id = 'measureHint'; h.className = 'measure-hint'; h.innerHTML = '<b>거리 재기 중</b><span>① 지도에 점을 차례로 찍으세요</span><span>② 마지막 점에서 <b>두 번 클릭</b>하면 끝</span><span>Esc: 취소 · 거리 버튼: 끄기</span>'; document.getElementById('map').appendChild(h); }
+    h.hidden = !on;
+  }
   function stop() {
     if (draw) { App.workMap.removeInteraction(draw); draw = null; }
     const b = document.getElementById('btnMeasure'); if (b) b.classList.remove('on');
+    showHint(false);
   }
   function start() {
     stop();
     draw = new ol.interaction.Draw({ source: src, type: 'LineString', style: f => (f.getGeometry().getType() === 'LineString' ? measureStyle(f) : new ol.style.Style({ image: dot })) });
     App.workMap.addInteraction(draw);
     document.getElementById('btnMeasure').classList.add('on');
-    App.toast && App.toast('지도에 점을 찍어 거리를 재세요. 두 번 누르면 끝납니다 (Esc: 취소).', 'ok');
+    showHint(true);
   }
   function build() {
     App.workMap.addLayer(layer);

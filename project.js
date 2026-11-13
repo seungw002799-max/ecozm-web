@@ -19,7 +19,7 @@
       app: 'ecozm-web', version: VERSION, savedAt: new Date().toISOString(),
       theme: App.theme,
       sites: App.sites.filter(s => s.geometry).map(s => ({ name: s.name, category: s.category, geometry: s.geometry, area: s.area, bbox: s.bbox, opacity: s.opacity })),
-      catStyle: App.catStyle,
+      catStyle: App.catStyle, catStyleE: App.catStyleE,
       opts,
       layout: App.layout && App.layout.getL ? App.layout.getL() : null,
       eco: App.area ? {
@@ -43,6 +43,7 @@
     // 설정 (인증키는 파일에 없으므로 그대로 유지)
     if (d.opts) { Object.assign(App.opts, d.opts); App.saveOpts(); }
     if (d.catStyle) { Object.keys(d.catStyle).forEach(k => { if (App.catStyle[k]) Object.assign(App.catStyle[k], d.catStyle[k]); }); try { localStorage.setItem('ecoCatStyle', JSON.stringify(App.catStyle)); } catch (e) { /* 무시 */ } }
+    if (d.catStyleE) { Object.keys(d.catStyleE).forEach(k => { if (App.catStyleE[k]) Object.assign(App.catStyleE[k], d.catStyleE[k]); }); try { localStorage.setItem('ecoCatStyleE', JSON.stringify(App.catStyleE)); } catch (e) { /* 무시 */ } }
     (d.sites || []).forEach(o => App.restoreSite(o));
     if (d.eco) App.restoreArea(d.eco.area, rf(d.eco.around), rf(d.eco.inside), d.eco.eczmCount, d.eco.eco1, d.eco.eco1Html);
     if (d.prot) {

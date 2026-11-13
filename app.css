@@ -353,3 +353,8 @@ body[data-theme=ecvam] #mapOptsLayout .slider[data-row=opA], body[data-theme=ecv
 .measure-ctl { top: 4.2em; left: .5em; display: flex; flex-direction: column; gap: 2px; }
 .measure-ctl button { width: auto !important; min-width: 44px; height: 24px !important; padding: 0 6px; font-size: 12px !important; font-weight: 700; }
 .measure-ctl button.on { background: #E91E63 !important; color: #fff !important; }
+
+.measure-hint { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 20; display: flex; flex-direction: column; gap: 2px; padding: 8px 14px; background: rgba(255,255,255,0.96); border: 2px solid #E91E63; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.2); font-size: 13.5px; font-weight: 700; color: #222; pointer-events: none; text-align: center; }
+.measure-hint[hidden] { display: none; }
+.measure-hint > b:first-child { color: #E91E63; font-size: 15px; }
+.measure-hint b { color: #E91E63; }

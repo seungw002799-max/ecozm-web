@@ -44,8 +44,6 @@
     { cat: 'vworld', group: 'sep', id: 'wetland', label: '습지보호지역 (내륙)', short: '습지보호지역', src: 'vworld', data: 'LT_C_UM901', name: sg, color: '#00838F', note: SEP },
     { cat: 'vworld', group: 'sep', id: 'wetland_c', label: '습지보호지역 (연안, 해양수산부)', short: '연안 습지보호지역', src: 'vworld', data: 'LT_C_WGISARWET', name: p => p.uname || p.name || p.wet_name || '습지보호지역', color: '#006064', note: SEP },
     { cat: 'vworld', group: 'sep', id: 'baekdu', label: '백두대간보호지역', short: '백두대간보호지역', src: 'vworld', data: 'LT_C_UF901', name: p => '백두대간보호지역' + (p.uname && p.uname !== '백두대간보호지역' ? ' (' + p.uname + ')' : ''), color: '#6D4C41', note: SEP },
-    { cat: 'vworld', id: 'water', label: '상수원보호구역', short: '상수원보호구역', src: 'vworld', data: 'LT_C_UM710', name: p => p.alias || [p.sigg_name, p.uname || '상수원보호구역'].filter(Boolean).join(' '), color: '#1565C0', note: VW },
-    { cat: 'vworld', id: 'air', label: '대기환경규제지역', short: '대기환경규제지역', src: 'vworld', data: 'LT_C_UM301', name: p => sg(p) || '대기환경규제지역', color: '#FFB300', note: Object.assign({}, VW, { extra: ['대기관리권역 등', '전국 5건, 세부 구분 없음'] }) },
     // egis
     { cat: 'egis', group: 'egis', id: 'eco_land', label: '생태·경관보전지역', short: '생태·경관보전지역', src: 'egis', typename: 'me:na_plg_conservation', cql: "type_code IN ('ESCA','SCAW')", name: p => p.name || '생태·경관보전지역', color: '#2E7D32', note: SEP },
     { cat: 'egis', group: 'egis', id: 'inland_wet', label: '내륙습지', short: '내륙습지', src: 'egis', typename: 'me:na_plg_wetland', name: p => p.wl_nm || '내륙습지', color: '#26A69A', note: Object.assign({}, EG, { extra: '국가 내륙습지 목록 (인공습지 포함)' }) },
@@ -53,6 +51,8 @@
     { cat: 'egis', group: 'egis', id: 'discharge', label: '폐수배출시설 설치제한지역', short: '폐수배출시설 설치제한지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='배출시설설치제한지역'", name: () => '폐수배출시설 설치제한지역', color: '#F4511E', note: Object.assign({}, EG, { extra: '물환경보전법 제33조' }) },
     { cat: 'egis', group: 'egis', id: 'wq_special', label: '상수원 수질보전 특별대책지역', short: '상수원 수질보전 특별대책지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='수질보전특별대책지역'", name: () => '특별대책지역', nameG: (p, g) => { let y = null; const w = c => { if (y !== null) return; if (typeof c[0] === 'number') y = c[1]; else c.forEach(w); }; w(g.coordinates); return (y > 37 ? '팔당호' : '대청호') + ' 특별대책지역'; }, color: '#00897B', note: Object.assign({}, EG, { extra: '팔당·대청호 2곳' }) },
     { cat: 'egis', group: 'egis', id: 'river_small', label: '소하천 (소하천구역)', short: '소하천', src: 'wfsb', base: 'https://api.mcee.go.kr/geoserver/ows', typename: 'EGIS:K33UJC100', name: () => '소하천구역', labelNearest: true, color: '#7986CB', note: VW },
+    { cat: 'egis', group: 'egis', id: 'water', label: '상수원보호구역', short: '상수원보호구역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='상수원보호구역'", name: () => '상수원보호구역', color: '#1565C0', note: EG },
+    { cat: 'egis', group: 'egis', id: 'air', label: '대기환경규제지역', short: '대기환경규제지역', src: 'egis', typename: 'me:ca_plg_air_restrict', name: () => '대기환경규제지역', color: '#FFB300', note: EG },
     // kei
     { cat: 'kei', group: 'ridge', id: 'ridge1', label: '백두대간', short: '백두대간', src: 'kei', typename: 'keilocal:mtridge_l1_pl', name: p => p.mbsnnm || '백두대간', color: '#4E342E', line: true, note: KEI },
     { cat: 'kei', group: 'ridge', id: 'ridge2', label: '정맥', short: '정맥', src: 'kei', typename: 'keilocal:mtridge_l2_pl', name: p => p.mbsnnm || '정맥', color: '#795548', line: true, note: KEI },

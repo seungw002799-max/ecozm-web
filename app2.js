@@ -240,7 +240,7 @@
               ctx.fillStyle = App.GRADE_COLOR[r.grade] || '#bbb'; ctx.fillRect(bx, by, sw, bh);
               ctx.lineWidth = 0.15; ctx.strokeStyle = '#555'; ctx.strokeRect(bx, by, sw, bh);
             } else {
-              const st = App.catStyle[r.cat], lw = st.width / PX96;
+              const st = App.catStyleFor(r.cat), lw = st.width / PX96;
               ctx.strokeStyle = st.color; ctx.lineWidth = lw;
               ctx.setLineDash(App.dashArr(st.dash, lw) || []);
               ctx.beginPath(); ctx.moveTo(bx, ry + rowH / 2); ctx.lineTo(bx + sw, ry + rowH / 2); ctx.stroke();

@@ -24,6 +24,8 @@ const App = {
   cfg: {},
   opts: { basemap: 'base', mode: 'both', opA: 0.6, opI: 0.6, opS: 1, opE: 0.7, opB: 1, proxy: false, rest3: true, range: 500 },
   catStyle: JSON.parse(JSON.stringify(DEFAULT_CAT_STYLE)),
+  // 국토환경성평가지도 주제용 도면 선 (1~5등급 색과 겹치지 않게 검정·파랑 기본)
+  catStyleE: { '사업지구': { color: '#000000', width: 3, dash: 'solid' }, '계획지구': { color: '#0033CC', width: 3, dash: 'dashed' }, '사업노선': { color: '#000000', width: 3, dash: 'solid' }, '계획노선': { color: '#0033CC', width: 3, dash: 'dashed' } },
   sites: [],
   area: null,        // /api/area 응답
   eczmCount: 0,
@@ -111,6 +113,8 @@ function loadLocal() {
   try {
     const cs = JSON.parse(localStorage.getItem('ecoCatStyle') || '{}');
     for (const c of CATS) if (cs[c]) Object.assign(App.catStyle[c], cs[c]);
+    const ce = JSON.parse(localStorage.getItem('ecoCatStyleE') || '{}');
+    for (const c of CATS) if (ce[c]) Object.assign(App.catStyleE[c], ce[c]);
   } catch (e) { /* 무시 */ }
 }
 App.saveOpts = () => localStorage.setItem('ecoOpts', JSON.stringify(App.opts));
@@ -293,8 +297,9 @@ App.setArrows = function (theme, list) {
   });
   App.emit();
 };
+App.catStyleFor = cat => ((App.theme === 'ecvam' ? App.catStyleE : App.catStyle)[cat]) || DEFAULT_CAT_STYLE['사업지구'];
 function siteStyle(cat, s, op) {
-  const st = App.catStyle[cat] || DEFAULT_CAT_STYLE['사업지구'];
+  const st = App.catStyleFor(cat);
   const a = op == null || op === '' ? 1 : Math.max(0, Math.min(1, Number(op)));   // 도면별 투명도 (도면 출력)
   return cached(`s|${cat}|${st.color}|${st.width}|${st.dash}|${s.toFixed(3)}|${a}`, () => {
     const w = st.width * s;
@@ -494,23 +499,24 @@ function initOptUI() {
 }
 
 // ============================================================ 8. 구분별 선 스타일 UI
-function initCatStyles() {
-  // 구분(4가지) 중 하나를 골라 그 선 스타일만 편집
-  const box = $('#catStyles');
+function initCatStyles() { catStyleBox('#catStyles', 'catStyle', 'ecoCatStyle'); catStyleBox('#catStylesE', 'catStyleE', 'ecoCatStyleE'); }
+// 구분(4가지) 중 하나를 골라 그 선 스타일만 편집 (도면 탭: 기본 / 국토환경성평가 탭: 평가지도용)
+function catStyleBox(sel0, key, lsKey) {
+  const box = $(sel0); if (!box) return;
   box.innerHTML = `<div class="cat-row">
       <select data-f="cat">${CATS.map(c => `<option value="${c}">${c}</option>`).join('')}</select>
       <input type="color" data-f="color" title="색">
       <input type="number" data-f="width" min="0.5" max="12" step="0.5" title="굵기">
       <select data-f="dash" title="선 종류"><option value="solid">실선</option><option value="dashed">파선</option><option value="dotted">점선</option></select></div>`;
   const sel = $('[data-f="cat"]', box);
-  const fill = () => { const s = App.catStyle[sel.value]; $('[data-f="color"]', box).value = s.color; $('[data-f="width"]', box).value = s.width; $('[data-f="dash"]', box).value = s.dash; };
+  const fill = () => { const s = App[key][sel.value]; $('[data-f="color"]', box).value = s.color; $('[data-f="width"]', box).value = s.width; $('[data-f="dash"]', box).value = s.dash; };
   fill();
   box.addEventListener('input', e => {
     const f = e.target.dataset.f;
     if (f === 'cat') return fill();
     if (!f) return;
-    App.catStyle[sel.value][f] = f === 'width' ? (Number(e.target.value) || 1) : e.target.value;
-    localStorage.setItem('ecoCatStyle', JSON.stringify(App.catStyle));
+    App[key][sel.value][f] = f === 'width' ? (Number(e.target.value) || 1) : e.target.value;
+    localStorage.setItem(lsKey, JSON.stringify(App[key]));
     App.liveSets.forEach(s => s.sites.changed());
     App.emit();
   });

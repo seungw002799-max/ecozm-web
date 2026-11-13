@@ -512,7 +512,7 @@
     $('#protRadius').value = App.opts.protRadius || 5;
     $('#protLabelChk').checked = App.opts.protLabel !== false;
     $('#protLabelChk').addEventListener('change', e => { App.opts.protLabel = e.target.checked; App.saveOpts(); cache.clear(); App.liveSets.forEach(s => s.changed()); App.emit(); });
-    $('#btnProt').addEventListener('click', run);
+    $('#btnProt').addEventListener('click', () => run());   // 이벤트 객체가 반경 인자로 들어가지 않도록
     const sb = $('#protStyleBox');
     if (sb) sb.addEventListener('input', e => {
       const id = e.target.dataset.ls, f = e.target.dataset.f; if (!id || !f) return;

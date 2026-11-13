@@ -310,7 +310,8 @@
   }
 
   // 사업지구(전체) 범위 + 반경 -> EPSG:4326 bbox [minLon,minLat,maxLon,maxLat]
-  let pointCtx = null;   // 초기 입지 검토: 도면 대신 한 점(EPSG:5186)을 기준으로 조회
+  let pointCtx = null;
+  const fcCache = new Map();   // 세션 동안 받은 레이어 자료 (레이어|범위 → 자료)   // 초기 입지 검토: 도면 대신 한 점(EPSG:5186)을 기준으로 조회
   function queryBox(radiusM) {
     const bs = pointCtx ? [[pointCtx.pt[0], pointCtx.pt[1], pointCtx.pt[0], pointCtx.pt[1]]] : App.sites.filter(s => s.bbox).map(s => s.bbox);
     if (!bs.length) return null;
@@ -354,11 +355,27 @@
         } catch (e) { return g5; }
       };
       const srcs = [], errs = [];
-      for (const p of chosen) {
-        msg.textContent = `${p.short} 받는 중...`;
-        let fc;
-        try { fc = p.src === 'vworld' ? await fetchVworld(p, q.b4326) : p.src === 'egis' ? await fetchEgis(p, q.b4326) : p.src === 'kei' ? await fetchKei(p, q.b4326) : p.src === 'nier' ? await fetchNier(p, queryBox(Math.max(radius, 20000)).b4326) : p.src === 'eco1' ? await fetchEco1(p, q.b5186, msg) : p.src === 'local' ? await fetchLocal(p, q.b4326) : p.src === 'wfsb' ? await fetchWfsBbox(p, q.b4326) : await fetchEiagis(p, q.b4326); }
-        catch (e) { errs.push(e.message); continue; }
+      // 자료 받기: 4개씩 동시에 받고(순서는 유지), 같은 범위로 다시 조회하면 이번 세션에서 받아 둔 자료를 그대로 사용
+      const fetchOne = p => p.src === 'vworld' ? fetchVworld(p, q.b4326) : p.src === 'egis' ? fetchEgis(p, q.b4326) : p.src === 'kei' ? fetchKei(p, q.b4326) : p.src === 'nier' ? fetchNier(p, queryBox(Math.max(radius, 20000)).b4326) : p.src === 'eco1' ? fetchEco1(p, q.b5186, msg) : p.src === 'local' ? fetchLocal(p, q.b4326) : p.src === 'wfsb' ? fetchWfsBbox(p, q.b4326) : fetchEiagis(p, q.b4326);
+      const bkey = q.b4326.map(v => v.toFixed(4)).join(',');
+      const got = new Array(chosen.length); let done = 0, next = 0;
+      const worker = async () => {
+        while (next < chosen.length) {
+          const i = next++, p = chosen[i], ck = p.id + '|' + bkey;
+          try { got[i] = fcCache.get(ck) || await fetchOne(p); if (!got[i].error) fcCache.set(ck, got[i]); }
+          catch (e) { got[i] = { error: e.message }; }
+          done++; msg.textContent = `레이어 받는 중... ${done} / ${chosen.length}`;
+        }
+      };
+      msg.textContent = `레이어 받는 중... 0 / ${chosen.length}`;
+      await Promise.all(Array.from({ length: Math.min(4, chosen.length) }, worker));
+      if (fcCache.size > 80) fcCache.clear();
+      for (let ci = 0; ci < chosen.length; ci++) {
+        const p = chosen[ci];
+        msg.textContent = `거리 계산 중... ${ci + 1} / ${chosen.length} (${p.short})`;
+        await new Promise(r => setTimeout(r, 0));   // 화면이 멈추지 않도록 한 레이어마다 숨 돌리기
+        const fc = got[ci];
+        if (!fc || fc.error) { errs.push((fc && fc.error) || `${p.short} 자료 없음`); continue; }
         if (!srcs.includes(fc._src)) srcs.push(fc._src);
         const nbr = [], hosts = [];   // 단위유역: 사업지구가 속하지 않은 주변 유역 (지도 표시용)
         (fc.features || []).forEach((f, i) => {

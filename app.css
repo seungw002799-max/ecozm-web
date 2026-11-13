@@ -383,3 +383,38 @@ body[data-theme=ecvam] #mapOptsLayout .slider[data-row=opA], body[data-theme=ecv
 .pick-item:hover { border-color: var(--accent); }
 #btnPickPoint.on { background: #E91E63; border-color: #E91E63; }
 #pickRadii { width: 120px; }
+
+/* ===================== 가독성·완성도 다듬기 (v2) ===================== */
+body { -webkit-font-smoothing: antialiased; }
+/* 탭: 활성 탭을 더 분명하게, 마우스 올리면 밝게 */
+.topbar .tab { transition: background .15s, color .15s; border-radius: 8px 8px 0 0; }
+.topbar .tab:not(.active):hover { background: rgba(255,255,255,.08); color: #fff; }
+.topbar .tab.active { box-shadow: inset 0 -3px 0 var(--accent); font-weight: 700; }
+/* 섹션 제목: 왼쪽 강조 막대 */
+.card-section > h2 { display: flex; align-items: center; gap: 6px; padding-left: 8px; border-left: 3px solid var(--accent); line-height: 1.2; }
+.card-section { padding-top: 14px; padding-bottom: 14px; }
+/* 버튼: 모서리·눌림 느낌 통일 */
+.btn { border-radius: 6px; transition: background .15s, border-color .15s, box-shadow .15s, transform .05s; }
+.btn:active:not([disabled]) { transform: translateY(1px); }
+.btn.primary:hover:not([disabled]) { background: var(--accent-dark); border-color: var(--accent-dark); }
+.btn:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* 오래 걸리는 버튼: 누르면 '처리 중' 회전 표시 */
+.btn.primary[disabled] { opacity: .85; cursor: progress; position: relative; }
+.btn.primary[disabled]::after { content: ''; display: inline-block; width: 12px; height: 12px; margin-left: 8px; vertical-align: -2px; border: 2px solid rgba(255,255,255,.5); border-top-color: #fff; border-radius: 50%; animation: ecoSpin .8s linear infinite; }
+@keyframes ecoSpin { to { transform: rotate(360deg); } }
+/* 진행 메시지: 줄 간격·배경 정돈 */
+.progress { border-radius: 6px; line-height: 1.5; font-size: 12.5px; }
+/* 입력칸 높이·모서리 통일 */
+.field input, .field select, .unit-input input, .pick-search input { border-radius: 6px; }
+/* 글머리표 안내: 조금 더 연하게, 간격 정리 */
+.bullets { margin: 6px 0; padding-left: 16px; }
+.bullets li { color: var(--muted); font-size: 11.5px; }
+/* 결과 카드: 살짝 띄워 보이기 */
+.pr-group, .ar-group, .prot-item, .proj-item, .el-box { box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+.pr-group:hover, .ar-group:hover { border-color: #bfc5cd; }
+/* 패널 스크롤바 얇게 */
+.panel { scrollbar-width: thin; scrollbar-color: #c3c8cf transparent; }
+.panel::-webkit-scrollbar { width: 8px; }
+.panel::-webkit-scrollbar-thumb { background: #c3c8cf; border-radius: 8px; }
+/* 지도 컨트롤 버튼 모양 통일 */
+.ol-control button { border-radius: 4px !important; }

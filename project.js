@@ -76,12 +76,18 @@
     try { return await new Promise((ok, no) => { const t = db.transaction(store, mode); const st = t.objectStore(store); let out; const q = fn(st); if (q) q.onsuccess = () => { out = q.result; }; t.oncomplete = () => ok(out); t.onerror = () => no(t.error); }); }
     finally { db.close(); }
   }
-  const pPut = (name, d) => tx('projects', 'readwrite', st => st.put(d, name));
-  const pGet = name => tx('projects', 'readonly', st => st.get(name));
-  const pDel = name => tx('projects', 'readwrite', st => st.delete(name));
-  const pAll = () => tx('projects', 'readonly', st => st.getAll());
   const mGet = k => tx('meta', 'readonly', st => st.get(k));
   const mPut = (k, v) => tx('meta', 'readwrite', st => st.put(v, k));
+  // 사업 목록용 가벼운 색인 (사업마다 수 MB인 전체 자료를 목록 그릴 때마다 읽지 않도록)
+  async function idxGet() {
+    let ix = await mGet('projIndex');
+    if (!ix) { ix = {}; const all = await tx('projects', 'readonly', st => st.getAll()) || []; all.forEach(d => { if (d && d.name) ix[d.name] = { savedAt: d.savedAt, n: (d.sites || []).length }; }); await mPut('projIndex', ix); }
+    return ix;
+  }
+  async function idxSet(name, d) { const ix = await idxGet(); if (d) ix[name] = { savedAt: d.savedAt, n: (d.sites || []).length }; else delete ix[name]; await mPut('projIndex', ix); }
+  const pPut = async (name, d) => { await tx('projects', 'readwrite', st => st.put(d, name)); await idxSet(name, d); };
+  const pGet = name => tx('projects', 'readonly', st => st.get(name));
+  const pDel = async name => { await tx('projects', 'readwrite', st => st.delete(name)); await idxSet(name, null); };
 
   const safe = n => String(n || '').replace(/[\\/:*?"<>|]/g, '_').trim();
   let curName = localStorage.getItem('ecoProjName') || '';
@@ -173,7 +179,7 @@
   async function renderList() {
     const box = $('#projList'); if (!box) return;
     const map = new Map();
-    try { (await pAll() || []).forEach(d => { if (d && d.name) map.set(d.name, { name: d.name, local: d, t: Date.parse(d.savedAt) || 0, n: (d.sites || []).length }); }); } catch (e) { /* 무시 */ }
+    try { const ix = await idxGet(); Object.entries(ix).forEach(([nm, m]) => map.set(nm, { name: nm, local: true, lt: Date.parse(m.savedAt) || 0, t: Date.parse(m.savedAt) || 0, n: m.n })); } catch (e) { /* 무시 */ }
     if (dir && dirOk) {
       try {
         for await (const [fn, h] of dir.entries()) {
@@ -199,8 +205,9 @@
       if (!o) return;
       const e = map.get(o.dataset.popen); if (!e) return;
       try {
-        let d = e.local;
-        if (e.file && (!d || e.ft > (Date.parse(d.savedAt) || 0) + 1000)) d = JSON.parse(await (await e.file.getFile()).text());   // 폴더 쪽이 더 최신이면 폴더 파일
+        let d = null;
+        if (e.file && (!e.local || e.ft > (e.lt || 0) + 1000)) d = JSON.parse(await (await e.file.getFile()).text());   // 폴더 쪽이 더 최신이면 폴더 파일
+        else d = await pGet(e.name);
         if (!d.name) d.name = e.name;
         await openData(d, e.name);
       } catch (err) { App.toast && App.toast('열지 못했습니다: ' + err.message, 'error'); }
@@ -225,14 +232,14 @@
   async function offerRestore() {
     const box = $('#restoreBanner'); if (!box) return;
     let last = null;
-    try { const all = await pAll() || []; last = all.sort((a, b) => (Date.parse(b.savedAt) || 0) - (Date.parse(a.savedAt) || 0))[0]; } catch (e) { last = null; }
+    try { const ix = await idxGet(); const nm = Object.keys(ix).sort((a, b) => (Date.parse(ix[b].savedAt) || 0) - (Date.parse(ix[a].savedAt) || 0))[0]; last = nm ? { name: nm, savedAt: ix[nm].savedAt, sites: new Array(ix[nm].n || 1) } : null; } catch (e) { last = null; }
     // 예전 자동 저장(kv:last) 옮기기
     try { const old = await tx('kv', 'readonly', st => st.get('last')); if (old && (old.sites || []).length) { old.name = old.name || (old.sites[0].name || '이전 작업').replace(/\.[^.]+$/, ''); await pPut(old.name, old); await tx('kv', 'readwrite', st => st.delete('last')); if (!last) last = old; } } catch (e) { /* 무시 */ }
     if (!last || App.sites.length) { box.hidden = true; return; }
     box.hidden = false;
     box.innerHTML = `<div>최근 작업 : <b>${esc(last.name)}</b></div><ul class="bullets"><li>저장 ${new Date(last.savedAt).toLocaleString('ko-KR')}</li></ul>
       <div class="row"><button class="btn primary small" type="button" id="btnResume">이어서 하기</button><button class="btn small" type="button" id="btnHideResume">닫기</button></div>`;
-    $('#btnResume').onclick = async () => { box.hidden = true; try { await restore(last); setName(last.name); renderList(); App.toast && App.toast(`'${last.name}' 을(를) 이어서 엽니다.`, 'ok'); } catch (e) { App.toast && App.toast('불러오기 실패: ' + e.message, 'error'); } };
+    $('#btnResume').onclick = async () => { box.hidden = true; try { last = await pGet(last.name); await restore(last); setName(last.name); renderList(); App.toast && App.toast(`'${last.name}' 을(를) 이어서 엽니다.`, 'ok'); } catch (e) { App.toast && App.toast('불러오기 실패: ' + e.message, 'error'); } };
     $('#btnHideResume').onclick = () => { box.hidden = true; };
   }
 

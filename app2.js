@@ -210,7 +210,8 @@
       const hide = App.opts.legendHide || {};   // 범례에서 뺄 항목 (도면 출력 > 표시 이름·크기·색)
       // 도면(사업지구 등)은 범례에 넣지 않고 지도 위 글자로 표시
       (App.theme === 'prot' && App.protLegend ? App.protLegend() : []).filter(p => !hide['p:' + p.id]).forEach(p => { const lk = App.protLook(p); rows.push({ t: lk.name, prot: Object.assign({}, p, { color: lk.color, dash: lk.dash }) }); });
-      if (App.theme === 'target' && App.targetLegend) App.targetLegend().filter(r => !hide['t:' + r.t]).forEach(r => rows.push({ t: r.t, prot: { color: r.color, dash: 'solid', id: 't' } }));
+      if (App.theme === 'meas' && App.measLegend) App.measLegend().forEach(r => rows.push(r));
+    if ((App.theme === 'target' || App.theme === 'meas') && App.targetLegend) App.targetLegend().filter(r => !hide['t:' + r.t]).forEach(r => rows.push({ t: r.t, prot: { color: r.color, dash: 'solid', id: 't' } }));
     // 행정구역 경계는 범례에 넣지 않음 (보통 범례에 들어가지 않음)
       let tw = 0;
       rows.forEach(r => { tw = Math.max(tw, textW(ctx, r.t, f, !!r.head)); });
@@ -232,7 +233,7 @@
             } else if (r.adm) {
               ctx.strokeStyle = r.adm; ctx.lineWidth = Math.max(0.3, bh * 0.18); ctx.setLineDash([2.2, 0.8, 0.5, 0.8]);
               ctx.beginPath(); ctx.moveTo(bx, by + bh / 2); ctx.lineTo(bx + sw, by + bh / 2); ctx.stroke(); ctx.setLineDash([]);
-            } else if (r.prot && r.prot.point) { ctx.fillStyle = r.prot.color; ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(0.3, bh * 0.08); const cx = bx + sw / 2, tr = bh * 0.55; ctx.beginPath(); ctx.moveTo(cx, by + bh / 2 - tr); ctx.lineTo(cx + tr * 0.95, by + bh / 2 + tr * 0.6); ctx.lineTo(cx - tr * 0.95, by + bh / 2 + tr * 0.6); ctx.closePath(); ctx.fill(); ctx.stroke(); } else if (r.prot && r.prot.line) {
+            } else if (r.sym) { const cx = bx + sw / 2, cy = by + bh / 2, rr = bh * 0.42; ctx.fillStyle = r.sym.color; ctx.strokeStyle = '#111'; ctx.lineWidth = Math.max(0.2, bh * 0.07); ctx.beginPath(); if (r.sym.shape === 'square') ctx.rect(cx - rr * 0.9, cy - rr * 0.9, rr * 1.8, rr * 1.8); else if (r.sym.shape === 'triangle') { ctx.moveTo(cx, cy - rr * 1.1); ctx.lineTo(cx + rr * 1.05, cy + rr * 0.75); ctx.lineTo(cx - rr * 1.05, cy + rr * 0.75); ctx.closePath(); } else if (r.sym.shape === 'diamond') { ctx.moveTo(cx, cy - rr * 1.15); ctx.lineTo(cx + rr * 1.15, cy); ctx.lineTo(cx, cy + rr * 1.15); ctx.lineTo(cx - rr * 1.15, cy); ctx.closePath(); } else ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); } else if (r.prot && r.prot.point) { ctx.fillStyle = r.prot.color; ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(0.3, bh * 0.08); const cx = bx + sw / 2, tr = bh * 0.55; ctx.beginPath(); ctx.moveTo(cx, by + bh / 2 - tr); ctx.lineTo(cx + tr * 0.95, by + bh / 2 + tr * 0.6); ctx.lineTo(cx - tr * 0.95, by + bh / 2 + tr * 0.6); ctx.closePath(); ctx.fill(); ctx.stroke(); } else if (r.prot && r.prot.line) {
               ctx.strokeStyle = r.prot.color; ctx.lineWidth = Math.max(0.4, bh * 0.35); ctx.setLineDash([]);
               ctx.beginPath(); ctx.moveTo(bx, by + bh / 2); ctx.lineTo(bx + sw, by + bh / 2); ctx.stroke();
             } else if (r.prot) {

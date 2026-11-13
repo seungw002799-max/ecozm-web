@@ -58,7 +58,7 @@
     f[k + 'key'] = ek; f[k] = out; return out;
   }
   App.targetStyle = function (f, s, set) {
-    if (App.theme !== 'target') return null;
+    if (App.theme !== 'target' && !(App.theme === 'meas' && f.get('tk') === 'river')) return null;   // 측정지점 위치도에서는 하천만
     const o = T(), k = f.get('tk'), fsc = (Number(o.fontPct) || 100) / 100, font = px => `bold ${Math.round(px * fsc * s * 10) / 10}px "EcoFont","Malgun Gothic",sans-serif`;
     if (k === 'ring') {
       if (o.ringShow === false) return null;
@@ -131,15 +131,21 @@
     return g;
   }
   App.targetRefresh = () => drawRings(false);
+  App.targetLoadRivers = loadRivers;
 
   // ------------------------------------------------------------ 하천
-  async function loadRivers() {
-    const msg = $('#tgtMsg'), btn = $('#btnTgtRiver');
-    const u = siteUnion();
-    if (!u) { App.toast('먼저 도면을 올리세요.', 'warn'); return; }
-    const ext = 1500 + Math.max(...dists(), 500);
-    const env = u.getEnvelopeInternal();
-    const b5 = [env.getMinX() - ext, env.getMinY() - ext, env.getMaxX() + ext, env.getMaxY() + ext];
+  // b5Opt: 범위를 직접 줄 때 (측정지점 위치도) [minX,minY,maxX,maxY] EPSG:5186
+  async function loadRivers(b5Opt, msgOpt, btnOpt) {
+    const msg = msgOpt || $('#tgtMsg'), btn = btnOpt || $('#btnTgtRiver');
+    let b5, ext;
+    if (Array.isArray(b5Opt)) { b5 = b5Opt; ext = Math.min(b5[2] - b5[0], b5[3] - b5[1]) * 0.3; }
+    else {
+      const u = siteUnion();
+      if (!u) { App.toast('먼저 도면을 올리세요.', 'warn'); return; }
+      ext = 1500 + Math.max(...dists(), 500);
+      const env = u.getEnvelopeInternal();
+      b5 = [env.getMinX() - ext, env.getMinY() - ext, env.getMaxX() + ext, env.getMaxY() + ext];
+    }
     const ll = [[b5[0], b5[1]], [b5[2], b5[1]], [b5[0], b5[3]], [b5[2], b5[3]]].map(p => proj4('EPSG:5186', 'EPSG:4326', p));
     const b4 = [Math.min(...ll.map(p => p[0])), Math.min(...ll.map(p => p[1])), Math.max(...ll.map(p => p[0])), Math.max(...ll.map(p => p[1]))];
     btn.disabled = true; msg.hidden = false; msg.textContent = '하천 받는 중...';
@@ -218,7 +224,7 @@
     $('#tgtRingShow').addEventListener('change', e => { o.ringShow = e.target.checked; changed(); });
     $('#tgtRingColor').addEventListener('change', e => { o.ringColor = e.target.value; changed(); });
     document.querySelectorAll('[data-triv]').forEach(c => c.addEventListener('change', e => { o.river[e.target.dataset.triv] = e.target.checked; changed(); }));
-    $('#btnTgtRiver').addEventListener('click', loadRivers);
+    $('#btnTgtRiver').addEventListener('click', () => loadRivers());
     $('#btnTgtLayout').addEventListener('click', () => { App.switchTab('layout'); App.setTheme('target'); });
     App.listeners.push(() => { if (App.theme === 'target') drawRings(false); });
   }

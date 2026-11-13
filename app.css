@@ -446,3 +446,17 @@ body { -webkit-font-smoothing: antialiased; }
 .prot-manual { margin: 6px 0 4px; padding: 6px 8px; border: 1px dashed var(--line, #ccd); border-radius: 6px; font-size: 12px; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
 .prot-manual small { flex-basis: 100%; color: var(--muted, #667); }
 .tag-warn { background: #fff3e0; color: #b45309; border-radius: 4px; padding: 0 6px; font-size: 11px; font-weight: 700; }
+
+/* 측정지점 위치도 */
+.meas-raw { width: 100%; box-sizing: border-box; font: 12px/1.45 Consolas, "Malgun Gothic", monospace; padding: 6px; border: 1px solid var(--line, #ccd); border-radius: 6px; resize: vertical; tab-size: 12; }
+.file-btn { cursor: pointer; }
+.meas-cats { display: flex; flex-direction: column; gap: 4px; }
+.mc-head, .mc-row { display: grid; grid-template-columns: 1fr 64px 84px 44px; gap: 6px; align-items: center; }
+.mc-head { font-size: 11px; color: var(--muted, #667); }
+.mc-row input[type=text], .mc-row select { width: 100%; box-sizing: border-box; }
+.mc-row input[type=color] { width: 40px; height: 26px; padding: 0; border: 1px solid var(--line, #ccd); border-radius: 4px; }
+.meas-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+.meas-table th, .meas-table td { border-bottom: 1px solid var(--line, #e3e6ee); padding: 4px; text-align: left; vertical-align: top; }
+.meas-table small { color: var(--muted, #667); }
+.meas-table tr.bad td { background: #fff4f4; }
+.meas-table .warn { color: #c62828; }

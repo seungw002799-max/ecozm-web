@@ -342,7 +342,8 @@
   let rows = [];
   async function run(radiusKm) {
     const btn = pointCtx ? pointCtx.btn : $('#btnProt'), msg = pointCtx ? pointCtx.msg : $('#protMsg');
-    const chosen = PROT.filter(p => (App.opts.protOn || {})[p.id] !== false);
+    // 초기 입지 검토는 기본으로 전체 레이어 조회 (선택한 것만: pointCtx.onlyChosen)
+    const chosen = pointCtx && !pointCtx.onlyChosen ? PROT.slice() : PROT.filter(p => (App.opts.protOn || {})[p.id] !== false);
     if (!pointCtx && !App.sites.some(s => s.geometry)) { App.toast && App.toast('먼저 도면을 추가하세요.', 'warn'); return; }
     if (!chosen.length) { msg.hidden = false; msg.textContent = '검토할 보호구역을 하나 이상 선택하세요.'; return; }
     const radius = (radiusKm != null ? Math.max(0.1, Number(radiusKm)) : Math.max(0, Number($('#protRadius').value) || 5)) * 1000;
@@ -436,8 +437,11 @@
       // 화살표: 구분별 가장 가까운 1곳만 기본으로 켬 (겹치는 곳 제외)
       const seenKind = new Set();
       rows.forEach((r, i) => { r.key = r.kind + '|' + r.name + (r.uid ? '|' + r.uid : ''); r.arrow = false; if (r.np && !seenKind.has(r.kind)) { r.arrow = true; seenKind.add(r.kind); } });
+      if (pointCtx) rows.forEach(r => { r.arrow = false; r.noArrow = true; });   // 초기 입지 검토: 화살표 없이 목록만
+      chosen.forEach(p => { App.opts.protShow[p.id] = true; }); App.saveOpts();   // 조회한 레이어는 지도에 표시 (결과 목록의 구분 체크로 끄고 켬)
       syncArrows();
-      msg.textContent = (rows.length ? `완료: 반경 ${fmt(radius / 1000)}km 안에 ${rows.length}곳 (${pointCtx ? '검토 지점' : '사업지구 경계'} 기준 최근접 거리)` : `반경 ${fmt(radius / 1000)}km 안에 해당 보호구역이 없습니다.`) + ` · 자료: ${srcs.join(', ')}` + (errs.length ? ` · 오류: ${errs.join(' / ')}` : '');
+      msg.textContent = (rows.length ? `완료: 반경 ${fmt(radius / 1000)}km 안에 ${rows.length}곳 (${pointCtx ? '검토 지점' : '사업지구 경계'} 기준 최근접 거리)` : `반경 ${fmt(radius / 1000)}km 안에 해당 레이어가 없습니다.`) + (errs.length ? ` · 오류 ${errs.length}건 (아래 자료 출처 참고)` : '');
+      lastSrc = { srcs, errs };
     } catch (e) {
       msg.textContent = e.message;
     } finally {
@@ -460,19 +464,20 @@
       .sort((a, b) => a.rs[0].dist - b.rs[0].dist);
     const dtxt = r => r.dist === 0 ? (r.over > 0 ? '중첩' : '통과') : App.fmtDist(r.dist);
     const item = r => `<div class="pr-row">
-        ${r.np ? `<input type="checkbox" data-arrow="${r.key}" ${r.arrow ? 'checked' : ''} title="최근접 거리 화살표">` : '<span class="pr-nochk"></span>'}
+        ${r.np && !r.noArrow ? `<input type="checkbox" data-arrow="${r.key}" ${r.arrow ? 'checked' : ''} title="최근접 거리 화살표">` : '<span class="pr-nochk"></span>'}
         <span class="pr-name">${r.name}</span>
         <span class="pr-dist ${r.dist === 0 ? 'zero' : ''}">${dtxt(r)}</span>
         ${r.over > 0 ? `<span class="pr-over">${fmt(r.over)}㎡</span>` : ''}</div>`;
-    t.innerHTML = '<div class="pr-head"><span>↔ 화살표</span><span>가까운 순</span></div>' + list.map(g => {
+    const noArr = rows.every(r => r.noArrow);
+    t.innerHTML = `<div class="pr-head"><span>${noArr ? '구분 체크: 지도 표시' : '구분 체크: 지도 표시 · 줄 체크: 화살표'}</span><span>가까운 순</span></div>` + list.map(g => {
       const p = BY_ID[g.kind] || {}, near = g.rs[0];
       const col = App.protLook && p.id ? App.protLook(p).color : (p.color || '#888');
       const more = g.rs.length > 3 ? `<details class="pr-more"><summary>외 ${g.rs.length - 3}곳 더 보기</summary>${g.rs.slice(3).map(item).join('')}</details>` : '';
       return `<div class="pr-group">
-        <div class="pr-gh"><span class="swatch${p.line ? ' swatch-line' : ''}" style="border-color:${col};background:${p.line ? 'transparent' : hexA(col, 0.18)}"></span>
+        <div class="pr-gh"><input type="checkbox" data-show="${g.kind}" ${(App.opts.protShow || {})[g.kind] !== false ? 'checked' : ''} title="지도에 표시"><span class="swatch${p.line ? ' swatch-line' : ''}" style="border-color:${col};background:${p.line ? 'transparent' : hexA(col, 0.18)}"></span>
           <b>${p.short || g.kind}</b><span class="pr-cnt">${g.rs.length}곳</span><span class="pr-near ${near.dist === 0 ? 'zero' : ''}">최근접 ${near.dist === 0 ? '0.00km' : App.fmtDist(near.dist)}</span></div>
         ${g.rs.slice(0, 3).map(item).join('')}${more}</div>`;
-    }).join('');
+    }).join('') + srcHtml();
   }
   // 조회된 레이어만 선 스타일(색·굵기·종류) 선택
   function renderStyleBox() {
@@ -487,6 +492,9 @@
   }
   App.protRunAt = async (pt5186, radiusKm, ui) => { pointCtx = Object.assign({ pt: pt5186 }, ui); try { await run(radiusKm); } finally { pointCtx = null; mirror(); } };
   function mirror() { const a = $('#protTable'), b = $('#pickTable'); if (a && b) { b.innerHTML = a.innerHTML; b.hidden = a.hidden; } }
+  let lastSrc = null;
+  // 자료 출처: 결과 맨 아래 접힌 칸 (누르면 펼침)
+  function srcHtml() { if (!lastSrc) return ''; return `<details class="pr-src"><summary>자료 출처 보기</summary><ul class="bullets">${lastSrc.srcs.map(s => `<li>${s}</li>`).join('')}${lastSrc.errs.map(e => `<li class="err">오류: ${e}</li>`).join('')}</ul></details>`; }
   App.protRows = () => rows;
   App.protSetArrow = (key, on) => { const r = rows.find(x => x.key === key); if (r) { r.arrow = on; syncArrows(); renderTable(); } };
   App.protRestore = (rs, msgText) => { rows = rs || []; renderTable(); const m = $('#protMsg'); if (m && msgText) { m.hidden = false; m.textContent = msgText; } };
@@ -527,18 +535,18 @@
     $('#protList').addEventListener('click', e => {
       const b = e.target.closest('[data-pall]'); if (!b) return;
       const v = b.dataset.pall === '1';
-      PROT.forEach(x => { App.opts.protOn[x.id] = v; App.opts.protShow[x.id] = v; });
+      PROT.forEach(x => { App.opts.protOn[x.id] = v; });
       document.querySelectorAll('#protList [data-prot]').forEach(c => { c.checked = v; });
       syncGroups(); App.saveOpts(); App.liveSets.forEach(s => s.changed()); App.emit();
     });
     $('#protList').addEventListener('change', e => {
       const gid = e.target.dataset.pgroup;
       if (gid) {
-        PROT.filter(x => x.group === gid).forEach(x => { App.opts.protOn[x.id] = e.target.checked; App.opts.protShow[x.id] = e.target.checked; });
+        PROT.filter(x => x.group === gid).forEach(x => { App.opts.protOn[x.id] = e.target.checked; });
         document.querySelectorAll(`#protList [data-group="${gid}"] [data-prot]`).forEach(c => { c.checked = e.target.checked; });
       } else {
         const id = e.target.dataset.prot; if (!id) return;
-        App.opts.protOn[id] = e.target.checked; App.opts.protShow[id] = e.target.checked;
+        App.opts.protOn[id] = e.target.checked;
       }
       syncGroups(); App.saveOpts();
       App.liveSets.forEach(s => s.changed()); App.emit();
@@ -555,6 +563,7 @@
       App.saveOpts(); cache.clear(); App.liveSets.forEach(s => s.changed()); App.emit();
     });
     $('#protTable').addEventListener('change', e => {
+      if (e.target.dataset.show) { App.opts.protShow[e.target.dataset.show] = e.target.checked; App.saveOpts(); mirror(); App.liveSets.forEach(s => s.changed()); App.emit(); return; }
       const k = e.target.dataset.arrow; if (!k) return;
       const r = rows.find(x => x.key === k); if (r) { r.arrow = e.target.checked; syncArrows(); }
     });

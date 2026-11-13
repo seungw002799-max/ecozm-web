@@ -418,3 +418,8 @@ body { -webkit-font-smoothing: antialiased; }
 .panel::-webkit-scrollbar-thumb { background: #c3c8cf; border-radius: 8px; }
 /* 지도 컨트롤 버튼 모양 통일 */
 .ol-control button { border-radius: 4px !important; }
+
+.pr-gh input[type=checkbox] { margin: 0; }
+.pr-src { margin-top: 4px; font-size: 12px; }
+.pr-src summary { cursor: pointer; color: var(--accent-dark); font-weight: 700; padding: 4px 2px; }
+.pr-src .err { color: var(--err); }

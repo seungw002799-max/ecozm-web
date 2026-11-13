@@ -76,7 +76,7 @@
     if (!pt) { App.toast && App.toast('먼저 검토 위치를 정하세요.', 'warn'); return; }
     if (App.theme !== 'prot') App.setTheme('prot');
     const p5 = proj4('EPSG:4326', 'EPSG:5186', ol.proj.toLonLat(pt));
-    await App.protRunAt(p5, Math.max(...radii()), { btn: $('#btnPickRun'), msg: $('#pickMsg') });
+    await App.protRunAt(p5, Math.max(...radii()), { btn: $('#btnPickRun'), msg: $('#pickMsg'), onlyChosen: !!($('#pickOnlyChosen') || {}).checked });
   }
 
   function build() {
@@ -89,7 +89,9 @@
     $('#btnPickClear').addEventListener('click', () => { pt = null; draw(); $('#pickCoord').textContent = '위치를 정하지 않았습니다'; });
     $('#pickShow').addEventListener('change', e => { App.opts.pickShow = e.target.checked; App.saveOpts(); App.liveSets.forEach(s => s.changed && s.changed()); App.emit(); });
     $('#btnPickLayers').addEventListener('click', () => App.switchTab('prot'));
-    $('#pickTable').addEventListener('change', e => { const k = e.target.dataset.arrow; if (k && App.protSetArrow) { App.protSetArrow(k, e.target.checked); const a = $('#protTable'), b = $('#pickTable'); if (a && b) b.innerHTML = a.innerHTML; } });
+    $('#pickTable').addEventListener('change', e => {
+      if (e.target.dataset.show) { App.opts.protShow[e.target.dataset.show] = e.target.checked; App.saveOpts(); App.liveSets.forEach(s => s.changed && s.changed()); App.emit(); return; }
+      const k = e.target.dataset.arrow; if (k && App.protSetArrow) { App.protSetArrow(k, e.target.checked); const a = $('#protTable'), b = $('#pickTable'); if (a && b) b.innerHTML = a.innerHTML; } });
   }
   const origInit = App.init;
   App.init = async function () { await origInit.apply(this, arguments); build(); };

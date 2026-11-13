@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>도면 출력 관련</title>
 <link rel="stylesheet" href="vendor/ol.css">
-<link rel="stylesheet" href="app.css?v=20261113m">
+<link rel="stylesheet" href="app.css?v=20261113n">
 </head>
 <body>
 <header class="topbar">
@@ -131,7 +131,7 @@
     <!-- ===================== 보호구역 탭 ===================== -->
     <div id="tabProt" class="tabpane" hidden>
       <section class="card-section">
-        <h2>레이어 최근접 거리</h2>
+        <h2>조회할 레이어 선택</h2>
         <div id="protList" class="prot-list"></div>
         <div class="prot-opts">
           <label class="unit-input prot-radius"><span class="lbl">검토 반경</span><input type="number" id="protRadius" min="0" step="1" value="5"><span class="unit">km</span></label>
@@ -161,8 +161,9 @@
       </section>
       <section class="card-section">
         <h2>3. 주변 조회</h2>
-        <ul class="bullets"><li>조회 항목은 레이어 모음 탭에서 체크한 레이어입니다</li><li>도면 없이 검토 지점 기준 거리로 계산합니다</li></ul>
-        <div class="row"><button id="btnPickLayers" class="btn small" type="button">조회할 레이어 고르기 →</button></div>
+        <ul class="bullets"><li>기본으로 전체 레이어를 조회합니다</li><li>도면 없이 검토 지점 기준 거리로 계산합니다</li></ul>
+        <label class="check"><input type="checkbox" id="pickOnlyChosen"> 레이어 모음에서 고른 것만 조회</label>
+        <div class="row"><button id="btnPickLayers" class="btn small" type="button">레이어 모음에서 고르기 →</button></div>
         <div class="row"><button id="btnPickRun" class="btn primary wide" type="button">주변 조회</button></div>
         <div id="pickMsg" class="progress" hidden></div>
         <div id="pickTable" class="prot-result" hidden></div>
@@ -276,15 +277,15 @@
 <script src="vendor/proj4.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jsts.min.js"></script>
-<script src="cad.js?v=20261113m"></script>
-<script src="backend.js?v=20261113m"></script>
-<script src="app.js?v=20261113m"></script>
-<script src="ecvam.js?v=20261113m"></script>
-<script src="prot.js?v=20261113m"></script>
-  <script src="admin2.js?v=20261113m"></script>
-  <script src="measure.js?v=20261113m"></script>
-  <script src="pick.js?v=20261113m"></script>
-  <script src="project.js?v=20261113m"></script>
-<script src="app2.js?v=20261113m"></script>
+<script src="cad.js?v=20261113n"></script>
+<script src="backend.js?v=20261113n"></script>
+<script src="app.js?v=20261113n"></script>
+<script src="ecvam.js?v=20261113n"></script>
+<script src="prot.js?v=20261113n"></script>
+  <script src="admin2.js?v=20261113n"></script>
+  <script src="measure.js?v=20261113n"></script>
+  <script src="pick.js?v=20261113n"></script>
+  <script src="project.js?v=20261113n"></script>
+<script src="app2.js?v=20261113n"></script>
 </body>
 </html>

@@ -22,7 +22,7 @@ const DEFAULT_CAT_STYLE = {
 
 const App = {
   cfg: {},
-  opts: { basemap: 'base', mode: 'both', opA: 0.6, opI: 0.6, opS: 1, opE: 0.7, opB: 1, proxy: false, rest3: true, range: 500 },
+  opts: { basemap: 'base', mode: 'both', opA: 0.6, opI: 0, opS: 1, opE: 0.7, opB: 1, proxy: false, rest3: true, range: 500 },
   catStyle: JSON.parse(JSON.stringify(DEFAULT_CAT_STYLE)),
   // 국토환경성평가지도 주제용 도면 선 (1~5등급 색과 겹치지 않게 검정·파랑 기본)
   catStyleE: { '사업지구': { color: '#000000', width: 3, dash: 'solid' }, '계획지구': { color: '#0033CC', width: 3, dash: 'dashed' }, '사업노선': { color: '#000000', width: 3, dash: 'solid' }, '계획노선': { color: '#0033CC', width: 3, dash: 'dashed' } },
@@ -110,6 +110,7 @@ async function fetchJsonRetry(url, tries, ms) {
 function loadLocal() {
   try { Object.assign(App.opts, JSON.parse(localStorage.getItem('ecoOpts') || '{}')); } catch (e) { /* 무시 */ }
   if (!['base', 'white', 'sat', 'none'].includes(App.opts.basemap)) App.opts.basemap = 'base';
+  if (!App.opts.opIv2) { App.opts.opI = 0; App.opts.opIv2 = 1; }   // 흰색(3등급) 기본 0%: 처음 보면 1·2등급만 보이도록 (한 번만 적용)
   App.opts.mode = 'both';
   try {
     const cs = JSON.parse(localStorage.getItem('ecoCatStyle') || '{}');

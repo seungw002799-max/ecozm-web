@@ -299,6 +299,7 @@ App.setArrows = function (theme, list) {
   });
   App.emit();
 };
+App.LABELS_OFF = true;   // 레이어·행정구역 명칭 끔 (새 명칭 양식 정해지면 다시 켬)
 App.catStyleFor = cat => ((App.theme === 'ecvam' ? App.catStyleE : App.catStyle)[cat]) || DEFAULT_CAT_STYLE['사업지구'];
 // 도면 명칭(사업지구·계획지구 등): 도면 안쪽 가운데에 선 색 글자 + 흰 버퍼. 위치는 끌거나 X/Y(mm)로 조정
 App.siteLabelPoint = function (s) {
@@ -322,10 +323,10 @@ function siteStyleFull(f, s) {
   if (o.show === false || !site.feature) return st;
   const lp = App.siteLabelPoint(site); if (!lp) return st;
   const PXMM = PX_PER_MM96 * s, off = site.labelOff || [0, 0];
-  const pt = (Number(o.pt) || 14) * ((Number(o.scale) || 100) / 100), buf = o.buf == null || o.buf === '' ? 0.8 : Math.max(0, Number(o.buf));
+  const pt = (Number(o.pt) || 14) * ((Number(o.scale) || 100) / 100), bold = o.bold === false ? '' : 'bold ', buf = o.buf == null || o.buf === '' ? 0.8 : Math.max(0, Number(o.buf));
   const col = App.catStyleFor(f.get('category')).color;
   return [st, new ol.style.Style({ geometry: new ol.geom.Point(lp), zIndex: 10, text: new ol.style.Text({
-    text: site.labelText || site.category || '', font: `bold ${Math.round(pt * 0.3528 * PXMM * 10) / 10}px "EcoFont","Malgun Gothic",sans-serif`,
+    text: site.labelText || site.category || '', font: `${bold}${Math.round(pt * 0.3528 * PXMM * 10) / 10}px "EcoFont","Malgun Gothic",sans-serif`,
     offsetX: (Number(off[0]) || 0) * PXMM, offsetY: (Number(off[1]) || 0) * PXMM,
     fill: new ol.style.Fill({ color: col }), stroke: buf > 0 ? new ol.style.Stroke({ color: '#fff', width: buf * 2 * PXMM }) : undefined, overflow: true }) })];
 }

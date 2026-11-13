@@ -412,11 +412,12 @@
     slSig = sig;
     const so = App.opts.siteLabel || {};
     const wasOpen = box.querySelector('details') && box.querySelector('details').open;
-    box.innerHTML = `<details class="el-box" ${wasOpen ? 'open' : ''}><summary><input type="checkbox" data-sl="show" ${so.show === false ? '' : 'checked'}> 도면 명칭 (사업지구 등)</summary><div class="el-body">
+    box.innerHTML = `<details class="el-box" ${wasOpen ? 'open' : ''}><summary><input type="checkbox" data-sl="show" ${so.show === false ? '' : 'checked'}> 도면 명칭</summary><div class="el-body">
       <ul class="bullets full"><li>도면 탭에서 고른 구분이 도면 안쪽 가운데에 들어갑니다</li><li>미리보기에서 끌거나 두 번 눌러 글자를 바꿀 수 있습니다</li></ul>
       <label class="field"><span>글자 크기(pt)</span><input type="number" step="0.5" min="4" data-sl="pt" value="${so.pt || 14}"></label>
       <label class="field"><span>크기(%)</span><input type="number" step="5" min="20" data-sl="scale" value="${so.scale || 100}"></label>
       <label class="field"><span>흰색 버퍼(mm)</span><input type="number" step="0.1" min="0" data-sl="buf" value="${so.buf == null ? 0.8 : so.buf}"></label>
+      <label class="check sl-bold"><input type="checkbox" data-sl="bold" ${so.bold === false ? '' : 'checked'}> 볼드체</label>
       ${sites.length ? sites.map(s => { const off = s.labelOff || [0, 0];
         return `<div class="sl-row full"><span class="sl-name" title="${esc(s.name)}"><b>${esc(s.labelText || s.category)}</b> <small>${esc(s.name)}</small></span>
           <div class="pos-row">${slStep(s.id, 0, 'X', '◀', '▶', off[0])}${slStep(s.id, 1, 'Y', '▲', '▼', off[1])}<span class="unit">mm</span>
@@ -624,8 +625,8 @@
     if (!map || !App.protLabelPoint) return null;
     const px = map.getEventPixel(e); let best = null, bd = 22;
     const fs = [];
-    if (App.theme === 'prot' && App.opts.protLabel !== false) App.src.prot.getFeatures().forEach(f => { const p = (App.PROT || []).find(x => x.id === f.get('kind')); if (p && (App.opts.protShow || {})[p.id] !== false && (!p.labelNearest || f.get('labelMe'))) fs.push(f); });
-    if (App.opts.adm && App.opts.admLabel !== false) App.src.admin.getFeatures().forEach(f => fs.push(f));
+    if (!App.LABELS_OFF && App.theme === 'prot' && App.opts.protLabel !== false) App.src.prot.getFeatures().forEach(f => { const p = (App.PROT || []).find(x => x.id === f.get('kind')); if (p && (App.opts.protShow || {})[p.id] !== false && (!p.labelNearest || f.get('labelMe'))) fs.push(f); });
+    if (!App.LABELS_OFF && App.opts.adm && App.opts.admLabel !== false) App.src.admin.getFeatures().forEach(f => fs.push(f));
     if ((App.opts.siteLabel || {}).show !== false) App.sites.filter(s => s.feature).forEach(s => fs.push(s.feature));
     fs.forEach(f => {
       const site = f.get('siteId') != null ? App.sites.find(x => x.id === f.get('siteId')) : null;
@@ -699,7 +700,7 @@
   const EL_UI = [
     ['north', [['size', '크기(mm)', 'number'], ['buf', '흰색 버퍼(mm)', 'number']]],
     ['scalebar', [['size', '축척바 크기(%)', 'number'], ['buf', '흰색 버퍼(mm)', 'number']]],
-    ['legend', [['font', '글자 크기(pt)', 'number'], ['size', '범례 크기(%)', 'number'], ['buf', '흰색 버퍼(mm)', 'number'], ['all', '자료에 없는 등급도 표시', 'check']]],
+    ['legend', [['font', '글자 크기(pt)', 'number'], ['size', '범례 크기(%)', 'number'], ['buf', '흰색 버퍼(mm)', 'number'], ['all', '자료 없는 등급 표시<br><small class="sub-note">(생태자연도 및 국토환경성평가지도용)</small>', 'check']]],
   ];
   const EL_HINT = { scalebar: ['길이·글자 크기는 도면 크기와 화면 배율에 맞춰 자동', '축척바 크기(%)로 전체를 줄이거나 키움', '0.5km 미만은 0.1km 단위', '0.5km 이상은 0.5km 단위'] };
   // X(좌우)는 ◀ ▶, Y(위아래)는 ▲ ▼ 버튼으로 1mm씩 (Shift 누르면 10mm)

@@ -12,7 +12,7 @@
   const KEI = { src: 'KEI 지역환경정보시스템 API', tags: ['실시간', '중계'], extra: '신산경표 산줄기 (박성태, 2010)' };
   const NIER = { src: '물환경정보시스템 API', tags: ['실시간'], extra: ['국립환경과학원 수질오염총량 단위유역', '표에는 사업지구가 속한 유역만, 지도에는 맞닿은 주변 유역도 표시'] };
   const EIA = { src: 'EIAGIS API', tags: ['실시간', '중계'], extra: ['환경영향평가 지리정보서비스', '국립생물자원관 2014년 자료'] };
-  const ECZ = { src: '에코뱅크 생태자연도 API (국립생태원)', tags: ['실시간'], extra: ['1등급 권역만 표시', '반경이 크면 받는 데 시간이 걸립니다'] };
+  const ECZ = { src: '에코뱅크 생태자연도 API (국립생태원)', tags: ['실시간'], };
   // 별도관리지역: 생태자연도 등급과 별개인 법정 보호지역 모음. 모두 브이월드(국토교통부 토지이용규제 등), 생태·경관보전지역만 브이월드에 없어 환경공간정보서비스
   const SEP = { src: '브이월드 2D데이터 API', tags: ['실시간'], extra: ['생태자연도 중 별도관리지역'] };
   // 천연기념물 명칭: 별칭(alias)에 이름, 비고(remark)에 지정번호가 있는 경우가 많아 '이름 (천연기념물 제○호)' 로 합침
@@ -135,6 +135,7 @@
       if (cache.size > 500) cache.clear();
       cache.set(key, st);
     }
+    if (App.LABELS_OFF) return st;   // 레이어 명칭은 표시하지 않음 (경계선만)
     if (p.labelNearest && !f.get('labelMe')) return st;
     const custom = (App.opts.protLabelText || {})[App.protLabelKey(f)];
     const label = App.opts.protLabel !== false ? (custom != null && custom !== '' ? custom : (p.mapLabel ? p.mapLabel(f.get('name') || '') : (f.get('name') || ''))) : '';
@@ -436,7 +437,7 @@
       rows.sort((a, b) => a.dist - b.dist);
       // 화살표: 구분별 가장 가까운 1곳만 기본으로 켬 (겹치는 곳 제외)
       const seenKind = new Set();
-      rows.forEach((r, i) => { r.key = r.kind + '|' + r.name + (r.uid ? '|' + r.uid : ''); r.arrow = false; if (r.np && !seenKind.has(r.kind)) { r.arrow = true; seenKind.add(r.kind); } });
+      rows.forEach(r => { r.key = r.kind + '|' + r.name + (r.uid ? '|' + r.uid : ''); r.arrow = false; });   // 화살표는 기본 꺼짐 (필요한 것만 체크)
       if (pointCtx) rows.forEach(r => { r.arrow = false; r.noArrow = true; });   // 초기 입지 검토: 화살표 없이 목록만
       chosen.forEach(p => { App.opts.protShow[p.id] = true; }); App.saveOpts();   // 조회한 레이어는 지도에 표시 (결과 목록의 구분 체크로 끄고 켬)
       syncArrows();

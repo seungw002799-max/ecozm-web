@@ -261,7 +261,10 @@
       if (App.theme !== 'target' || !App.targetTable) return null;
       const tb = App.targetTable(); if (!tb.cols.length && !tb.around.length) return null;
       const k = Math.max(0.2, (Number(c.size) || 100) / 100), f = (Number(c.font) || 8) * k, fm = f * PT, lh = fm * 1.32, pad = 1.2 * k, lw = 0.25;
-      const wrap = (t, maxW, bold) => { const out = []; let cur = ''; for (const ch of String(t)) { const nx = cur + ch; if (cur && textW(ctx, nx, f, bold) > maxW) { out.push(cur); cur = ch.trim() ? '   ' + ch : '   '; } else cur = nx; } if (cur) out.push(cur); return out; };
+      // 줄바꿈은 띄어쓰기 단위로 (낱말 중간에서 끊지 않음). 한 낱말이 칸보다 길 때만 글자 단위로
+      const wrap = (t, maxW, bold) => { const ind = '   ', out = []; let cur = ''; const words = String(t).split(/(?<=\s)/); const fits = s => textW(ctx, s, f, bold) <= maxW;
+        words.forEach(wd => { const nx = cur + wd; if (!cur || fits(nx.trimEnd())) { cur = nx; return; } out.push(cur.trimEnd()); cur = ind + wd; if (!fits(cur.trimEnd())) { let part = ind; for (const ch of wd) { if (part.trim() && !fits(part + ch)) { out.push(part); part = ind + ch; } else part += ch; } cur = part; } });
+        if (cur.trim()) out.push(cur.trimEnd()); return out; };
       const longest = arr => Math.max(0, ...arr.map(it => textW(ctx, '○ ' + it, f)));
       const colW = Math.min(30 * k, Math.max(22 * k, longest(tb.cols.flatMap(cl => cl.items)) * 0.5 + pad * 2)), arW = Math.min(34 * k, Math.max(20 * k, longest(tb.around) + pad * 2));
       const aroundCols = tb.around.length > 4 ? 2 : 1;

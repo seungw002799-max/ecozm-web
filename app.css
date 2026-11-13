@@ -442,3 +442,7 @@ body { -webkit-font-smoothing: antialiased; }
 .tgt-row { display: grid; grid-template-columns: 96px 1fr auto; gap: 6px; align-items: start; }
 .tgt-row textarea, #tgtAround { width: 100%; resize: vertical; font: inherit; font-size: 12px; padding: 4px 6px; border: 1px solid var(--line, #ccd); border-radius: 6px; box-sizing: border-box; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+.prot-manual { margin: 6px 0 4px; padding: 6px 8px; border: 1px dashed var(--line, #ccd); border-radius: 6px; font-size: 12px; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.prot-manual small { flex-basis: 100%; color: var(--muted, #667); }
+.tag-warn { background: #fff3e0; color: #b45309; border-radius: 4px; padding: 0 6px; font-size: 11px; font-weight: 700; }

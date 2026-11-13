@@ -28,7 +28,7 @@
     egis: { label: '환경공간정보서비스', note: { src: '환경공간정보서비스 API', tags: ['실시간', '중계'], extra: ['기후에너지환경부'] } },
   };
   // 출처(제공 기관)별로 분류: 검증할 때 어디 자료인지 바로 보이도록
-  const CATS = { ecobank: '에코뱅크 (국립생태원)', vworld: '브이월드 (국토교통부 등)', egis: '환경공간정보서비스 (기후에너지환경부)', kei: 'KEI 지역환경정보시스템', rim: '하천정보관리시스템 (RIMGIS)', nibr: '국립생물자원관', knps: '국립공원공단', nier: '물환경정보시스템 (국립환경과학원)' };
+  const CATS = { ecobank: '에코뱅크 (국립생태원)', vworld: '브이월드 (국토교통부 등)', egis: '환경공간정보서비스 (기후에너지환경부)', kei: 'KEI 지역환경정보시스템', rim: '하천정보관리시스템 (RIMGIS)', nibr: '국립생물자원관', nier: '물환경정보시스템 (국립환경과학원)' };
   const PROT = [
     // ecobank
     { cat: 'ecobank', id: 'eco1', grade: '1', label: '생태자연도 1등급', short: '생태자연도 1등급', src: 'eco1', name: () => '생태자연도 1등급', labelNearest: true, color: '#1AA800', note: ECZ },
@@ -64,9 +64,6 @@
     // nibr
     { cat: 'nibr', id: 'winter_bird', label: '겨울철 조류 동시센서스 조사지역', short: '겨울철 철새 도래지', src: 'local', nameField: 'name', nameFmt: n => n + ' 겨울철 철새 도래지', mapLabel: t => t.replace(/\s*겨울철 철새 도래지$/, '\n겨울철 철새 도래지'), color: '#7B3FA0', note: { src: '국립생물자원관 철새정보시스템', tags: ['2025-2026'], extra: ['동시센서스 조사지역 200개소 (2026.04.10 편집)', '자료실 지도파일을 사이트에 넣어 사용'] },
       local: 'data/winter_bird_2025.geojson' },   // 해마다 새 조사지역 파일이 올라오면 교체 (이전: EIAGIS 2014년 자료)
-    // knps
-    { cat: 'knps', id: 'geosite', label: '국가지질공원 지질명소 (자연공원법)', short: '지질공원 지질명소', src: 'local', point: true, srcName: '국립공원공단', nameField: 'name', mapLabel: t => t.replace(/\s*\(.*\)$/, ''), color: '#8D5524', note: { src: '국립공원공단 국가지질공원 지질명소 (공공데이터포털)', tags: ['2024.09'], extra: ['지질공원 16곳, 지질명소 248곳 (점 자료)', '지질공원 구역 경계는 공개 공간자료가 없어 명소 위치로 대신함'] },
-      local: 'data/geosite_2024.geojson' },
     // nier
     { cat: 'nier', id: 'tmdl', label: '수질오염총량 관리지역 (단위유역)', short: '수질오염총량 단위유역', src: 'nier', typename: 'water_new:tmdl_polygon', name: p => (p.tm_unit_nm || '') + ' 단위유역', overlapOnly: true, color: '#546E7A', note: NIER },
   ];
@@ -101,6 +98,11 @@
     const ek = ext.map(v => Math.round(v)).join(',');
     if (f[k + 'key'] === ek) return f[k];
     let pt = null;
+    {
+      // 이전 위치가 아직 화면 안이면 그대로 둠 (끌거나 확대할 때 명칭이 이리저리 옮겨 다니지 않도록)
+      const w0 = ext[2] - ext[0], h0 = ext[3] - ext[1], prev = f[k];
+      if (prev && prev[0] > ext[0] + w0 * 0.06 && prev[0] < ext[2] - w0 * 0.06 && prev[1] > ext[1] + h0 * 0.06 && prev[1] < ext[3] - h0 * 0.06) { f[k + 'key'] = ek; return prev; }
+    }
     try {
       const w = ext[2] - ext[0], h = ext[3] - ext[1], m = 0.06;
       const box = [ext[0] + w * m, ext[1] + h * m, ext[2] - w * m, ext[3] - h * m];

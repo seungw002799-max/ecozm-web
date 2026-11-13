@@ -271,21 +271,33 @@
   }
 
   // 생태자연도 1등급: 생태자연도 탭에서 받아 둔 자료가 범위를 덮으면 재사용, 아니면 새로 받기 (EPSG:5186)
-  async function fetchEco1(p, b, msg) {
+  // 생태자연도 1등급: API가 등급 구분 없이 모든 폴리곤을 주므로 넓은 범위는 매우 느림 (10km 반경이면 1분 이상)
+  // → 사업지구 주변 1km부터 2배씩 넓혀 가며 1등급이 처음 나오는 범위까지만 받음 (최근접 거리는 그대로 정확)
+  async function fetchEco1(p, b, msg, radius) {
     if (!App.cfg.dataGoKrKey) throw new Error('생태자연도: data.go.kr 인증키가 없습니다.');
-    const c = App.eczmCache;
-    let feats;
-    if (c && c.bbox[0] <= b[0] && c.bbox[1] <= b[1] && c.bbox[2] >= b[2] && c.bbox[3] >= b[3]) feats = c.features;
+    const covers = (c, bb) => c && c.bbox[0] <= bb[0] && c.bbox[1] <= bb[1] && c.bbox[2] >= bb[2] && c.bbox[3] >= bb[3];
+    const pick = fs => fs.filter(f => f.geometry && String((f.properties || {}).eczm_grad) === p.grade);
+    const R = radius || 0, core = [b[0] + R, b[1] + R, b[2] - R, b[3] - R];   // 사업지구(또는 검토 지점) 범위
+    let feats = null;
+    if (covers(App.eczmCache, b)) feats = App.eczmCache.features;
     else {
       try {
-        const got = await App.collectEczm(b, (calls, n) => { msg.textContent = `생태자연도 받는 중... 호출 ${calls}회, 폴리곤 ${n.toLocaleString()}개`; });
-        feats = got.features;
-        App.eczmCache = { bbox: b, features: feats };
+        for (let r = Math.min(1000, R); ; r = Math.min(R, r * 2)) {
+          const bb = [core[0] - r, core[1] - r, core[2] + r, core[3] + r];
+          let fs;
+          if (covers(App.eczmCache, bb)) fs = App.eczmCache.features;
+          else {
+            const got = await App.collectEczm(bb, (calls, n) => { msg.textContent = `생태자연도 받는 중 (주변 ${(r / 1000).toFixed(1)}km)... 호출 ${calls}회, 폴리곤 ${n.toLocaleString()}개`; });
+            fs = got.features; App.eczmCache = { bbox: bb, features: fs };
+          }
+          if (pick(fs).length || r >= R) { feats = fs; break; }
+        }
       } catch (e) { throw new Error(`생태자연도 자료를 받지 못했습니다 (${e.message})`); }
     }
     return { type: 'FeatureCollection', _src: '생태자연도 실시간', _crs5186: true,
-      features: feats.filter(f => f.geometry && String((f.properties || {}).eczm_grad) === p.grade).map(f => ({ type: 'Feature', geometry: f.geometry, properties: { name: p.name() } })) };
+      features: pick(feats).map(f => ({ type: 'Feature', geometry: f.geometry, properties: { name: p.name() } })) };
   }
+
 
   // 일반 WFS (bbox 조건, 중계 서버 경유): 하천정보관리시스템 하천망도, 환경공간정보 소하천구역
   async function fetchWfsBbox(p, b) {
@@ -361,7 +373,7 @@
       };
       const srcs = [], errs = [];
       // 자료 받기: 4개씩 동시에 받고(순서는 유지), 같은 범위로 다시 조회하면 이번 세션에서 받아 둔 자료를 그대로 사용
-      const fetchOne = p => p.src === 'vworld' ? fetchVworld(p, q.b4326) : p.src === 'egis' ? fetchEgis(p, q.b4326) : p.src === 'kei' ? fetchKei(p, q.b4326) : p.src === 'nier' ? fetchNier(p, queryBox(Math.max(radius, 20000)).b4326) : p.src === 'eco1' ? fetchEco1(p, q.b5186, msg) : p.src === 'local' ? fetchLocal(p, q.b4326) : p.src === 'wfsb' ? fetchWfsBbox(p, q.b4326) : fetchEiagis(p, q.b4326);
+      const fetchOne = p => p.src === 'vworld' ? fetchVworld(p, q.b4326) : p.src === 'egis' ? fetchEgis(p, q.b4326) : p.src === 'kei' ? fetchKei(p, q.b4326) : p.src === 'nier' ? fetchNier(p, queryBox(Math.max(radius, 20000)).b4326) : p.src === 'eco1' ? fetchEco1(p, q.b5186, msg, radius) : p.src === 'local' ? fetchLocal(p, q.b4326) : p.src === 'wfsb' ? fetchWfsBbox(p, q.b4326) : fetchEiagis(p, q.b4326);
       const bkey = q.b4326.map(v => v.toFixed(4)).join(',');
       const got = new Array(chosen.length); let done = 0, next = 0;
       const worker = async () => {

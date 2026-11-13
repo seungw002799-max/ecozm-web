@@ -15,7 +15,8 @@
   const ECZ = { src: '에코뱅크 생태자연도 API (국립생태원)', tags: ['실시간'], extra: ['1등급 권역만 표시', '반경이 크면 받는 데 시간이 걸립니다'] };
   // 별도관리지역: 생태자연도 등급과 별개인 법정 보호지역 모음. 모두 브이월드(국토교통부 토지이용규제 등), 생태·경관보전지역만 브이월드에 없어 환경공간정보서비스
   const SEP = { src: '브이월드 2D데이터 API', tags: ['실시간'], extra: ['생태자연도 별도관리지역에 해당하는 보호지역', '생태·경관보전지역만 환경공간정보서비스 (브이월드에 없음)'] };
-  const uo = p => { const t = [p.alias, p.remark].find(x => /천연기념물/.test(x || '')) || p.alias || p.remark || ''; return t.trim() || '천연기념물'; };
+  // 천연기념물 명칭: 별칭(alias)에 이름, 비고(remark)에 지정번호가 있는 경우가 많아 '이름 (천연기념물 제○호)' 로 합침
+  const uo = p => { const a = (p.alias || '').trim(), r = (p.remark || '').trim(); if (/천연기념물/.test(r) && a && !/천연기념물/.test(a)) return a + ' (' + r + ')'; if (/천연기념물/.test(a)) return a; return r || a || '천연기념물'; };
   const sg = p => [p.sigg_name, p.uname].filter(Boolean).join(' ');
   // 야생생물 보호구역: 자료 명칭이 옛 법령 이름(야생동·식물)이라 현행 이름으로 표기
   const sgW = p => sg(p).replace(/야생동·식물/g, '야생생물');

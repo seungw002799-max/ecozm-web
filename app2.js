@@ -216,16 +216,21 @@
     // 행정구역 경계는 범례에 넣지 않음 (보통 범례에 들어가지 않음)
     if (rows.length === 1 && ['target', 'meas', 'lc'].includes(App.theme)) return null;   // 넣을 항목이 없으면 범례 상자도 안 그림
       let tw = 0;
-      rows.forEach(r => { tw = Math.max(tw, textW(ctx, r.t, f, !!r.head)); });
-      const w = pad * 2 + (rows.length > 1 ? sw + 2 * z : 0) + tw, h = pad * 2 + rows.length * rowH;
+      rows.forEach(r => { if (!r.head) tw = Math.max(tw, textW(ctx, r.t, f, false)); });
+      // 열 수: 직접 정하거나(1~4), 자동이면 항목이 많을 때(15개 넘음) 2열
+      const nItems = rows.length - 1, ncol = Math.max(1, Math.min(4, Number(c.cols) || (nItems > 14 ? 2 : 1)));
+      const per = Math.ceil(nItems / ncol), colW = sw + 2 * z + tw, gap = 3 * z;
+      const w = Math.max(pad * 2 + ncol * colW + (ncol - 1) * gap, pad * 2 + textW(ctx, rows[0].t, f, true)), h = pad * 2 + (1 + per) * rowH;
+      const at = i => (i === 0 ? { row: 0, dx: 0 } : { row: 1 + (i - 1) % per, dx: Math.floor((i - 1) / per) * (colW + gap) });
       return {
         w, h,
-        draw(x, y) {
+        draw(x0, y) {
           ctx.save();
-          ctx.fillStyle = '#fff'; ctx.fillRect(x, y, w, h);
-          ctx.lineWidth = 0.25; ctx.strokeStyle = '#000'; ctx.strokeRect(x, y, w, h);
+          ctx.fillStyle = '#fff'; ctx.fillRect(x0, y, w, h);
+          ctx.lineWidth = 0.25; ctx.strokeStyle = '#000'; ctx.strokeRect(x0, y, w, h);
           rows.forEach((r, i) => {
-            const ry = y + pad + i * rowH, ty = ry + (rowH - fmm) / 2;
+            const P = at(i), x = x0 + P.dx;
+            const ry = y + pad + P.row * rowH, ty = ry + (rowH - fmm) / 2;
             setFont(ctx, f, !!r.head); ctx.fillStyle = '#000'; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
             if (r.head) { ctx.fillText(r.t, x + pad, ty); return; }
             const bx = x + pad, by = ry + rowH * 0.15, bh = rowH * 0.7;
@@ -322,8 +327,8 @@
     const g = 3, mr = mapRectMm();
     switch (key) {
       case 'north': return [mr.x + mr.w - b.w - g, mr.y + g];
-      case 'scalebar': return App.theme === 'target' ? [mr.x + mr.w - b.w - g, mr.y + mr.h - b.h - g] : [mr.x + g, mr.y + mr.h - b.h - g];
-      case 'legend': return App.theme === 'target' ? [mr.x + g, mr.y + g] : [mr.x + mr.w - b.w - g, mr.y + mr.h - b.h - g];
+      case 'scalebar': return (App.theme === 'target' || App.theme === 'lc') ? [mr.x + mr.w - b.w - g, mr.y + mr.h - b.h - g] : [mr.x + g, mr.y + mr.h - b.h - g];
+      case 'legend': return (App.theme === 'target' || App.theme === 'lc') ? [mr.x + g, mr.y + g] : [mr.x + mr.w - b.w - g, mr.y + mr.h - b.h - g];
       case 'table': return [mr.x + g, mr.y + mr.h - b.h - g];
       case 'areatext': return [mr.x, mr.y + mr.h + 1.5];
     }
@@ -751,7 +756,7 @@
     ['north', [['size', '크기(mm)', 'number'], ['buf', '흰색 버퍼(mm)', 'number']]],
     ['scalebar', [['size', '축척바 크기(%)', 'number'], ['buf', '흰색 버퍼(mm)', 'number']]],
     ['table', [['font', '글자 크기(pt)', 'number'], ['size', '표 크기(%)', 'number']]],
-    ['legend', [['font', '글자 크기(pt)', 'number'], ['size', '범례 크기(%)', 'number'], ['buf', '흰색 버퍼(mm)', 'number'], ['all', '<span class="chk-txt">자료 없는 등급 표시<small class="sub-note">(생태자연도 및 국토환경성평가지도용)</small></span>', 'check']]],
+    ['legend', [['font', '글자 크기(pt)', 'number'], ['size', '범례 크기(%)', 'number'], ['cols', '열 수 (비우면 자동)', 'number'], ['buf', '흰색 버퍼(mm)', 'number'], ['all', '<span class="chk-txt">자료 없는 등급 표시<small class="sub-note">(생태자연도 및 국토환경성평가지도용)</small></span>', 'check']]],
   ];
   const EL_HINT = { table: ['도면 주제가 대상지역 설정도일 때만 나옵니다', '내용(거리·조사항목)은 대상지역 설정도 탭에서 바꿉니다'], scalebar: ['길이·글자 크기는 도면 크기와 화면 배율에 맞춰 자동', '축척바 크기(%)로 전체를 줄이거나 키움', '0.5km 미만은 0.1km 단위', '0.5km 이상은 0.5km 단위'] };
   // X(좌우)는 ◀ ▶, Y(위아래)는 ▲ ▼ 버튼으로 1mm씩 (Shift 누르면 10mm)
@@ -962,7 +967,7 @@
     redraw() { redraw(); },
     fit() { fitToSites(); },
     // 대상지역 설정도로 들어가거나 나올 때: 축척바·범례·표를 그 주제의 기본 위치로
-    themeSwitch(prev) { if ((prev === 'target') === (App.theme === 'target')) return; ['scalebar', 'legend', 'table'].forEach(k => { L.els[k].x = null; L.els[k].y = null; }); saveLayout(); buildElUI(); if (active) redraw(); },
+    themeSwitch(prev) { const g = t => (t === 'target' || t === 'lc' ? t : 'base'); if (g(prev) === g(App.theme)) return; ['scalebar', 'legend', 'table'].forEach(k => { L.els[k].x = null; L.els[k].y = null; }); saveLayout(); buildElUI(); if (active) redraw(); },
     getL() { return JSON.parse(JSON.stringify(L)); },
     setL(o) { const d = defaults(); L = Object.assign(d, o || {}); L.els = Object.assign(d.els, (o && o.els) || {}); Object.keys(d.els).forEach(k => { L.els[k] = Object.assign(defaults().els[k], (o && o.els && o.els[k]) || {}); }); saveLayout(); syncControls(); buildElUI(); styleSig = null; if (active) { if (map && L.center) map.getView().setCenter(L.center); layoutPaper(); } },
     enter() {

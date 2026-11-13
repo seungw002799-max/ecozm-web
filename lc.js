@@ -24,7 +24,7 @@
   const LV = { 1: L1, 2: L2, 3: L3 };
   const LV_NAME = { 1: '대분류', 2: '중분류', 3: '세분류' };
 
-  const O = () => { const o = App.opts.lc = App.opts.lc || {}; if (!o.level) o.level = 3; if (o.year == null) o.year = 'auto'; if (o.margin == null) o.margin = 500; if (!o.target) o.target = {}; return o; };
+  const O = () => { const o = App.opts.lc = App.opts.lc || {}; if (!o.level) o.level = 3; if (o.year == null) o.year = 'auto'; if (o.margin == null) o.margin = 300; if (!o.target) o.target = {}; return o; };
   const esc = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
   const fmt = n => (Number(n) || 0).toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const refreshMaps = () => App.liveSets.forEach(s => s.changed && s.changed());
@@ -73,14 +73,14 @@
   }
   async function fetchAll(year, b5, msg) {
     const url = (si, n) => `${BASE}?service=WFS&version=2.0.0&request=GetFeature&outputFormat=application/json&typeNames=EGIS:lv3_${year}y&srsName=EPSG:5186&bbox=${b5.map(v => v.toFixed(1)).join(',')},EPSG:5186&count=${n}&startIndex=${si}`;
-    const N = 1000;
+    const N = 2000;
     const first = await get(url(0, N));
     const total = Math.min(first.numberMatched || first.totalFeatures || (first.features || []).length, 40000);
     const pages = [first];
     const starts = []; for (let s = N; s < total; s += N) starts.push(s);
     let done = 1; msg.textContent = `토지피복 받는 중... ${Math.min(N, total)} / ${total}`;
-    for (let i = 0; i < starts.length; i += 3) {
-      const got = await Promise.all(starts.slice(i, i + 3).map(s => get(url(s, N))));
+    for (let i = 0; i < starts.length; i += 5) {
+      const got = await Promise.all(starts.slice(i, i + 5).map(s => get(url(s, N))));
       pages.push(...got); done += got.length;
       msg.textContent = `토지피복 받는 중... ${Math.min(done * N, total)} / ${total}`;
     }

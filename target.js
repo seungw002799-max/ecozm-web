@@ -257,7 +257,6 @@
     $('#tgtRingColor').addEventListener('change', e => { o.ringColor = e.target.value; changed(); });
     document.querySelectorAll('[data-triv]').forEach(c => c.addEventListener('change', e => { o.river[e.target.dataset.triv] = e.target.checked; changed(); }));
     $('#btnTgtRiver').addEventListener('click', () => loadRivers());
-    $('#btnTgtLayout').addEventListener('click', () => { App.switchTab('layout'); App.setTheme('target'); });
     App.listeners.push(() => { if (App.theme === 'target') drawRings(false); });
   }
   const origInit = App.init;

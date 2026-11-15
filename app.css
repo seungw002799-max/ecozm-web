@@ -535,3 +535,8 @@ body:not([data-theme="target"]) #elList [data-elkey="table"] { display: none; }
 .lc-tbl .w-in { width: 40px; text-align: right; }
 
 .lc-tbl tr.sum td:nth-child(2) { white-space: nowrap; text-align: right; }
+
+/* 탭 묶음 구분선 */
+.tabs .tab-sep { display: inline-block; width: 1px; height: 18px; background: rgba(255,255,255,0.35); margin: 0 6px; align-self: center; }
+/* 토지피복 출처: 한 줄 */
+#tabLc .src-note { white-space: nowrap; font-size: 11px; letter-spacing: -0.3px; overflow: visible; }

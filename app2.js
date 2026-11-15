@@ -218,9 +218,11 @@
       let tw = 0;
       rows.forEach(r => { if (!r.head) tw = Math.max(tw, textW(ctx, r.t, f, false)); });
       // 열 수: 직접 정하거나(1~4), 자동이면 항목이 많을 때(15개 넘음) 2열
+      // 제목(범 례): 항목 글자보다 1pt 크게, 제목 크기(%)로 따로 줄이고 키움
+      const hf = (f + 1) * Math.max(0.3, (Number(c.titlePct) || 100) / 100), headH = Math.max(rowH, hf * PT * 1.7 * Math.max(1, z));
       const nItems = rows.length - 1, ncol = Math.max(1, Math.min(4, Number(c.cols) || (nItems > 30 ? 3 : nItems > 14 ? 2 : 1)));
       const per = Math.ceil(nItems / ncol), colW = sw + 2 * z + tw, gap = 3 * z;
-      const w = Math.max(pad * 2 + ncol * colW + (ncol - 1) * gap, pad * 2 + textW(ctx, rows[0].t, f, true)), h = pad * 2 + (1 + per) * rowH;
+      const w = Math.max(pad * 2 + ncol * colW + (ncol - 1) * gap, pad * 2 + textW(ctx, rows[0].t, hf, true)), h = pad * 2 + headH + per * rowH;
       const at = i => (i === 0 ? { row: 0, dx: 0 } : { row: 1 + (i - 1) % per, dx: Math.floor((i - 1) / per) * (colW + gap) });
       return {
         w, h,
@@ -230,9 +232,9 @@
           ctx.lineWidth = 0.25; ctx.strokeStyle = '#000'; ctx.strokeRect(x0, y, w, h);
           rows.forEach((r, i) => {
             const P = at(i), x = x0 + P.dx;
-            const ry = y + pad + P.row * rowH, ty = ry + (rowH - fmm) / 2;
+            const ry = y + pad + (P.row === 0 ? 0 : headH + (P.row - 1) * rowH), ty = ry + (rowH - fmm) / 2;
             setFont(ctx, f, !!r.head); ctx.fillStyle = '#000'; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-            if (r.head) { ctx.fillText(r.t, x + pad, ty); return; }
+            if (r.head) { setFont(ctx, hf, true); ctx.fillText(r.t, x + pad, ry + (headH - hf * PT) / 2); return; }
             const bx = x + pad, by = ry + rowH * 0.15, bh = rowH * 0.7;
             if (r.ecolor) {
               ctx.fillStyle = r.ecolor; ctx.fillRect(bx, by, sw, bh);
@@ -756,7 +758,7 @@
     ['north', [['size', '크기(mm)', 'number'], ['buf', '흰색 버퍼(mm)', 'number']]],
     ['scalebar', [['size', '축척바 크기(%)', 'number'], ['buf', '흰색 버퍼(mm)', 'number']]],
     ['table', [['font', '글자 크기(pt)', 'number'], ['size', '표 크기(%)', 'number']]],
-    ['legend', [['font', '글자 크기(pt)', 'number'], ['size', '범례 크기(%)', 'number'], ['cols', '열 수 (비우면 자동)', 'number'], ['buf', '흰색 버퍼(mm)', 'number'], ['all', '<span class="chk-txt">자료 없는 등급 표시<small class="sub-note">(생태자연도 및 국토환경성평가지도용)</small></span>', 'check']]],
+    ['legend', [['font', '글자 크기(pt)', 'number'], ['size', '범례 크기(%)', 'number'], ['titlePct', '제목 크기(%)', 'number'], ['cols', '열 수 (비우면 자동)', 'number'], ['buf', '흰색 버퍼(mm)', 'number'], ['all', '<span class="chk-txt">자료 없는 등급 표시<small class="sub-note">(생태자연도 및 국토환경성평가지도용)</small></span>', 'check']]],
   ];
   const EL_HINT = { table: ['도면 주제가 대상지역 설정도일 때만 나옵니다', '내용(거리·조사항목)은 대상지역 설정도 탭에서 바꿉니다'], scalebar: ['길이·글자 크기는 도면 크기와 화면 배율에 맞춰 자동', '축척바 크기(%)로 전체를 줄이거나 키움', '0.5km 미만은 0.1km 단위', '0.5km 이상은 0.5km 단위'] };
   // X(좌우)는 ◀ ▶, Y(위아래)는 ▲ ▼ 버튼으로 1mm씩 (Shift 누르면 10mm)
@@ -945,8 +947,8 @@
       }
       const base = `생태자연도_도면_1-${Math.round(L.scale)}`;
       if (kind === 'png') {
-        const blob = await new Promise((ok, no) => canvas.toBlob(b => b ? ok(b) : no(new Error('PNG 생성 실패')), 'image/png'));
-        App.downloadBlob(blob, base + '.png');
+        const blob = await new Promise((ok, no) => canvas.toBlob(b => b ? ok(b) : no(new Error('JPEG 생성 실패')), 'image/jpeg', 0.95));
+        App.downloadBlob(blob, base + '.jpg');
       } else {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ orientation: W >= H ? 'landscape' : 'portrait', unit: 'mm', format: [W, H] });

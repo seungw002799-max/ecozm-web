@@ -952,7 +952,23 @@ function switchTab(name) {
 // 대상지역 설정도·측정지점 위치도: 탭 안에서 바로 도면 출력 (작업 지도 / 출력 미리보기 전환)
 App.embedView = { target: 'print', meas: 'print', lc: 'print' };
 let layoutHome = null;
+// 탭 안 출력: 섹션 배치. data-mode="work" 작업에서만, "print" 출력에서만, "both" 둘 다 (출력에서는 '요소' 다음, '내보내기' 앞으로 옮김)
+function restoreSections() {
+  document.querySelectorAll('[data-mode]').forEach(el => { if (el._home && el._home.parentNode && el.parentNode !== el._home.parentNode) el._home.parentNode.insertBefore(el, el._home.nextSibling); });
+}
+function arrangeSections(name, view) {
+  const tab = $({ target: '#tabTarget', meas: '#tabMeas', lc: '#tabLc' }[name]); if (!tab) return;
+  restoreSections();
+  const ex = $('#exportSection');
+  tab.querySelectorAll('[data-mode]').forEach(el => {
+    if (!el._home) { el._home = document.createComment('home'); el.parentNode.insertBefore(el._home, el); }
+    const m = el.dataset.mode;
+    if (view === 'print') { el.hidden = m === 'work'; if (m !== 'work' && ex) ex.parentNode.insertBefore(el, ex); }
+    else el.hidden = m === 'print';
+  });
+}
 function homeLayout() {
+  restoreSections();
   const tl = $('#tabLayout'); if (!tl) return;
   if (layoutHome && tl.parentNode !== layoutHome.parent) layoutHome.parent.insertBefore(tl, layoutHome.next);
   tl.classList.remove('embedded');
@@ -964,11 +980,11 @@ function setEmbedView(name, view) {
   const tl = $('#tabLayout'), slot = $({ target: '#tgtLayoutSlot', meas: '#measLayoutSlot', lc: '#lcLayoutSlot' }[name]);
   if (!layoutHome) layoutHome = { parent: tl.parentNode, next: tl.nextSibling };
   if (view === 'print') {
-    slot.appendChild(tl); tl.classList.add('embedded'); tl.hidden = false;
+    slot.appendChild(tl); tl.classList.add('embedded'); tl.hidden = false; arrangeSections(name, 'print');
     $('#workMapWrap').hidden = true; $('#paperWrap').hidden = false;
     if (App.layout) { App.layout.enter(); if (!App._embedFitted) App._embedFitted = {}; if (!App._embedFitted[name]) { App._embedFitted[name] = true; setTimeout(() => App.layout.fit && App.layout.fit(), 200); } }
   } else {
-    homeLayout(); tl.hidden = true;
+    homeLayout(); tl.hidden = true; arrangeSections(name, 'map');
     $('#workMapWrap').hidden = false; $('#paperWrap').hidden = true;
     if (App.layout) App.layout.leave(); App.workMap.updateSize();
   }

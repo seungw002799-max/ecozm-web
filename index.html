@@ -5,17 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>도면 출력 관련</title>
 <link rel="stylesheet" href="vendor/ol.css">
-<link rel="stylesheet" href="app.css?v=20261116f">
+<link rel="stylesheet" href="app.css?v=20261116g">
 </head>
 <body>
 <header class="topbar">
   <div class="brand">도면 출력 관련</div>
   <nav class="tabs">
-    <button class="tab" data-tab="pick" type="button">초기 입지 검토</button>
+      <button class="tab" data-tab="pick" type="button">초기 입지 검토</button>
+      <span class="tab-sep"></span>
       <button class="tab active" data-tab="work" type="button">도면</button>
+      <span class="tab-sep"></span>
+      <button class="tab" data-tab="target" type="button">대상지역 설정도</button>
+      <button class="tab" data-tab="meas" type="button">측정지점 위치도</button>
+      <span class="tab-sep"></span>
+      <button class="tab" data-tab="lc" type="button">토지피복지도</button>
       <button class="tab" data-tab="ecvam" type="button">국토환경성평가</button>
-      <button class="tab" data-tab="eco" type="button">생태자연도</button> <button class="tab" data-tab="lc" type="button">토지피복지도</button>
-      <button class="tab" data-tab="prot" type="button">레이어 모음</button> <button class="tab" data-tab="target" type="button">대상지역 설정도</button> <button class="tab" data-tab="meas" type="button">측정지점 위치도</button>
+      <button class="tab" data-tab="eco" type="button">생태자연도</button>
+      <button class="tab" data-tab="prot" type="button">레이어 모음</button>
       <button class="tab" data-tab="layout" type="button">도면 출력</button>
   </nav>
   <div class="topbar-right" id="healthInfo"></div>
@@ -174,7 +180,7 @@
 
     <!-- ===================== 토지피복지도 탭 ===================== -->
       <div id="tabLc" class="tabpane" hidden>
-        <div class="view-toggle" data-embed="lc"><button type="button" data-view="map">작업 지도</button><button type="button" data-view="print" class="on">출력 미리보기</button></div>
+        <div class="view-toggle" data-embed="lc"><button type="button" data-view="map">작업</button><button type="button" data-view="print" class="on">출력</button></div>
         <section class="card-section">
           <h2>토지피복 면적 계산</h2>
           <div class="src-note">출처 : 환경공간정보서비스 토지피복지도 (기후에너지환경부) <span class="tag">실시간</span></div>
@@ -200,8 +206,8 @@
       </div>
       <!-- ===================== 대상지역 설정도 탭 ===================== -->
       <div id="tabTarget" class="tabpane" hidden>
-        <div class="view-toggle" data-embed="target"><button type="button" data-view="map">작업 지도</button><button type="button" data-view="print" class="on">출력 미리보기</button></div>
-        <section class="card-section">
+        <div class="view-toggle" data-embed="target"><button type="button" data-view="map">작업</button><button type="button" data-view="print" class="on">출력</button></div>
+        <section class="card-section" data-mode="both">
           <h2>거리 범위와 조사항목</h2>
           <ul class="bullets"><li>도면 탭에서 올린 사업지구·노선을 기준으로 거리 범위를 그립니다</li><li>도면이 여러 개면 합쳐서 하나의 범위로 그립니다</li><li>조사항목은 쉼표로 구분합니다 (괄호 안 쉼표는 그대로)</li></ul>
           <div id="tgtRows" class="tgt-rows"></div>
@@ -212,10 +218,11 @@
             <label class="field"><span>칸 머리말</span><input type="text" id="tgtHead"></label>
           </div>
           <label class="unit-input"><span class="lbl">글자 크기</span><input type="number" id="tgtFontPct" min="30" step="10" value="100"><span class="unit">%</span></label>
-          <div class="row"><label class="check"><input type="checkbox" id="tgtRingShow" checked> 범위 선 표시</label><label class="unit-input"><span class="lbl">선 색</span><select id="tgtRingColor"><option value="auto">자동 (항공사진 흰색, 그 밖에 검정)</option><option value="#ffffff">흰색</option><option value="#222222">검정</option><option value="#e53935">빨강</option><option value="#1e4fd8">파랑</option></select></label></div>
+          <div class="row"><label class="check"><input type="checkbox" id="tgtRingShow" checked> 범위 선 표시</label><label class="unit-input"><span class="lbl">선 색</span><select id="tgtRingColor"><option value="#222222">검정</option><option value="#ffffff">하양</option></select></label></div>
+          <div class="size-row"><label class="unit-input"><span class="lbl">선 두께</span><input type="number" id="tgtRingW" min="0.5" max="10" step="0.5"><span class="unit">px</span></label><span class="icon-gap"></span><label class="unit-input"><span class="lbl">버퍼</span><input type="number" id="tgtRingBuf" min="0" max="10" step="0.5"><span class="unit">px</span></label></div>
           
         </section>
-        <section class="card-section">
+        <section class="card-section" data-mode="work">
           <h2>주변 하천</h2>
           <div class="row">
             <label class="check"><input type="checkbox" data-triv="river_nat" checked> 국가하천</label>
@@ -230,23 +237,22 @@
       </div>
       <!-- ===================== 측정지점 위치도 탭 ===================== -->
       <div id="tabMeas" class="tabpane" hidden>
-        <div class="view-toggle" data-embed="meas"><button type="button" data-view="map">작업 지도</button><button type="button" data-view="print" class="on">출력 미리보기</button></div>
-        <section class="card-section">
+        <div class="view-toggle" data-embed="meas"><button type="button" data-view="map">작업</button><button type="button" data-view="print" class="on">출력</button></div>
+        <section class="card-section" data-mode="work">
           <h2>측정지점 입력</h2>
-          <ul class="bullets"><li>항목마다 개수를 정하면 1, 2, 3 ... 칸이 생깁니다</li><li>주소를 붙여넣고 '위치 찾기'를 누르세요 (지번 → 도로명 → 장소 순서로 찾음)</li><li>엑셀에서 주소 여러 줄을 복사해 첫 칸에 붙여넣으면 아래 칸으로 차례로 들어갑니다</li></ul>
           <div id="measInputs" class="meas-inputs"></div>
           <div class="row"><button id="btnMeasRun" class="btn primary wide" type="button">위치 찾기</button></div>
           <div class="row"><button id="btnMeasClear" class="btn small" type="button">모두 지우기</button></div>
           <div id="measMsg" class="progress" hidden></div>
         </section>
-        <section class="card-section">
+        <section class="card-section" data-mode="print">
           <h2>표시 모양</h2>
           <div id="measCats" class="meas-cats"></div>
           <ul class="bullets"><li>부호는 항목별 순서대로 붙습니다 (예: A-1, A-2)</li><li>모양·색이 같은 항목은 범례에서 한 줄로 합칩니다</li></ul>
           <label class="unit-input"><span class="lbl">글자·기호 크기</span><input type="number" id="measFontPct" min="30" step="10" value="100"><span class="unit">%</span></label>
           <div class="row"><button id="btnMeasCatReset" class="btn small" type="button">기본값으로</button></div>
         </section>
-        <section class="card-section">
+        <section class="card-section" data-mode="work">
           <h2>주변 하천</h2>
           <ul class="bullets"><li>측정지점과 도면을 모두 덮는 범위 + 1km 안을 불러옵니다</li><li>국가·지방하천 RIMGIS, 소하천 환경공간정보서비스</li><li>하천 종류 선택은 대상지역 설정도 탭 설정을 따릅니다</li></ul>
           <div class="row"><button id="btnMeasRiver" class="btn primary wide" type="button">하천 불러오기</button></div>
@@ -334,10 +340,10 @@
         <div id="styleBox" class="style-box"></div>
       </section>
 
-      <section class="card-section">
+      <section class="card-section" id="exportSection">
         <h2>내보내기</h2>
         <div class="row">
-          <button id="btnPng" class="btn primary" type="button">PNG 저장</button>
+          <button id="btnPng" class="btn primary" type="button">JPEG 저장</button>
           <button id="btnPdf" class="btn primary" type="button">PDF 저장</button>
           <button id="btnLayoutReset" class="btn" type="button">기본값으로</button>
         </div>
@@ -361,15 +367,15 @@
 <script src="vendor/proj4.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jsts.min.js"></script>
-<script src="cad.js?v=20261116f"></script>
-<script src="backend.js?v=20261116f"></script>
-<script src="app.js?v=20261116f"></script>
-<script src="ecvam.js?v=20261116f"></script>
-<script src="prot.js?v=20261116f"></script> <script src="target.js?v=20261116f"></script> <script src="meas.js?v=20261116f"></script> <script src="lc.js?v=20261116f"></script>
-  <script src="admin2.js?v=20261116f"></script>
-  <script src="measure.js?v=20261116f"></script>
-  <script src="pick.js?v=20261116f"></script>
-  <script src="project.js?v=20261116f"></script>
-<script src="app2.js?v=20261116f"></script>
+<script src="cad.js?v=20261116g"></script>
+<script src="backend.js?v=20261116g"></script>
+<script src="app.js?v=20261116g"></script>
+<script src="ecvam.js?v=20261116g"></script>
+<script src="prot.js?v=20261116g"></script> <script src="target.js?v=20261116g"></script> <script src="meas.js?v=20261116g"></script> <script src="lc.js?v=20261116g"></script>
+  <script src="admin2.js?v=20261116g"></script>
+  <script src="measure.js?v=20261116g"></script>
+  <script src="pick.js?v=20261116g"></script>
+  <script src="project.js?v=20261116g"></script>
+<script src="app2.js?v=20261116g"></script>
 </body>
 </html>

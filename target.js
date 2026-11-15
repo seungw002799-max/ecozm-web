@@ -13,7 +13,9 @@
     aroundHead: '사업지구 주변지역(수계)',
     title: '평 가 대 상 지 역',
     head: '사업지구',
-    ringColor: 'auto',
+    ringColor: '#222222',
+    ringW: 1.8,
+    ringBuf: 0.9,
     ringShow: true,
     fontPct: 100,
     river: { river_nat: true, river_loc: true, river_small: true },
@@ -38,7 +40,7 @@
     return lum > 140 ? 'rgba(40,40,40,0.85)' : 'rgba(255,255,255,0.95)';   // 밝은 선은 어두운 테두리, 어두운 선은 흰 테두리
   };
   // 자동: 항공사진이면 흰색, 그 밖에는 검정
-  const ringCol = () => { const c = T().ringColor; return /^#[0-9a-f]{6}$/i.test(c || '') ? c : (App.opts.basemap === 'sat' ? '#ffffff' : '#222222'); };
+  const ringCol = () => (String(T().ringColor).toLowerCase() === '#ffffff' ? '#ffffff' : '#222222');   // 검정 / 하양
   const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
   // 거리 상자 위치: 도면 가운데를 지나는 세로선과 범위선이 만나는 가장 위쪽 점 (모든 상자가 한 줄로 가운데 정렬)
   function ringTops(f, set) {
@@ -102,8 +104,8 @@
     if (k === 'ring') {
       if (o.ringShow === false) return null;
       const out = [
-        new ol.style.Style({ stroke: new ol.style.Stroke({ color: ringStroke(ringCol()), width: 3.6 * s }) }),
-        new ol.style.Style({ stroke: new ol.style.Stroke({ color: ringCol(), width: 1.8 * s }) }),
+        ...(Number(o.ringBuf) > 0 ? [new ol.style.Style({ stroke: new ol.style.Stroke({ color: ringStroke(ringCol()), width: (Number(o.ringW || 1.8) + 2 * Number(o.ringBuf)) * s }) })] : []),
+        new ol.style.Style({ stroke: new ol.style.Stroke({ color: ringCol(), width: Number(o.ringW || 1.8) * s }) }),
       ];
       const ic = App.badge({ rows: [{ t: f.get('label'), fg: '#111', bg: '#fff' }], border: '#111', font: 11 * fsc, anchor: 'center' }, s);
       ringTops(f, set).forEach(p => out.push(new ol.style.Style({ geometry: new ol.geom.Point(p), image: ic, zIndex: 10 })));
@@ -238,7 +240,9 @@
     const o = T();
     renderRows();
     $('#tgtAround').value = o.around; $('#tgtTitle').value = o.title; $('#tgtHead').value = o.head;
-    $('#tgtRingShow').checked = o.ringShow !== false; $('#tgtFontPct').value = o.fontPct || 100; $('#tgtRingColor').value = o.ringColor || 'auto';
+    $('#tgtRingShow').checked = o.ringShow !== false; $('#tgtFontPct').value = o.fontPct || 100; if (String(o.ringColor).toLowerCase() !== '#ffffff') o.ringColor = '#222222'; if (o.ringW == null) o.ringW = 1.8; if (o.ringBuf == null) o.ringBuf = 0.9; $('#tgtRingColor').value = o.ringColor; $('#tgtRingW').value = o.ringW; $('#tgtRingBuf').value = o.ringBuf;
+    $('#tgtRingW').addEventListener('input', e => { o.ringW = Math.max(0.5, Number(e.target.value) || 1.8); changed(); });
+    $('#tgtRingBuf').addEventListener('input', e => { o.ringBuf = Math.max(0, Number(e.target.value) || 0); changed(); });
     RIVER.forEach(r => { const c = document.querySelector(`[data-triv="${r.id}"]`); if (c) c.checked = o.river[r.id] !== false; });
     $('#tgtRows').addEventListener('input', e => {
       const t = e.target, i = t.dataset.tr; if (i == null) return;

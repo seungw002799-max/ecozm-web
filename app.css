@@ -520,3 +520,5 @@ body:not([data-theme="target"]) #elList [data-elkey="table"] { display: none; }
 .lc-eco .area-table td, .lc-eco .area-table th, .lc-w td { white-space: normal; word-break: keep-all; padding: 3px 4px; font-size: 11.5px; }
 .lc-eco .area-table td:nth-child(2) { min-width: 120px; }
 .lc-eco .area-table th { font-size: 11px; }
+
+#tabLc .src-note { white-space: normal; overflow: visible; text-overflow: clip; margin-bottom: 8px; }

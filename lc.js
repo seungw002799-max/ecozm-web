@@ -194,7 +194,7 @@
       <div class="table-wrap"><table class="area-table"><tr><th></th><th>토지피복유형</th><th>면적(㎡)</th><th>면적비율(%)</th><th>가중치</th><th>생태면적률(%)</th></tr>` +
       b.rows.map(x => { const ratio = b.total ? x.area / b.total * 100 : 0, has = x.area > 0;
         const wcell = x.water ? `<input type="number" class="w-in" step="0.1" min="0" max="1" data-lcww="1" value="${x.w == null ? '' : x.w}" placeholder="-">` : (x.w == null ? '-' : x.w.toFixed(1));
-        return `<tr><td>${x.no}</td><td>${esc(x.n)}</td><td>${has ? fmt(x.area) : '-'}</td><td>${has ? f1(ratio) : '-'}</td><td>${wcell}</td><td>${has && x.w ? f1(ratio * x.w) : '-'}</td></tr>`; }).join('') +
+        return `<tr><td>${x.no}</td><td>${esc(x.n)}</td><td>${has ? fmt(x.area) : '-'}</td><td>${has ? f1(ratio) : '-'}</td><td>${wcell}</td><td>${has && x.w != null ? f1(ratio * x.w) : '-'}</td></tr>`; }).join('') +
       `<tr class="sum"><td colspan="2">계</td><td>${fmt(b.total)}</td><td>100.0</td><td>-</td><td>${f1(b.rate)}</td></tr></table></div></div>`).join('');
   }
   function render() {
@@ -217,7 +217,7 @@
   function copyTable() {
     const m = model(); if (!m) return;
     const lines = [];
-    (ecoModel() || []).forEach(b => { lines.push(`${b.cat} 현재 상태의 생태면적률`); lines.push(['구분', '토지피복유형', '면적(㎡)', '면적비율(%)', '가중치', '생태면적률(%)'].join('\t')); b.rows.forEach(x => { const ratio = b.total ? x.area / b.total * 100 : 0; lines.push([x.no, x.n, x.area > 0 ? x.area.toFixed(2) : '-', x.area > 0 ? ratio.toFixed(1) : '-', x.w == null ? '-' : x.w.toFixed(1), x.area > 0 && x.w ? (ratio * x.w).toFixed(1) : '-'].join('\t')); }); lines.push(['계', '', b.total.toFixed(2), '100.0', '-', b.rate.toFixed(1)].join('\t')); lines.push(''); });
+    (ecoModel() || []).forEach(b => { lines.push(`${b.cat} 현재 상태의 생태면적률`); lines.push(['구분', '토지피복유형', '면적(㎡)', '면적비율(%)', '가중치', '생태면적률(%)'].join('\t')); b.rows.forEach(x => { const ratio = b.total ? x.area / b.total * 100 : 0; lines.push([x.no, x.n, x.area > 0 ? x.area.toFixed(2) : '-', x.area > 0 ? ratio.toFixed(1) : '-', x.w == null ? '-' : x.w.toFixed(1), x.area > 0 && x.w != null ? (ratio * x.w).toFixed(1) : '-'].join('\t')); }); lines.push(['계', '', b.total.toFixed(2), '100.0', '-', b.rate.toFixed(1)].join('\t')); lines.push(''); });
     lines.push('분류별 세부 면적');
     m.forEach(b => { lines.push(b.cat); lines.push([LV_NAME[O().level], '면적(㎡)', '비율(%)'].join('\t')); b.rows.forEach(r => lines.push([r.name, r.area.toFixed(2), (b.total ? r.area / b.total * 100 : 0).toFixed(2)].join('\t'))); lines.push(['계', b.total.toFixed(2), '100.00'].join('\t')); lines.push(''); });
     navigator.clipboard.writeText(lines.join('\n')).then(() => App.toast('표를 복사했습니다. 엑셀에 붙여넣으세요.', 'ok'), () => App.toast('복사하지 못했습니다.', 'warn'));

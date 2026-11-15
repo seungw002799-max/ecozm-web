@@ -533,3 +533,5 @@ body:not([data-theme="target"]) #elList [data-elkey="table"] { display: none; }
 .lc-tbl tr.sum td { background: #f7f9fb; font-weight: 700; text-align: right; }
 .lc-tbl tr.sum td:first-child { text-align: center; color: inherit; }
 .lc-tbl .w-in { width: 40px; text-align: right; }
+
+.lc-tbl tr.sum td:nth-child(2) { white-space: nowrap; text-align: right; }

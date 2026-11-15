@@ -11,7 +11,8 @@
 
   // 지도 그림: 반경 원(검은 선 + 흰 테두리) + 원 위 거리 상자 + 검토 지점 표시
   App.pickStyle = function (f, s) {
-    if (App.theme !== 'prot' || App.opts.pickShow === false) return null;
+    if (App.theme !== 'prot') return null;
+    if (f.get('src') === 'prot' ? App.opts.protRingShow === false : App.opts.pickShow === false) return null;   // 레이어 모음 검토 반경 / 초기 입지 검토 반경
     const k = f.get('pk');
     if (k === 'pt') return new ol.style.Style({ image: new ol.style.RegularShape({ points: 4, radius: 9 * s, radius2: 0, angle: Math.PI / 4, stroke: new ol.style.Stroke({ color: '#E91E63', width: 3 * s }) }) });
     const g = f.getGeometry(), ex = g.getExtent();
@@ -25,7 +26,7 @@
   };
 
   function draw() {
-    App.src.pick.clear();
+    App.src.pick.getFeatures().filter(f => f.get('src') !== 'prot').forEach(f => App.src.pick.removeFeature(f));
     if (!pt) return;
     const lonlat = ol.proj.toLonLat(pt);
     const f0 = new ol.Feature(new ol.geom.Point(pt)); f0.set('pk', 'pt'); App.src.pick.addFeature(f0);

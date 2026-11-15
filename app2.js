@@ -218,7 +218,7 @@
       let tw = 0;
       rows.forEach(r => { if (!r.head) tw = Math.max(tw, textW(ctx, r.t, f, false)); });
       // 열 수: 직접 정하거나(1~4), 자동이면 항목이 많을 때(15개 넘음) 2열
-      const nItems = rows.length - 1, ncol = Math.max(1, Math.min(4, Number(c.cols) || (nItems > 14 ? 2 : 1)));
+      const nItems = rows.length - 1, ncol = Math.max(1, Math.min(4, Number(c.cols) || (nItems > 30 ? 3 : nItems > 14 ? 2 : 1)));
       const per = Math.ceil(nItems / ncol), colW = sw + 2 * z + tw, gap = 3 * z;
       const w = Math.max(pad * 2 + ncol * colW + (ncol - 1) * gap, pad * 2 + textW(ctx, rows[0].t, f, true)), h = pad * 2 + (1 + per) * rowH;
       const at = i => (i === 0 ? { row: 0, dx: 0 } : { row: 1 + (i - 1) % per, dx: Math.floor((i - 1) / per) * (colW + gap) });

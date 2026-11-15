@@ -503,3 +503,15 @@ body:not([data-theme="target"]) #elList [data-elkey="table"] { display: none; }
 .lc-sw { display: inline-block; width: 12px; height: 12px; border: 1px solid #888; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
 #lcTable small { color: var(--muted, #667); }
 .fix-box { margin: 8px 0; }
+
+/* 레이어 모음: 검토 반경 안 면적·비율 */
+.pr-in { margin-left: auto; font-size: 11px; color: #0b6e69; background: #e8f4f3; border-radius: 4px; padding: 0 5px; white-space: nowrap; }
+.pr-insum { font-size: 11px; color: #0b6e69; margin: 2px 0 2px 22px; }
+/* 토지피복 생태면적률 */
+.lc-h { display: block; margin: 10px 0 4px; font-weight: 700; }
+.lc-w td:first-child, .lc-eco td:nth-child(2) { text-align: left; }
+.lc-eco td, .lc-w td { font-size: 12px; }
+.lc-eco tr.sum td { font-weight: 700; }
+.lc-eco .lc-rate { font-size: 13px; font-weight: 700; color: #0b6e69; margin: 4px 0 8px; }
+.lc-eco .w-in { width: 46px; }
+.lc-detail { margin-top: 8px; } .lc-detail summary { cursor: pointer; font-size: 12px; color: var(--muted, #556); }

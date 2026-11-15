@@ -400,6 +400,10 @@
       msg.textContent = `레이어 받는 중... 0 / ${chosen.length}`;
       await Promise.all(Array.from({ length: Math.min(4, chosen.length) }, worker));
       if (fcCache.size > 80) fcCache.clear();
+      // 검토 반경 범위 (사업지구 경계에서 반경만큼): 레이어가 이 안에 얼마나 들어오는지 계산 + 지도에 표시
+      let radBuf = null; try { radBuf = site.buffer(radius, 32); } catch (e) { radBuf = null; }
+      App.src.pick.getFeatures().filter(f => f.get('src') === 'prot').forEach(f => App.src.pick.removeFeature(f));
+      if (radBuf && !pointCtx) { try { const rg = fmt3857.readGeometry(new jsts.io.GeoJSONWriter().write(radBuf), { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' }); const rf = new ol.Feature(rg); rf.set('pk', 'ring'); rf.set('src', 'prot'); rf.set('label', '검토 반경 ' + fmt(radius / 1000) + 'km'); App.src.pick.addFeature(rf); } catch (e) { /* 표시 생략 */ } }
       for (let ci = 0; ci < chosen.length; ci++) {
         const p = chosen[ci];
         msg.textContent = `거리 계산 중... ${ci + 1} / ${chosen.length} (${p.short})`;
@@ -421,7 +425,10 @@
           const raw = (f.properties || {})[p.nameField || 'name'];
           const name = raw ? (p.nameFmt ? p.nameFmt(raw) : raw) : `(이름 없음 ${i + 1})`;
           let np = null; try { if (dist > 0) np = jsts.operation.distance.DistanceOp.nearestPoints(site, jg).map(c => [c.x, c.y]); } catch (e) { np = null; }
-          rows.push({ kind: p.id, kindLabel: p.short, name, uid: (f.properties || {}).uid || '', dist, over, area: jg.getArea(), np });
+          // 반경 안에 든 양: 면은 면적, 선(산줄기 등)은 길이. 전체 대비 비율도 함께
+          const isLine = !!p.line, tot = isLine ? jg.getLength() : jg.getArea();
+          let inR = 0; try { if (radBuf) { const ig = jg.intersection(radBuf); inR = isLine ? ig.getLength() : ig.getArea(); } } catch (e) { try { const ig = jg.buffer(0).intersection(radBuf); inR = isLine ? ig.getLength() : ig.getArea(); } catch (e2) { inR = 0; } }
+          rows.push({ kind: p.id, kindLabel: p.short, name, uid: (f.properties || {}).uid || '', dist, over, area: jg.getArea(), np, inR, tot, isLine });
           const of = fmt3857.readFeature({ type: 'Feature', geometry: disp(jg, g5, p.overlapOnly ? clipBig : clipR), properties: {} }, { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' });
           of.set('kind', p.id); of.set('name', name); of.set('dist', dist); of.set('area', jg.getArea());
           if (p.overlapOnly) { of.set('host', true); hosts.push(jg); }
@@ -475,11 +482,14 @@
     const list = [...groups.entries()].map(([kind, rs]) => ({ kind, rs: rs.slice().sort((a, b) => a.dist - b.dist) }))
       .sort((a, b) => a.rs[0].dist - b.rs[0].dist);
     const dtxt = r => r.dist === 0 ? (r.over > 0 ? '중첩' : '통과') : App.fmtDist(r.dist);
+    const qty = (v, line) => line ? (v >= 1000 ? (v / 1000).toLocaleString('ko-KR', { maximumFractionDigits: 2 }) + 'km' : Math.round(v).toLocaleString('ko-KR') + 'm') : (v >= 1e6 ? (v / 1e6).toLocaleString('ko-KR', { maximumFractionDigits: 2 }) + '㎢' : Math.round(v).toLocaleString('ko-KR') + '㎡');
+    const pctT = (a, b) => (b > 0 ? (a / b * 100) : 0).toLocaleString('ko-KR', { maximumFractionDigits: 1 }) + '%';
+    const inTxt = r => r.inR != null && r.tot > 0 ? `<span class="pr-in" title="검토 반경 안에 든 ${r.isLine ? '길이' : '면적'} / 전체 ${qty(r.tot, r.isLine)}">반경 내 ${qty(r.inR, r.isLine)} · ${pctT(r.inR, r.tot)}</span>` : '';
     const item = r => `<div class="pr-row">
         ${r.np && !r.noArrow ? `<input type="checkbox" data-arrow="${r.key}" ${r.arrow ? 'checked' : ''} title="최근접 거리 화살표">` : '<span class="pr-nochk"></span>'}
         <span class="pr-name">${r.name}</span>
         <span class="pr-dist ${r.dist === 0 ? 'zero' : ''}">${dtxt(r)}</span>
-        ${r.over > 0 ? `<span class="pr-over">${fmt(r.over)}㎡</span>` : ''}</div>`;
+        ${r.over > 0 ? `<span class="pr-over">${fmt(r.over)}㎡</span>` : ''}${inTxt(r)}</div>`;
     const noArr = rows.every(r => r.noArrow);
     t.innerHTML = `<div class="pr-head"><span>${noArr ? '구분 체크: 지도 표시' : '구분 체크: 지도 표시 · 줄 체크: 화살표'}</span><span>가까운 순</span></div>` + list.map(g => {
       const p = BY_ID[g.kind] || {}, near = g.rs[0];
@@ -488,6 +498,7 @@
       return `<div class="pr-group">
         <div class="pr-gh"><input type="checkbox" data-show="${g.kind}" ${(App.opts.protShow || {})[g.kind] !== false ? 'checked' : ''} title="지도에 표시"><span class="swatch${p.line ? ' swatch-line' : ''}${p.point ? ' swatch-pt' : ''}" style="border-color:${col};background:${p.line ? 'transparent' : hexA(col, 0.18)}"></span>
           <b>${p.short || g.kind}</b><span class="pr-cnt">${g.rs.length}곳</span><span class="pr-near ${near.dist === 0 ? 'zero' : ''}">최근접 ${near.dist === 0 ? '0.00km' : App.fmtDist(near.dist)}</span></div>
+        ${(() => { const s = g.rs.filter(r => r.inR != null), a = s.reduce((x, r) => x + r.inR, 0), t = s.reduce((x, r) => x + r.tot, 0), ln = s.some(r => r.isLine); return s.length && t > 0 ? `<div class="pr-insum">반경 내 합계 ${qty(a, ln)} / 전체 ${qty(t, ln)} (${pctT(a, t)})</div>` : ''; })()}
         ${g.rs.slice(0, 3).map(item).join('')}${more}</div>`;
     }).join('') + srcHtml();
   }
@@ -566,6 +577,8 @@
     $('#protRadius').value = App.opts.protRadius || 5;
     $('#protLabelChk').checked = App.opts.protLabel !== false;
     $('#protLabelChk').addEventListener('change', e => { App.opts.protLabel = e.target.checked; App.saveOpts(); cache.clear(); App.liveSets.forEach(s => s.changed()); App.emit(); });
+    $('#protRingChk').checked = App.opts.protRingShow !== false;
+    $('#protRingChk').addEventListener('change', e => { App.opts.protRingShow = e.target.checked; App.saveOpts(); App.liveSets.forEach(s => s.changed()); App.emit(); });
     $('#btnProt').addEventListener('click', () => run());   // 이벤트 객체가 반경 인자로 들어가지 않도록
     const sb = $('#protStyleBox');
     if (sb) sb.addEventListener('input', e => {

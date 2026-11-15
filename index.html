@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>도면 출력 관련</title>
 <link rel="stylesheet" href="vendor/ol.css">
-<link rel="stylesheet" href="app.css?v=20261114g">
+<link rel="stylesheet" href="app.css?v=20261116a">
 </head>
 <body>
 <header class="topbar">
@@ -137,6 +137,7 @@
         <div class="prot-opts">
           <label class="unit-input prot-radius"><span class="lbl">검토 반경</span><input type="number" id="protRadius" min="0" step="1" value="5"><span class="unit">km</span></label>
           <label class="check"><input type="checkbox" id="protLabelChk" checked> 명칭 표시</label>
+          <label class="check"><input type="checkbox" id="protRingChk" checked> 검토 반경 표시</label>
         </div>
         <div class="row"><button id="btnProt" class="btn primary wide" type="button">레이어 조회</button></div>
         <div id="protMsg" class="progress" hidden></div>
@@ -176,7 +177,7 @@
         <div class="view-toggle" data-embed="lc"><button type="button" data-view="map">작업 지도</button><button type="button" data-view="print" class="on">출력 미리보기</button></div>
         <section class="card-section">
           <h2>토지피복 면적 계산</h2>
-          <ul class="bullets"><li>환경공간정보서비스 토지피복지도 (기후에너지환경부) 실시간 연결</li><li>해마다 전국 갱신본 중 가장 최근 연도를 자동으로 씁니다</li><li>도면 탭에서 올린 사업지구·노선 안의 분류별 면적을 구분별로 계산합니다</li><li>자료가 커서 1분 안팎 걸릴 수 있습니다 (주변 표시 범위를 줄이면 빨라짐)</li></ul>
+          <div class="src-note">출처 : 환경공간정보서비스 토지피복지도 (기후에너지환경부) <span class="tag">실시간</span></div>
           <div class="grid2">
             <label class="field"><span>분류 수준</span><select id="lcLevel"><option value="3">세분류 (41개)</option><option value="2">중분류 (22개)</option><option value="1">대분류 (7개)</option></select></label>
             <label class="field"><span>연도</span><select id="lcYear"><option value="auto">자동 (최신)</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option></select></label>
@@ -186,8 +187,12 @@
           <div id="lcMsg" class="progress" hidden></div>
           <div class="mapopts" id="lcOpts"></div>
           <div id="lcResult" hidden>
-            <div class="fix-box"><span class="key-name">면적 보정</span><ul class="bullets"><li>발주처 면적을 넣으면 분류별 면적을 같은 비율로 맞춥니다</li><li>비우면 도면 면적 그대로</li></ul><div id="lcFix"></div></div>
-            <div class="table-wrap"><table id="lcTable" class="area-table"></table></div>
+            <div class="fix-box"><span class="key-name">면적 보정</span><ul class="bullets"><li>발주처 면적을 넣으면 유형별 면적을 같은 비율로 맞춥니다</li><li>비우면 도면 면적 그대로</li></ul><div id="lcFix"></div></div>
+            <div class="key-name lc-h">토지피복유형별 가중치</div>
+            <div class="table-wrap"><table id="lcWTable" class="area-table lc-w"></table></div>
+            <div class="key-name lc-h">현재 상태의 생태면적률</div>
+            <div id="lcEco"></div>
+            <details class="lc-detail"><summary>분류별 세부 면적</summary><div class="table-wrap"><table id="lcTable" class="area-table"></table></div></details>
             <div class="row"><button id="btnLcCopy" class="btn" type="button">표 복사</button></div>
           </div>
         </section>
@@ -356,15 +361,15 @@
 <script src="vendor/proj4.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jsts.min.js"></script>
-<script src="cad.js?v=20261114g"></script>
-<script src="backend.js?v=20261114g"></script>
-<script src="app.js?v=20261114g"></script>
-<script src="ecvam.js?v=20261114g"></script>
-<script src="prot.js?v=20261114g"></script> <script src="target.js?v=20261114g"></script> <script src="meas.js?v=20261114g"></script> <script src="lc.js?v=20261114g"></script>
-  <script src="admin2.js?v=20261114g"></script>
-  <script src="measure.js?v=20261114g"></script>
-  <script src="pick.js?v=20261114g"></script>
-  <script src="project.js?v=20261114g"></script>
-<script src="app2.js?v=20261114g"></script>
+<script src="cad.js?v=20261116a"></script>
+<script src="backend.js?v=20261116a"></script>
+<script src="app.js?v=20261116a"></script>
+<script src="ecvam.js?v=20261116a"></script>
+<script src="prot.js?v=20261116a"></script> <script src="target.js?v=20261116a"></script> <script src="meas.js?v=20261116a"></script> <script src="lc.js?v=20261116a"></script>
+  <script src="admin2.js?v=20261116a"></script>
+  <script src="measure.js?v=20261116a"></script>
+  <script src="pick.js?v=20261116a"></script>
+  <script src="project.js?v=20261116a"></script>
+<script src="app2.js?v=20261116a"></script>
 </body>
 </html>

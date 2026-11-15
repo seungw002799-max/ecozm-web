@@ -42,11 +42,21 @@
     return st;
   };
   // 범례: 지금 그려진 항목 (분류 코드 순서)
+  // 범례: 고른 분류 수준의 항목을 전부 (도면에 없는 항목도). 크기·열 수는 범례 설정에서
   App.lcLegend = function () {
-    const lv = O().level, have = new Set();
-    App.src.lc.getFeatures().forEach(f => have.add(codeAt(f, lv)));
-    return [...have].sort((a, b) => a - b).map(c => ({ t: info(c, lv)[0], ecolor: info(c, lv)[1] }));
+    const lv = O().level;
+    return Object.keys(LV[lv]).map(Number).sort((a, b) => a - b).map(c => ({ t: info(c, lv)[0], ecolor: info(c, lv)[1] }));
   };
+  // 생태면적률: 토지피복유형별 가중치 (환경영향평가서등의 작성 등에 관한 안내서 / 생태면적률 적용지침, 중분류 22개 체계)
+  const EGRP = [
+    { n: '산림(활엽·침엽·혼효림), 습지(내륙·연안습지), 나지(자연·기타나지)', w: 1.0, l2: [310, 320, 330, 510, 520, 610, 620] },
+    { n: '농업지역(논·밭·과수원), 초지(자연·인공초지)', w: 0.8, l2: [210, 220, 240, 410, 420] },
+    { n: '농업지역(시설재배지·기타재배지)', w: 0.6, l2: [230, 250] },
+    { n: '시가화 건조지역(문화·체육·휴양지역)', w: 0.3, l2: [140] },
+    { n: '시가화 건조지역(주거지역)', w: 0.1, l2: [110] },
+    { n: '시가화 건조지역(공업·상업·교통·공공시설지역)', w: 0.0, l2: [120, 130, 150, 160] },
+  ];
+  const WATER = [710, 720];   // 수역: 가중치표에 없음 (값을 넣어야 계산에 들어감)
 
   // ------------------------------------------------------------ 자료 받기
   async function get(url, ms) {
@@ -159,6 +169,34 @@
       return { cat, rows, total: Math.round(finalTot * 100) / 100, rawTotal: tot, factor: k, corrected: k !== 1 };
     });
   }
+  function ecoModel() {
+    if (!state) return null;
+    const o = O(), ww = o.waterW === '' || o.waterW == null ? null : Number(o.waterW);
+    return Object.keys(state.areas).map(cat => {
+      const l2 = {}; Object.entries(state.areas[cat]).forEach(([c3, a]) => { const c = Math.floor(c3 / 10) * 10; l2[c] = (l2[c] || 0) + a; });
+      const tot = state.totals[cat], t = Number(o.target[cat]), k = t > 0 && tot > 0 ? t / tot : 1, T = tot * k;
+      const covered = Object.values(l2).reduce((a, b) => a + b, 0), none = Math.max(0, tot - covered);
+      const rows = EGRP.map((g, i) => ({ no: i + 1, n: g.n, w: g.w, raw: g.l2.reduce((s, c) => s + (l2[c] || 0), 0) * k }));
+      const water = WATER.reduce((s, c) => s + (l2[c] || 0), 0) * k;
+      if (water >= 0.005) rows.push({ no: '', n: '수역(내륙수·해양수) - 가중치표에 없음', w: ww, raw: water, water: true });
+      if (none * k >= 0.005) rows.push({ no: '', n: '자료 없음', w: null, raw: none * k });
+      const r = roundTo(rows.map(x => x.raw), T); rows.forEach((x, i) => { x.area = r[i]; });
+      const eco = rows.reduce((s, x) => s + (x.w ? x.raw * x.w : 0), 0);
+      return { cat, rows, total: Math.round(T * 100) / 100, rate: T > 0 ? eco / T * 100 : 0, corrected: k !== 1 };
+    });
+  }
+  const f1 = v => (Number(v) || 0).toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  function renderEco() {
+    const m = ecoModel(); if (!m) return;
+    $('#lcWTable').innerHTML = '<tr><th>토지피복유형</th><th>가중치</th></tr>' + EGRP.map(g => `<tr><td>○ ${esc(g.n)}</td><td>${g.w.toFixed(1)}</td></tr>`).join('') + '<tr><td colspan="2" class="hint" style="text-align:left">환경영향평가서등의 작성 등에 관한 안내서 · 토지피복지도 중분류(22개) 기준</td></tr>';
+    const o = O();
+    $('#lcEco').innerHTML = m.map(b => `<div class="lc-eco"><div class="lc-rate">${esc(b.cat)} 현재 상태 생태면적률 ${f1(b.rate)}%${b.corrected ? ' <span class="tag">면적 보정</span>' : ''}</div>
+      <div class="table-wrap"><table class="area-table"><tr><th></th><th>토지피복유형</th><th>면적(㎡)</th><th>면적비율(%)</th><th>가중치</th><th>생태면적률(%)</th></tr>` +
+      b.rows.map(x => { const ratio = b.total ? x.area / b.total * 100 : 0, has = x.area > 0;
+        const wcell = x.water ? `<input type="number" class="w-in" step="0.1" min="0" max="1" data-lcww="1" value="${x.w == null ? '' : x.w}" placeholder="-">` : (x.w == null ? '-' : x.w.toFixed(1));
+        return `<tr><td>${x.no}</td><td>${esc(x.n)}</td><td>${has ? fmt(x.area) : '-'}</td><td>${has ? f1(ratio) : '-'}</td><td>${wcell}</td><td>${has && x.w ? f1(ratio * x.w) : '-'}</td></tr>`; }).join('') +
+      `<tr class="sum"><td colspan="2">계</td><td>${fmt(b.total)}</td><td>100.0</td><td>-</td><td>${f1(b.rate)}</td></tr></table></div></div>`).join('');
+  }
   function render() {
     const m = model(), box = $('#lcResult');
     if (!m) { box.hidden = true; return; }
@@ -174,10 +212,13 @@
       h += `<tr class="sum"><td class="cat">계</td><td>${fmt(b.total)}</td><td>${fmt(100)}</td></tr>`;
     });
     $('#lcTable').innerHTML = h;
+    renderEco();
   }
   function copyTable() {
     const m = model(); if (!m) return;
     const lines = [];
+    (ecoModel() || []).forEach(b => { lines.push(`${b.cat} 현재 상태의 생태면적률`); lines.push(['구분', '토지피복유형', '면적(㎡)', '면적비율(%)', '가중치', '생태면적률(%)'].join('\t')); b.rows.forEach(x => { const ratio = b.total ? x.area / b.total * 100 : 0; lines.push([x.no, x.n, x.area > 0 ? x.area.toFixed(2) : '-', x.area > 0 ? ratio.toFixed(1) : '-', x.w == null ? '-' : x.w.toFixed(1), x.area > 0 && x.w ? (ratio * x.w).toFixed(1) : '-'].join('\t')); }); lines.push(['계', '', b.total.toFixed(2), '100.0', '-', b.rate.toFixed(1)].join('\t')); lines.push(''); });
+    lines.push('분류별 세부 면적');
     m.forEach(b => { lines.push(b.cat); lines.push([LV_NAME[O().level], '면적(㎡)', '비율(%)'].join('\t')); b.rows.forEach(r => lines.push([r.name, r.area.toFixed(2), (b.total ? r.area / b.total * 100 : 0).toFixed(2)].join('\t'))); lines.push(['계', b.total.toFixed(2), '100.00'].join('\t')); lines.push(''); });
     navigator.clipboard.writeText(lines.join('\n')).then(() => App.toast('표를 복사했습니다. 엑셀에 붙여넣으세요.', 'ok'), () => App.toast('복사하지 못했습니다.', 'warn'));
   }
@@ -195,6 +236,7 @@
     $('#btnLcRun').addEventListener('click', run);
     $('#lcFix').addEventListener('change', e => { const c = e.target.dataset.lcfix; if (c == null) return; const v = Number(e.target.value); if (v > 0) o.target[c] = v; else delete o.target[c]; App.saveOpts(); render(); });
     $('#btnLcCopy').addEventListener('click', copyTable);
+    $('#lcEco').addEventListener('change', e => { if (!e.target.dataset.lcww) return; o.waterW = e.target.value === '' ? '' : Math.max(0, Math.min(1, Number(e.target.value) || 0)); App.saveOpts(); renderEco(); });
   }
   const origInit = App.init;
   App.init = async function () { await origInit.apply(this, arguments); build(); };

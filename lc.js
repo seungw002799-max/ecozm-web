@@ -191,11 +191,11 @@
     $('#lcWTable').innerHTML = '<tr><th>토지피복유형</th><th>가중치</th></tr>' + EGRP.map(g => `<tr><td>○ ${esc(g.n)}</td><td>${g.w.toFixed(1)}</td></tr>`).join('') + '<tr><td colspan="2" class="hint" style="text-align:left">환경영향평가서등의 작성 등에 관한 안내서 · 토지피복지도 중분류(22개) 기준</td></tr>';
     const o = O();
     $('#lcEco').innerHTML = m.map(b => `<div class="lc-eco"><div class="lc-rate">${esc(b.cat)} 현재 상태 생태면적률 ${f1(b.rate)}%${b.corrected ? ' <span class="tag">면적 보정</span>' : ''}</div>
-      <div class="table-wrap"><table class="area-table"><tr><th></th><th>토지피복유형</th><th>면적(㎡)</th><th>면적비율(%)</th><th>가중치</th><th>생태면적률(%)</th></tr>` +
+      <table class="lc-tbl"><tr><th></th><th>토지피복유형</th><th>면적<br>(㎡)</th><th>면적비율<br>(%)</th><th>가중치</th><th>생태면적률<br>(%)</th></tr>` +
       b.rows.map(x => { const ratio = b.total ? x.area / b.total * 100 : 0, has = x.area > 0;
         const wcell = x.water ? `<input type="number" class="w-in" step="0.1" min="0" max="1" data-lcww="1" value="${x.w == null ? '' : x.w}" placeholder="-">` : (x.w == null ? '-' : x.w.toFixed(1));
         return `<tr><td>${x.no}</td><td>${esc(x.n)}</td><td>${has ? fmt(x.area) : '-'}</td><td>${has ? f1(ratio) : '-'}</td><td>${wcell}</td><td>${has && x.w != null ? f1(ratio * x.w) : '-'}</td></tr>`; }).join('') +
-      `<tr class="sum"><td colspan="2">계</td><td>${fmt(b.total)}</td><td>100.0</td><td>-</td><td>${f1(b.rate)}</td></tr></table></div></div>`).join('');
+      `<tr class="sum"><td colspan="2">계</td><td>${fmt(b.total)}</td><td>100.0</td><td>-</td><td>${f1(b.rate)}</td></tr></table></div>`).join('');
   }
   function render() {
     const m = model(), box = $('#lcResult');

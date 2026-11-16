@@ -560,3 +560,7 @@ body:not([data-theme="target"]) #elList [data-elkey="table"] { display: none; }
 .mc-grid input[type=color] { width: 100%; height: 26px; padding: 0; }
 .mc-grid .mc-lg { grid-column: 1 / -1; }
 .mi-del { margin-left: 4px; padding: 0 7px; }
+
+#flowBox .el-body { display: block; }
+#flowBox .fl-row { grid-template-columns: 18px minmax(130px,1fr) 72px 30px 28px; margin-top: 4px; }
+#flowBox .fl-row .stepper { min-width: 130px; }

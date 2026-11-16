@@ -76,6 +76,9 @@
   }
   // 도면 출력 '도면 이동': 측정지점 위치도에서는 지점 + 도면 전체
   App.layoutExtent = function () {
+    if (App.curTab === 'pick' && App.pickBox) {   // 초기 입지 검토: 검토 지점·행정구역 + 가장 큰 반경
+      const b = App.pickBox(); if (b) { const a = ol.proj.fromLonLat(proj4('EPSG:5186', 'EPSG:4326', [b[0], b[1]])), c = ol.proj.fromLonLat(proj4('EPSG:5186', 'EPSG:4326', [b[2], b[3]])); return [a[0], a[1], c[0], c[1]]; }
+    }
     if (App.theme === 'target') {   // 대상지역 설정도: 가장 큰 거리 범위까지
       const rs = App.src.target.getFeatures().filter(f => f.get('tk') === 'ring'); if (!rs.length) return null;
       const e = ol.extent.createEmpty(); rs.forEach(f => ol.extent.extend(e, f.getGeometry().getExtent()));

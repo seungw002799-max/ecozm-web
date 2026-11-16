@@ -39,7 +39,8 @@ const App = {
     sites: new ol.source.Vector(),
     prot: new ol.source.Vector(),
     admin: new ol.source.Vector(),
-    pick: new ol.source.Vector(), target: new ol.source.Vector(), meas: new ol.source.Vector(), lc: new ol.source.Vector(),   // 토지피복지도 (lc.js)
+    pick: new ol.source.Vector(), target: new ol.source.Vector(), meas: new ol.source.Vector(), lc: new ol.source.Vector(), flow: new ol.source.Vector(),   // 유하방향 화살표 (flow.js)
+      // 토지피복지도 (lc.js)
       // 측정지점 위치도 (meas.js)
       // 대상지역 설정도: 거리 범위 + 하천 (target.js)
         // 초기 입지 검토: 검토 지점 + 반경 원 (pick.js)    // 시군구 경계 (브이월드)
@@ -405,12 +406,13 @@ App.createLayerSet = function (getScale, live) {
   set.target = new ol.layer.Vector({ source: App.src.target, zIndex: 5.7, declutter: false, style: f => (App.targetStyle ? App.targetStyle(f, getScale(), set) : null) });
   set.target.on('prerender', onPre);
   set.lc = new ol.layer.VectorImage({ imageRatio: 1.5, source: App.src.lc, zIndex: 2.6, visible: false, style: f => (App.lcStyle ? App.lcStyle(f) : null) });
+  set.flow = new ol.layer.Vector({ source: App.src.flow, zIndex: 6.45, declutter: false, style: f => (App.flowStyle ? App.flowStyle(f, getScale()) : null) });
   set.meas = new ol.layer.Vector({ source: App.src.meas, zIndex: 6.5, declutter: false, style: (f, res) => (App.measStyle ? App.measStyle(f, getScale(), res) : null) });
   set.arrows = new ol.layer.Vector({
     source: App.src.arrows, zIndex: 6, declutter: false,
     style: (f, res) => (f.get('theme') === App.theme && f.get('on') !== false ? arrowStyle(f, getScale(), res) : null),
   });
-  set.layers = [set.base, set.label, set.lc, set.ecvam, set.around, set.inside, set.prot, set.target, set.admin, set.pick, set.sites, set.arrows, set.meas];
+  set.layers = [set.base, set.label, set.lc, set.ecvam, set.around, set.inside, set.prot, set.target, set.admin, set.pick, set.sites, set.arrows, set.flow, set.meas];
   set.errors = 0;
   set.refresh = function (over) {
     const o = Object.assign({}, App.opts, over || {});

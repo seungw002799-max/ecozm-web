@@ -540,3 +540,23 @@ body:not([data-theme="target"]) #elList [data-elkey="table"] { display: none; }
 .tabs .tab-sep { display: inline-block; width: 1px; height: 18px; background: rgba(255,255,255,0.35); margin: 0 6px; align-self: center; }
 /* 토지피복 출처: 한 줄 */
 #tabLc .src-note { white-space: nowrap; font-size: 11px; letter-spacing: -0.3px; overflow: visible; }
+
+/* 지도 고정 */
+.lock-chk { margin-left: 10px; font-weight: 700; }
+/* 유하방향 화살표 */
+.fl-row { display: grid; grid-template-columns: 18px 1fr 70px 30px 28px; gap: 5px; align-items: center; padding: 4px; border-radius: 6px; }
+.fl-row.sel { background: #fff8e1; outline: 1px solid #ffc107; }
+.fl-row .fl-no { text-align: center; font-size: 12px; }
+.fl-row input[type=color] { width: 28px; height: 24px; padding: 0; border: 1px solid #ccd; border-radius: 4px; }
+.fl-row .stepper input { width: 44px; }
+#flowBox summary .sub { color: var(--muted, #667); font-weight: 400; margin-left: 4px; }
+/* 측정지점 표시 모양 카드 */
+.mc-card { border: 1px solid var(--line, #e3e6ee); border-radius: 8px; padding: 6px; background: #fafbfd; margin-bottom: 6px; }
+.mc-line { display: flex; gap: 4px; align-items: center; margin-bottom: 4px; }
+.mc-line .mc-k { flex: 1; font-weight: 700; }
+.mc-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px 6px; }
+.mc-grid label { display: flex; flex-direction: column; font-size: 11px; color: var(--muted, #667); gap: 2px; }
+.mc-grid input[type=text], .mc-grid select { width: 100%; box-sizing: border-box; font-size: 12px; }
+.mc-grid input[type=color] { width: 100%; height: 26px; padding: 0; }
+.mc-grid .mc-lg { grid-column: 1 / -1; }
+.mi-del { margin-left: 4px; padding: 0 7px; }

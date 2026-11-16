@@ -11,7 +11,9 @@
     { k: '지하수질', pre: 'GW', shape: 'circle', color: '#8E24AA' },
     { k: '토양', pre: 'S', shape: 'square', color: '#8D5524' },
   ];
-  const SHAPES = [['circle', '동그라미'], ['square', '네모'], ['triangle', '세모'], ['diamond', '마름모']];
+  const SHAPES = [['circle', '동그라미'], ['square', '네모'], ['triangle', '세모'], ['diamond', '마름모'], ['pentagon', '오각형']];
+  // 지점 이름표: 부호(A-1) 또는 명칭(예: 관평동 관측소) + 꼬리표(예: (문헌1))
+  const labelOf = (c, i, e) => { const base = c.mode === 'name' ? ((e && e.name) || `${c.pre}-${i + 1}`) : `${c.pre}-${i + 1}`; return c.suffix ? `${base} ${c.suffix}` : base; };
   const M = () => {
     const o = App.opts.meas = App.opts.meas || {};
     if (!Array.isArray(o.cats)) o.cats = JSON.parse(JSON.stringify(DEFCAT));
@@ -31,7 +33,7 @@
   const cnt = c => { const o = M(); o.cnt = o.cnt || {}; return o.cnt[c.k] == null ? 1 : Number(o.cnt[c.k]) || 0; };
   function rebuildRows() {   // 지도·범례용 목록 (부호 = 항목 부호 - 칸 번호)
     const o = M(); o.rows = [];
-    o.cats.forEach(c => { const a = ent(c); for (let i = 0; i < cnt(c); i++) { const e = a[i]; if (!e || !e.addr.trim()) continue; e.code = `${c.pre}-${i + 1}`; o.rows.push(Object.assign(e, { cat: c.k })); } });
+    o.cats.forEach(c => { const a = ent(c); for (let i = 0; i < cnt(c); i++) { const e = a[i]; if (!e || !e.addr.trim()) continue; e.code = labelOf(c, i, e); o.rows.push(Object.assign(e, { cat: c.k })); } });
   }
   function codes() { rebuildRows(); }
 
@@ -119,6 +121,7 @@
     if (shape === 'square') return new ol.style.RegularShape({ points: 4, radius: r * 1.25, angle: Math.PI / 4, fill, stroke });
     if (shape === 'triangle') return new ol.style.RegularShape({ points: 3, radius: r * 1.3, fill, stroke });
     if (shape === 'diamond') return new ol.style.RegularShape({ points: 4, radius: r * 1.35, angle: 0, fill, stroke });
+    if (shape === 'pentagon') return new ol.style.RegularShape({ points: 5, radius: r * 1.25, angle: 0, fill, stroke });
     return new ol.style.Circle({ radius: r, fill, stroke });
   }
   App.measStyle = function (f, s, res) {
@@ -139,17 +142,27 @@
     const o = M(), used = new Set(o.rows.filter(r => r.ll).map(r => norm(r.cat))), out = [];
     o.cats.filter(c => used.has(norm(c.k))).forEach(c => {
       const same = out.find(x => x.shape === c.shape && x.color === c.color);
-      if (same) same.names.push(c.k); else out.push({ shape: c.shape, color: c.color, names: [c.k] });
+      const lg = (c.legend || '').trim();
+      if (same) { same.names.push(c.k); if (lg && !same.lgs.includes(lg)) same.lgs.push(lg); } else out.push({ shape: c.shape, color: c.color, names: [c.k], lgs: lg ? [lg] : [] });
     });
-    return out.map(x => ({ t: x.names.join('·') + ' 측정지점', sym: { shape: x.shape, color: x.color } }));
+    // 범례 이름: 직접 쓴 이름이 있으면 그것, 없으면 '항목·항목 측정지점'
+    return out.map(x => ({ t: x.lgs.length ? x.lgs.join('·') : x.names.join('·') + ' 측정지점', sym: { shape: x.shape, color: x.color } }));
   };
 
   // ------------------------------------------------------------ 탭 UI
   function renderCats() {
-    $('#measCats').innerHTML = `<div class="mc-head"><span>항목</span><span>부호</span><span>모양</span><span>색</span></div>` + M().cats.map((c, i) => `<div class="mc-row">
-      <input type="text" data-mc="${i}" data-f="k" value="${esc(c.k)}"><input type="text" data-mc="${i}" data-f="pre" value="${esc(c.pre)}">
-      <select data-mc="${i}" data-f="shape">${SHAPES.map(s => `<option value="${s[0]}" ${c.shape === s[0] ? 'selected' : ''}>${s[1]}</option>`).join('')}</select>
-      <input type="color" data-mc="${i}" data-f="color" value="${esc(c.color)}"></div>`).join('');
+    const MODES = [['code', '부호'], ['name', '명칭']];
+    $('#measCats').innerHTML = M().cats.map((c, i) => `<div class="mc-card">
+      <div class="mc-line"><input type="text" class="mc-k" data-mc="${i}" data-f="k" value="${esc(c.k)}" title="항목 이름">
+        <button type="button" class="btn small" data-mcmove="${i}:-1" title="위로">▲</button><button type="button" class="btn small" data-mcmove="${i}:1" title="아래로">▼</button><button type="button" class="btn small" data-mcdel="${i}" title="항목 빼기">빼기</button></div>
+      <div class="mc-grid">
+        <label><span>부호</span><input type="text" data-mc="${i}" data-f="pre" value="${esc(c.pre)}"></label>
+        <label><span>꼬리표</span><input type="text" data-mc="${i}" data-f="suffix" value="${esc(c.suffix || '')}" placeholder="예: (문헌1)"></label>
+        <label><span>이름표</span><select data-mc="${i}" data-f="mode">${MODES.map(m => `<option value="${m[0]}" ${(c.mode || 'code') === m[0] ? 'selected' : ''}>${m[1]}</option>`).join('')}</select></label>
+        <label><span>모양</span><select data-mc="${i}" data-f="shape">${SHAPES.map(s => `<option value="${s[0]}" ${c.shape === s[0] ? 'selected' : ''}>${s[1]}</option>`).join('')}</select></label>
+        <label><span>색</span><input type="color" data-mc="${i}" data-f="color" value="${esc(c.color)}"></label>
+        <label class="mc-lg"><span>범례 이름</span><input type="text" data-mc="${i}" data-f="legend" value="${esc(c.legend || '')}" placeholder="${esc(c.k)} 측정지점"></label>
+      </div></div>`).join('');
   }
   let pickRow = null;   // [항목, 칸 번호]
   const POS = [['u', '위'], ['d', '아래'], ['l', '왼쪽'], ['r', '오른쪽']];
@@ -158,14 +171,14 @@
     box.innerHTML = o.cats.map((c, ci) => { const a = ent(c), n = cnt(c);
       return `<div class="mi-cat"><div class="mi-head"><span class="mi-sym" style="--c:${esc(c.color)}" data-shape="${esc(c.shape)}"></span><b>${esc(c.k)}</b><span class="mi-pre">${esc(c.pre)}</span>
         <label class="mi-cnt">개수 <input type="number" min="0" max="30" step="1" data-mcnt="${ci}" value="${n}"></label>
-        ${ci > 0 ? `<button type="button" class="btn small" data-mcopy="${ci}" title="바로 위 항목의 주소·명칭을 그대로 복사">위와 같게</button>` : ''}</div>
+        ${ci > 0 ? `<button type="button" class="btn small" data-mcopy="${ci}" title="바로 위 항목의 주소·명칭을 그대로 복사">위와 같게</button>` : ''}<button type="button" class="btn small mi-del" data-mcdel="${ci}" title="항목 빼기">×</button></div>
         ${Array.from({ length: n }, (_, i) => { const e = a[i]; const st = !e.addr.trim() ? '' : e.ll ? (e.how === '직접 지정' ? '<span class="mi-st ok">직접</span>' : '<span class="mi-st ok">찾음</span>') : (e.how === '실패' ? '<span class="mi-st bad">못 찾음</span>' : '<span class="mi-st">대기</span>');
           const pk = pickRow && pickRow[0] === ci && pickRow[1] === i;
-          return `<div class="mi-row"><span class="mi-code">${esc(c.pre)}-${i + 1}</span>
+          return `<div class="mi-row"><span class="mi-code">${esc(labelOf(c, i, e))}</span>
             <input type="text" class="mi-addr" placeholder="주소 (붙여넣기)" data-mci="${ci}" data-mi="${i}" data-mf="addr" value="${esc(e.addr)}">
             <input type="text" class="mi-name" placeholder="명칭" data-mci="${ci}" data-mi="${i}" data-mf="name" value="${esc(e.name)}">
             <select data-mci="${ci}" data-mi="${i}" data-mf="pos" title="부호 상자 위치">${POS.map(p => `<option value="${p[0]}" ${(e.pos || 'u') === p[0] ? 'selected' : ''}>${p[1]}</option>`).join('')}</select>
-            <button type="button" class="btn small${pk ? ' on' : ''}" data-mpick="${ci}:${i}" title="지도에서 위치 지정">${pk ? '누르기' : '찍기'}</button>${st}</div>`; }).join('')}</div>`; }).join('');
+            <button type="button" class="btn small${pk ? ' on' : ''}" data-mpick="${ci}:${i}" title="지도에서 위치 지정">${pk ? '누르기' : '찍기'}</button>${st}</div>`; }).join('')}</div>`; }).join('') + '<div class="row"><button type="button" class="btn small" id="btnMeasAddCat">+ 항목 추가</button></div>';
   }
   function renderList() { renderInputs(); }
   function build() {
@@ -210,6 +223,19 @@
     $('#measCats').addEventListener('input', e => { const t = e.target, i = t.dataset.mc; if (i == null) return; const c = o.cats[+i];
       if (t.dataset.f === 'k' && t.value && t.value !== c.k) { o.ent[t.value] = o.ent[c.k]; o.cnt[t.value] = o.cnt[c.k]; delete o.ent[c.k]; delete o.cnt[c.k]; }
       c[t.dataset.f] = t.value; renderInputs(); saveAll(); });
+    const delCat = i => { const c = o.cats[i]; if (!c || !confirm(`'${c.k}' 항목을 뺄까요? (입력한 주소도 함께 지워집니다)`)) return; o.cats.splice(i, 1); delete o.ent[c.k]; delete o.cnt[c.k]; renderCats(); renderInputs(); saveAll(); };
+    const addCat = () => {
+      const k = (prompt('추가할 항목 이름 (예: 악취, 대기질 문헌1)') || '').trim(); if (!k) return;
+      if (o.cats.some(c => c.k === k)) { App.toast('같은 이름의 항목이 이미 있습니다.', 'warn'); return; }
+      const pre = (prompt('부호 (예: O, A)', k.slice(0, 1)) || '').trim() || k.slice(0, 1);
+      o.cats.push({ k, pre, shape: 'circle', color: '#FFC107', suffix: '', mode: 'code', legend: '' }); renderCats(); renderInputs(); saveAll();
+    };
+    $('#measCats').addEventListener('click', e => {
+      const mv = e.target.closest('[data-mcmove]'); if (mv) { const [i, d] = mv.dataset.mcmove.split(':').map(Number), j = i + d; if (j < 0 || j >= o.cats.length) return; [o.cats[i], o.cats[j]] = [o.cats[j], o.cats[i]]; renderCats(); renderInputs(); saveAll(); return; }
+      const dl = e.target.closest('[data-mcdel]'); if (dl) delCat(+dl.dataset.mcdel);
+    });
+    box.addEventListener('click', e => { const dl = e.target.closest('[data-mcdel]'); if (dl) { delCat(+dl.dataset.mcdel); return; } if (e.target.id === 'btnMeasAddCat') addCat(); });
+    $('#measCats').addEventListener('change', e => { const t = e.target; if (t.tagName === 'SELECT' && t.dataset.mc != null) { o.cats[+t.dataset.mc][t.dataset.f] = t.value; renderInputs(); saveAll(); } });
     $('#btnMeasCatReset').addEventListener('click', () => { o.cats = JSON.parse(JSON.stringify(DEFCAT)); renderCats(); renderInputs(); saveAll(); });
     $('#measFontPct').addEventListener('input', e => { o.fontPct = Math.max(30, Number(e.target.value) || 100); saveAll(); });
     $('#btnMeasRiver').addEventListener('click', () => {

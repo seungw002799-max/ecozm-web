@@ -31,7 +31,7 @@
       const d = defaults();
       const els = Object.assign({}, d.els);
       for (const k of Object.keys(els)) els[k] = Object.assign({}, d.els[k], (s.els || {})[k] || {});
-      L = Object.assign(d, { pw: s.pw, ph: s.ph, margin: s.margin, dpi: s.dpi, frame: s.frame, scale: s.scale, center: s.center }, { els });
+      L = Object.assign(d, { pw: s.pw, ph: s.ph, margin: s.margin, dpi: s.dpi, frame: s.frame, scale: s.scale, center: s.center, locked: !!s.locked }, { els });
       ['pw', 'ph', 'margin', 'dpi', 'scale'].forEach(k => { if (!isFinite(Number(L[k])) || L[k] === null) L[k] = d[k]; });
       L.els.areatext.show = false;
     } catch (e) { L = defaults(); }
@@ -200,7 +200,7 @@
     legend(ctx, c) {
       const z = Math.max(0.3, (Number(c.size) || 100) / 100);         // 범례 자체 크기(%)
       const lbf = Number(c.buf);
-      const f = c.font, fmm = f * PT, pad = (isFinite(lbf) && c.buf !== null && c.buf !== '' ? Math.max(0.3, lbf) : 2.2) * z, rowH = Math.max(fmm * 1.2, fmm * 1.7 * z), sw = 7 * z;
+      const f = (Number(c.font) || 9) * z, fmm = f * PT, pad = (isFinite(lbf) && c.buf !== null && c.buf !== '' ? Math.max(0.3, lbf) : 2.2) * z, rowH = fmm * 1.7, sw = 7 * z;   // 범례 크기(%)는 글자·칸·여백 모두 함께
       const grades = App.theme === 'eco' ? legendGrades(c) : [];
       const egrades = App.theme === 'ecvam' ? (App.ECVAM_GRADES || []) : [];
       const cats = App.CATS.filter(k => App.sites.some(s => s.category === k && s.geometry));
@@ -219,7 +219,7 @@
       rows.forEach(r => { if (!r.head) tw = Math.max(tw, textW(ctx, r.t, f, false)); });
       // 열 수: 직접 정하거나(1~4), 자동이면 항목이 많을 때(15개 넘음) 2열
       // 제목(범 례): 항목 글자보다 1pt 크게, 제목 크기(%)로 따로 줄이고 키움
-      const hf = (f + 1) * Math.max(0.3, (Number(c.titlePct) || 100) / 100), headH = Math.max(rowH, hf * PT * 1.7 * Math.max(1, z));
+      const hf = ((Number(c.font) || 9) + 1) * z * Math.max(0.3, (Number(c.titlePct) || 100) / 100), headH = Math.max(rowH, hf * PT * 1.7);
       const nItems = rows.length - 1, ncol = Math.max(1, Math.min(4, Number(c.cols) || (nItems > 30 ? 3 : nItems > 14 ? 2 : 1)));
       const per = Math.ceil(nItems / ncol), colW = sw + 2 * z + tw, gap = 3 * z;
       const w = Math.max(pad * 2 + ncol * colW + (ncol - 1) * gap, pad * 2 + textW(ctx, rows[0].t, hf, true)), h = pad * 2 + headH + per * rowH;
@@ -242,7 +242,7 @@
             } else if (r.adm) {
               ctx.strokeStyle = r.adm; ctx.lineWidth = Math.max(0.3, bh * 0.18); ctx.setLineDash([2.2, 0.8, 0.5, 0.8]);
               ctx.beginPath(); ctx.moveTo(bx, by + bh / 2); ctx.lineTo(bx + sw, by + bh / 2); ctx.stroke(); ctx.setLineDash([]);
-            } else if (r.sym) { const cx = bx + sw / 2, cy = by + bh / 2, rr = bh * 0.42; ctx.fillStyle = r.sym.color; ctx.strokeStyle = '#111'; ctx.lineWidth = Math.max(0.2, bh * 0.07); ctx.beginPath(); if (r.sym.shape === 'square') ctx.rect(cx - rr * 0.9, cy - rr * 0.9, rr * 1.8, rr * 1.8); else if (r.sym.shape === 'triangle') { ctx.moveTo(cx, cy - rr * 1.1); ctx.lineTo(cx + rr * 1.05, cy + rr * 0.75); ctx.lineTo(cx - rr * 1.05, cy + rr * 0.75); ctx.closePath(); } else if (r.sym.shape === 'diamond') { ctx.moveTo(cx, cy - rr * 1.15); ctx.lineTo(cx + rr * 1.15, cy); ctx.lineTo(cx, cy + rr * 1.15); ctx.lineTo(cx - rr * 1.15, cy); ctx.closePath(); } else ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); } else if (r.prot && r.prot.point) { ctx.fillStyle = r.prot.color; ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(0.3, bh * 0.08); const cx = bx + sw / 2, tr = bh * 0.55; ctx.beginPath(); ctx.moveTo(cx, by + bh / 2 - tr); ctx.lineTo(cx + tr * 0.95, by + bh / 2 + tr * 0.6); ctx.lineTo(cx - tr * 0.95, by + bh / 2 + tr * 0.6); ctx.closePath(); ctx.fill(); ctx.stroke(); } else if (r.prot && r.prot.line) {
+            } else if (r.sym) { const cx = bx + sw / 2, cy = by + bh / 2, rr = bh * 0.42; ctx.fillStyle = r.sym.color; ctx.strokeStyle = '#111'; ctx.lineWidth = Math.max(0.2, bh * 0.07); ctx.beginPath(); if (r.sym.shape === 'square') ctx.rect(cx - rr * 0.9, cy - rr * 0.9, rr * 1.8, rr * 1.8); else if (r.sym.shape === 'triangle') { ctx.moveTo(cx, cy - rr * 1.1); ctx.lineTo(cx + rr * 1.05, cy + rr * 0.75); ctx.lineTo(cx - rr * 1.05, cy + rr * 0.75); ctx.closePath(); } else if (r.sym.shape === 'diamond') { ctx.moveTo(cx, cy - rr * 1.15); ctx.lineTo(cx + rr * 1.15, cy); ctx.lineTo(cx, cy + rr * 1.15); ctx.lineTo(cx - rr * 1.15, cy); ctx.closePath(); } else if (r.sym.shape === 'pentagon') { for (let k = 0; k < 5; k++) { const an = -Math.PI / 2 + k * 2 * Math.PI / 5; const px = cx + rr * 1.15 * Math.cos(an), py = cy + rr * 1.15 * Math.sin(an); if (k) ctx.lineTo(px, py); else ctx.moveTo(px, py); } ctx.closePath(); } else ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); } else if (r.prot && r.prot.point) { ctx.fillStyle = r.prot.color; ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(0.3, bh * 0.08); const cx = bx + sw / 2, tr = bh * 0.55; ctx.beginPath(); ctx.moveTo(cx, by + bh / 2 - tr); ctx.lineTo(cx + tr * 0.95, by + bh / 2 + tr * 0.6); ctx.lineTo(cx - tr * 0.95, by + bh / 2 + tr * 0.6); ctx.closePath(); ctx.fill(); ctx.stroke(); } else if (r.prot && r.prot.line) {
               ctx.strokeStyle = r.prot.color; ctx.lineWidth = Math.max(0.4, bh * 0.35); ctx.setLineDash([]);
               ctx.beginPath(); ctx.moveTo(bx, by + bh / 2); ctx.lineTo(bx + sw, by + bh / 2); ctx.stroke();
             } else if (r.prot) {
@@ -439,7 +439,11 @@
     applying = false;
     redraw();
   }
+  // 지도 고정: 켜면 미리보기 지도 이동·확대가 막힘 (요소·명칭·화살표는 계속 옮길 수 있음)
+  function applyLock() { if (map) map.getInteractions().forEach(i => i.setActive(!L.locked)); const c = $('#lockChk'); if (c) c.checked = !!L.locked; const b = $('#btnFit'); if (b) b.disabled = !!L.locked; }
+  App.layoutApplyLock = applyLock;
   function fitToSites() {
+    if (L.locked) { App.toast('지도 고정 중입니다. 고정을 풀면 옮길 수 있습니다.', 'warn'); return; }
     const e = (App.layoutExtent && App.layoutExtent()) || App.sitesExtent();
     if (!e) return App.toast('먼저 도면을 추가하세요.', 'warn');
     const c = ol.extent.getCenter(e), pr = ol.proj.getPointResolution('EPSG:3857', 1, c, 'm');
@@ -702,6 +706,9 @@
       const [mx, my] = mmFromEvent(e);
       const k = hit(mx, my);
       if (!k) {
+        // 유하방향 화살표 끌기
+        const fi = App.flowHit ? App.flowHit(map, map.getEventPixel(e), ppm) : null;
+        if (fi != null) { e.stopPropagation(); e.preventDefault(); drag = { flow: fi }; App.flowSelect(fi); return; }
         // 보호구역 명칭 끌기 (명칭 근처를 누른 경우)
         const lf = labelHit(e);
         if (lf) { e.stopPropagation(); e.preventDefault(); drag = { label: lf }; return; }
@@ -714,6 +721,7 @@
       redraw();
     }, true);
     window.addEventListener('pointermove', e => {
+      if (drag && drag.flow !== undefined) { App.flowMove(drag.flow, map.getCoordinateFromPixel(map.getEventPixel(e))); e.preventDefault(); return; }
       if (drag && drag.label) {
         const px = map.getEventPixel(e), cc = map.getCoordinateFromPixel(px);
         const sid = drag.label.get('siteId');
@@ -729,10 +737,10 @@
         e.preventDefault();
       } else if (active && e.target && paper.contains(e.target)) {
         const [mx, my] = mmFromEvent(e);
-        paper.style.cursor = (hit(mx, my) || labelHit(e)) ? 'move' : '';
+        paper.style.cursor = (hit(mx, my) || labelHit(e) || (App.flowHit && App.flowHit(map, map.getEventPixel(e), ppm) != null)) ? 'move' : '';
       }
     });
-    window.addEventListener('pointerup', () => { drag = null; });
+    window.addEventListener('pointerup', () => { if (drag && drag.flow !== undefined && App.flowDone) App.flowDone(); drag = null; });
     // 명칭 두 번 누르기: 글자 바꾸기 (비우면 원래 이름)
     paper.addEventListener('dblclick', e => {
       if (!active) return;
@@ -819,6 +827,7 @@
     initSiteLabelUI();
     $('#layoutTheme').addEventListener('change', e => { App.setTheme(e.target.value); L.els.areatext.x = null; L.els.areatext.y = null; if (App.theme === 'target' && App.targetRefresh) App.targetRefresh(); layoutPaper(); });
     $('#btnFit').addEventListener('click', fitToSites);
+    $('#lockChk').addEventListener('change', e => { L.locked = e.target.checked; saveLayout(); applyLock(); });
 
     const onPaper = () => {
       L.pw = Math.max(30, Number($('#paperW').value) || 297);
@@ -967,6 +976,8 @@
   // ========================================================== 7. 탭 진입/이탈 및 시작
   App.layout = {
     redraw() { redraw(); },
+    getView() { return map ? map.getView() : null; },
+    isActive() { return active; },
     fit() { fitToSites(); },
     // 대상지역 설정도로 들어가거나 나올 때: 축척바·범례·표를 그 주제의 기본 위치로
     themeSwitch(prev) { const g = t => (t === 'target' || t === 'lc' ? t : 'base'); if (g(prev) === g(App.theme)) return; ['scalebar', 'legend', 'table'].forEach(k => { L.els[k].x = null; L.els[k].y = null; }); saveLayout(); buildElUI(); if (active) redraw(); },
@@ -979,11 +990,12 @@
       // 지난 위치가 지금 도면과 동떨어져 있으면(다른 사업 등) 도면 위치로 맞춤
       const se = App.sitesExtent();
       if (se) {
-        if (!L.center) fitToSites();
+        if (L.locked) { /* 고정 중: 위치 유지 */ } else if (!L.center) fitToSites();
         else { const pr = ol.proj.getPointResolution('EPSG:3857', 1, L.center, 'm') || 1, mr = mapRectMm(); const hw = (L.scale || 5000) * mr.w / 1000 / 2 / pr, hh = (L.scale || 5000) * mr.h / 1000 / 2 / pr;
           const view = [L.center[0] - hw, L.center[1] - hh, L.center[0] + hw, L.center[1] + hh];
           if (!ol.extent.intersects(view, se)) fitToSites(); }
       }
+      applyLock();
       if (set) set.changed();   // 도면 탭에서 바꾼 구분·선 색 반영
       layoutPaper();
       requestAnimationFrame(layoutPaper);

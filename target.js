@@ -210,9 +210,10 @@
         const grp = new Array(pieces.length).fill(-1); let ng = 0;
         pieces.forEach((p, i) => {
           if (grp[i] >= 0) return;
-          if (p.nm !== r.cls) { const same = pieces.findIndex((q, j) => j < i && q.nm === p.nm); grp[i] = same >= 0 ? grp[same] : ng++; return; }
+          const unnamed = x => x === r.cls || /구역$/.test(x || '');
+          if (!unnamed(p.nm)) { const same = pieces.findIndex((q, j) => j < i && q.nm === p.nm); grp[i] = same >= 0 ? grp[same] : ng++; return; }
           grp[i] = ng; const stack = [i];
-          while (stack.length) { const a = stack.pop(); pieces.forEach((q, j) => { if (grp[j] >= 0 || q.nm !== r.cls) return; try { if (pieces[a].g.distance(q.g) < 5) { grp[j] = ng; stack.push(j); } } catch (e) { /* 건너뜀 */ } }); }
+          while (stack.length) { const a = stack.pop(); pieces.forEach((q, j) => { if (grp[j] >= 0 || !unnamed(q.nm)) return; try { if (pieces[a].g.distance(q.g) < 5) { grp[j] = ng; stack.push(j); } } catch (e) { /* 건너뜀 */ } }); }
           ng++;
         });
         pieces.forEach((p, i) => { const prev = byName.get(grp[i]); if (!prev || prev.ba < p.ba) byName.set(grp[i], p); });

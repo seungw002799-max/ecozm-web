@@ -25,8 +25,9 @@
     const g = f.getGeometry(), ex = g.getExtent();
     const top = [(ex[0] + ex[2]) / 2 - (ex[2] - ex[0]) * 0.18, ex[1] + (ex[3] - ex[1]) * 0.948];
     return [
-      new ol.style.Style({ stroke: new ol.style.Stroke({ color: '#fff', width: 4 * s }) }),
-      new ol.style.Style({ stroke: new ol.style.Stroke({ color: '#111', width: 1.8 * s }) }),
+      // 반경 원: 선 색·두께, 흰 테두리(버퍼) 두께는 출력 > 표시 스타일에서
+      ...(Number(App.opts.ringBuf == null ? 1.1 : App.opts.ringBuf) > 0 ? [new ol.style.Style({ stroke: new ol.style.Stroke({ color: App.opts.ringHalo || '#fff', width: ((Number(App.opts.ringW) || 1.8) + 2 * Number(App.opts.ringBuf == null ? 1.1 : App.opts.ringBuf)) * s }) })] : []),
+      new ol.style.Style({ stroke: new ol.style.Stroke({ color: App.opts.ringColor || '#111', width: (Number(App.opts.ringW) || 1.8) * s }) }),
       new ol.style.Style({ geometry: new ol.geom.Point(top), text: new ol.style.Text({ text: f.get('label'), font: `bold ${Math.round(12 * s)}px "EcoFont","Malgun Gothic",sans-serif`,
         fill: new ol.style.Fill({ color: '#111' }), backgroundFill: new ol.style.Fill({ color: '#fff' }), backgroundStroke: new ol.style.Stroke({ color: '#111', width: 1.2 * s }), padding: [2 * s, 4 * s, 1 * s, 4 * s] }) }),
     ];
@@ -154,6 +155,30 @@
       if (e.target.dataset.show) { App.opts.protShow[e.target.dataset.show] = e.target.checked; App.saveOpts(); App.liveSets.forEach(s => s.changed && s.changed()); App.emit(); return; }
       const k = e.target.dataset.arrow; if (k && App.protSetArrow) { App.protSetArrow(k, e.target.checked); const a = $('#protTable'), b = $('#pickTable'); if (a && b) b.innerHTML = a.innerHTML; } });
   }
+  // 출력 > 표시 스타일: 조회된 레이어 색, 반경 원, 명칭 글자
+  let stySig = null;
+  function renderStyle(force) {
+    const box = $('#pickStyleLayers'); if (!box || !App.protRows) return;
+    const kinds = [...new Set(App.protRows().map(r => r.kind))];
+    const sig = kinds.join(',') + JSON.stringify(App.opts.protCustom || {});
+    if (!force && sig === stySig) return; if (!force && box.contains(document.activeElement)) return; stySig = sig;
+    box.innerHTML = kinds.length ? kinds.map(id => { const p = App.PROT.find(x => x.id === id); if (!p) return ''; const lk = App.protLook(p); return `<label class="ps-row"><input type="color" data-pcol="${id}" value="${lk.color}"><span>${lk.name}</span></label>`; }).join('') : '<div class="hint">주변 조회를 하면 조회된 레이어가 여기 나옵니다</div>';
+  }
+  function initStyle() {
+    const o = App.opts, set = (k, v) => { o[k] = v; App.saveOpts(); App.liveSets.forEach(s => s.changed && s.changed()); App.emit(); };
+    const bind = (id, k, def, num) => { const el = $(id); if (!el) return; el.value = o[k] == null ? def : o[k]; el.addEventListener('input', e => set(k, num ? Number(e.target.value) : e.target.value)); };
+    bind('#psRingColor', 'ringColor', '#111111'); bind('#psRingW', 'ringW', 1.8, true); bind('#psRingHalo', 'ringHalo', '#ffffff'); bind('#psRingBuf', 'ringBuf', 1.1, true);
+    bind('#psLblPct', 'lblPct', 100, true); bind('#psLblHalo', 'lblHalo', '#ffffff'); bind('#psLblHaloW', 'lblHaloW', 3, true);
+    const lc = $('#psLblColor'), la = $('#psLblAuto');
+    la.checked = !o.lblColor; lc.value = o.lblColor || '#111111'; lc.disabled = la.checked;
+    la.addEventListener('change', e => { lc.disabled = e.target.checked; set('lblColor', e.target.checked ? '' : lc.value); });
+    lc.addEventListener('input', e => { if (!la.checked) set('lblColor', e.target.value); });
+    const ls = $('#psLblShow'); ls.checked = o.protLabel !== false;
+    ls.addEventListener('change', e => { o.riverLabel = true; set('protLabel', e.target.checked); const m = $('#protLabelChk'); if (m) m.checked = e.target.checked; ['#riverLblChk'].forEach(j => { const d = $(j); if (d) d.checked = true; }); });
+    $('#pickStyleLayers').addEventListener('input', e => { const id = e.target.dataset.pcol; if (!id) return; o.protCustom = o.protCustom || {}; o.protCustom[id] = Object.assign({}, o.protCustom[id], { color: e.target.value }); stySig = null; set('protCustom', o.protCustom); });
+    App.listeners.push(() => { if (App.curTab === 'pick') renderStyle(false); });
+    renderStyle(true);
+  }
   const origInit = App.init;
-  App.init = async function () { await origInit.apply(this, arguments); build(); };
+  App.init = async function () { await origInit.apply(this, arguments); build(); initStyle(); };
 })();

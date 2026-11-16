@@ -153,8 +153,9 @@
     const lp = labelPoint(f, set);
     if (!lp) return st;
     return [st, new ol.style.Style({ geometry: new ol.geom.Point(lp), text: new ol.style.Text({
-      text: label, font: `bold ${Math.round(lk.pt * 0.3528 * App.PX_PER_MM96 * s * 10) / 10}px "EcoFont","Malgun Gothic",sans-serif`,
-      fill: new ol.style.Fill({ color: col }), stroke: new ol.style.Stroke({ color: '#fff', width: 3 * s }), overflow: true, offsetY: p.point ? -11 * s : 0 }) })];
+      // 글자 크기(%)·글자 색(비우면 레이어 색)·버퍼 색·두께는 초기 입지 검토 > 출력 > 표시 스타일에서
+      text: label, font: `bold ${Math.round(lk.pt * 0.3528 * App.PX_PER_MM96 * s * ((Number(App.opts.lblPct) || 100) / 100) * 10) / 10}px "EcoFont","Malgun Gothic",sans-serif`,
+      fill: new ol.style.Fill({ color: App.opts.lblColor || col }), stroke: new ol.style.Stroke({ color: App.opts.lblHalo || '#fff', width: (App.opts.lblHaloW == null ? 3 : Number(App.opts.lblHaloW)) * s }), overflow: true, offsetY: p.point ? -11 * s : 0 }) })];
   };
 
   // ------------------------------------------------------------ 자료 받기

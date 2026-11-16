@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>도면 출력 관련</title>
 <link rel="stylesheet" href="vendor/ol.css">
-<link rel="stylesheet" href="app.css?v=20261117n">
+<link rel="stylesheet" href="app.css?v=20261117o">
 </head>
 <body>
 <header class="topbar">
@@ -177,10 +177,22 @@
         <ul class="bullets"><li>기본으로 전체 레이어를 조회합니다</li><li>도면 없이 검토 지점 기준 거리로 계산합니다</li></ul>
         <label class="check"><input type="checkbox" id="pickOnlyChosen"> 레이어 모음에서 고른 것만 조회</label>
         <div class="row"><button id="btnPickLayers" class="btn small" type="button">레이어 모음에서 고르기 →</button></div>
-        <label class="check"><input type="checkbox" id="riverLblChk2" checked> 하천명 표시</label>
           <div class="row"><button id="btnPickRun" class="btn primary wide" type="button">주변 조회</button></div>
         <div id="pickMsg" class="progress" hidden></div>
         <div id="pickTable" class="prot-result" hidden></div>
+      </section>
+      <section class="card-section" data-mode="print">
+        <h2>표시 스타일</h2>
+        <div class="key-name">조회된 레이어 색</div>
+        <div id="pickStyleLayers" class="ps-layers"></div>
+        <div class="key-name ps-h">반경 원</div>
+        <div class="ps-grid"><label>선 색 <input type="color" id="psRingColor"></label><label class="unit-input"><span class="lbl">두께</span><input type="number" id="psRingW" min="0.5" max="10" step="0.5"><span class="unit">px</span></label>
+          <label>버퍼 색 <input type="color" id="psRingHalo"></label><label class="unit-input"><span class="lbl">버퍼</span><input type="number" id="psRingBuf" min="0" max="10" step="0.5"><span class="unit">px</span></label></div>
+        <div class="key-name ps-h">명칭 (하천명 포함)</div>
+        <label class="check"><input type="checkbox" id="psLblShow" checked> 명칭 표시</label>
+        <div class="ps-grid"><label class="unit-input"><span class="lbl">글자 크기</span><input type="number" id="psLblPct" min="30" max="400" step="10"><span class="unit">%</span></label>
+          <label>글자 색 <input type="color" id="psLblColor"> <span class="ps-auto"><input type="checkbox" id="psLblAuto"> 레이어 색</span></label>
+          <label>버퍼 색 <input type="color" id="psLblHalo"></label><label class="unit-input"><span class="lbl">버퍼</span><input type="number" id="psLblHaloW" min="0" max="10" step="0.5"><span class="unit">px</span></label></div>
       </section>
       <div id="pickLayoutSlot" class="layout-slot"></div>
     </div>
@@ -376,15 +388,15 @@
 <script src="vendor/proj4.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jsts.min.js"></script>
-<script src="cad.js?v=20261117n"></script>
-<script src="backend.js?v=20261117n"></script>
-<script src="app.js?v=20261117n"></script>
-<script src="ecvam.js?v=20261117n"></script>
-<script src="prot.js?v=20261117n"></script> <script src="target.js?v=20261117n"></script> <script src="meas.js?v=20261117n"></script> <script src="lc.js?v=20261117n"></script> <script src="flow.js?v=20261117n"></script>
-  <script src="admin2.js?v=20261117n"></script>
-  <script src="measure.js?v=20261117n"></script>
-  <script src="pick.js?v=20261117n"></script>
-  <script src="project.js?v=20261117n"></script>
-<script src="app2.js?v=20261117n"></script>
+<script src="cad.js?v=20261117o"></script>
+<script src="backend.js?v=20261117o"></script>
+<script src="app.js?v=20261117o"></script>
+<script src="ecvam.js?v=20261117o"></script>
+<script src="prot.js?v=20261117o"></script> <script src="target.js?v=20261117o"></script> <script src="meas.js?v=20261117o"></script> <script src="lc.js?v=20261117o"></script> <script src="flow.js?v=20261117o"></script>
+  <script src="admin2.js?v=20261117o"></script>
+  <script src="measure.js?v=20261117o"></script>
+  <script src="pick.js?v=20261117o"></script>
+  <script src="project.js?v=20261117o"></script>
+<script src="app2.js?v=20261117o"></script>
 </body>
 </html>

@@ -571,3 +571,11 @@ body:not([data-theme="target"]) #elList [data-elkey="table"] { display: none; }
 .pick-mask { align-items: center; gap: 10px; } .pick-mask .unit-input { width: 110px; }
 
 .pick-col input[type=color] { width: 36px; height: 22px; padding: 0; border: 1px solid #ccd; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
+
+/* 초기 입지 검토 > 출력 > 표시 스타일 */
+.ps-layers { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; margin: 4px 0 6px; }
+.ps-row { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.ps-row input[type=color], .ps-grid input[type=color] { width: 30px; height: 22px; padding: 0; border: 1px solid #ccd; border-radius: 4px; vertical-align: middle; }
+.ps-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; align-items: center; font-size: 12px; margin: 4px 0; }
+.ps-h { display: block; margin-top: 10px; }
+.ps-auto { font-size: 11px; color: var(--muted, #667); white-space: nowrap; }

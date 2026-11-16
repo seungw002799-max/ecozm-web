@@ -191,7 +191,7 @@
     for (const r of RIVER) {
       try {
         const fc = await App.protFetchLayer(r.id, b4);
-        const byName = new Map();
+        const byName = new Map(), pieces = [];
         (fc.features || []).forEach(f => {
           let g; try { g = rd.read(fc5186(f.geometry)); if (!g.isValid()) g = g.buffer(0); g = g.intersection(clip); } catch (e) { return; }
           if (g.isEmpty()) return;
@@ -203,10 +203,20 @@
           const c = big.getInteriorPoint().getCoordinate();
           of.set('lp', ol.proj.transform(proj4('EPSG:5186', 'EPSG:4326', [c.x, c.y]), 'EPSG:4326', 'EPSG:3857'));
           of.set('size', ba);
-          const prev = byName.get(nm); if (!prev || prev.get('size') < ba) byName.set(nm, of);
+          pieces.push({ of, g, ba, nm });
           App.src.target.addFeature(of); n++;
         });
-        byName.forEach(f => f.set('labelMe', true));   // 같은 하천은 명칭 한 번만
+        // 같은 하천은 명칭 한 번만. 이름이 없는 자료(소하천 등)는 서로 이어진 조각끼리만 같은 하천으로 보고, 떨어진 하천마다 따로 명칭
+        const grp = new Array(pieces.length).fill(-1); let ng = 0;
+        pieces.forEach((p, i) => {
+          if (grp[i] >= 0) return;
+          if (p.nm !== r.cls) { const same = pieces.findIndex((q, j) => j < i && q.nm === p.nm); grp[i] = same >= 0 ? grp[same] : ng++; return; }
+          grp[i] = ng; const stack = [i];
+          while (stack.length) { const a = stack.pop(); pieces.forEach((q, j) => { if (grp[j] >= 0 || q.nm !== r.cls) return; try { if (pieces[a].g.distance(q.g) < 5) { grp[j] = ng; stack.push(j); } } catch (e) { /* 건너뜀 */ } }); }
+          ng++;
+        });
+        pieces.forEach((p, i) => { const prev = byName.get(grp[i]); if (!prev || prev.ba < p.ba) byName.set(grp[i], p); });
+        byName.forEach(p => p.of.set('labelMe', true));
       } catch (e) { errs.push(r.cls + ': ' + e.message); }
     }
     btn.disabled = false;

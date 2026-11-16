@@ -460,7 +460,7 @@
       if (pointCtx) rows.forEach(r => { r.arrow = false; r.noArrow = true; });   // 초기 입지 검토: 화살표 없이 목록만
       chosen.forEach(p => { App.opts.protShow[p.id] = true; }); App.saveOpts();   // 조회한 레이어는 지도에 표시 (결과 목록의 구분 체크로 끄고 켬)
       syncArrows();
-      msg.textContent = (rows.length ? `완료: 반경 ${fmt(radius / 1000)}km 안에 ${rows.length}곳 (${pointCtx ? '검토 지점' : '사업지구 경계'} 기준 최근접 거리)` : `반경 ${fmt(radius / 1000)}km 안에 해당 레이어가 없습니다.`) + (errs.length ? ` · 오류 ${errs.length}건 (아래 자료 출처 참고)` : '');
+      msg.textContent = (rows.length ? `완료: 반경 ${fmt(radius / 1000)}km 안에 ${rows.length}곳 (${pointCtx ? (pointCtx.geom ? '행정구역 경계' : '검토 지점') : '사업지구 경계'} 기준 최근접 거리)` : `반경 ${fmt(radius / 1000)}km 안에 해당 레이어가 없습니다.`) + (errs.length ? ` · 오류 ${errs.length}건 (아래 자료 출처 참고)` : '');
       lastSrc = { srcs, errs };
     } catch (e) {
       msg.textContent = e.message;

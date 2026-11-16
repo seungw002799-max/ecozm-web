@@ -579,3 +579,17 @@ body:not([data-theme="target"]) #elList [data-elkey="table"] { display: none; }
 .ps-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; align-items: center; font-size: 12px; margin: 4px 0; }
 .ps-h { display: block; margin-top: 10px; }
 .ps-auto { font-size: 11px; color: var(--muted, #667); white-space: nowrap; }
+
+.ps-line { display: flex; align-items: center; gap: 8px; margin: 6px 0; flex-wrap: wrap; }
+.ps-line .ps-pct { width: 150px; }
+/* 속성 창 */
+.prop-pop { position: fixed; z-index: 9999; width: 250px; background: #fff; border: 1px solid #c9ced8; border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.22); font-size: 12px; }
+.prop-pop .pp-h { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid #eef0f4; background: #f7f9fb; border-radius: 10px 10px 0 0; }
+.prop-pop .pp-h b { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+.prop-pop .pp-x { border: 0; background: none; font-size: 16px; cursor: pointer; color: #667; }
+.prop-pop .pp-b { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 6px; }
+.prop-pop .pp-g { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; align-items: center; }
+.prop-pop .pp-g label, .prop-pop .pp-w { display: flex; align-items: center; gap: 4px; }
+.prop-pop .pp-w { grid-column: 1 / -1; }
+.prop-pop input[type=number] { width: 52px; } .prop-pop input[type=text] { flex: 1; min-width: 0; }
+.prop-pop input[type=color] { width: 30px; height: 22px; padding: 0; border: 1px solid #ccd; border-radius: 4px; }

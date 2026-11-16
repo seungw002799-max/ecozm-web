@@ -73,7 +73,8 @@
     const c = ((App.opts.protCustom || {})[p.id]) || {};
     const dDash = p.line || p.src === 'eco1' ? 'solid' : 'dashed', dW = p.line ? 3 : p.src === 'eco1' ? 1 : 2;
     return { name: c.name || p.short, color: /^#[0-9a-fA-F]{6}$/.test(c.color || '') ? c.color : p.color, pt: Number(c.pt) || 9,
-      dash: ['solid', 'dashed', 'dotted'].includes(c.dash) ? c.dash : dDash, width: Number(c.width) > 0 ? Number(c.width) : dW };
+      dash: ['solid', 'dashed', 'dotted'].includes(c.dash) ? c.dash : dDash, width: Number(c.width) > 0 ? Number(c.width) : dW,
+      halo: /^#[0-9a-fA-F]{6}$/.test(c.halo || '') ? c.halo : '#ffffff', haloW: Math.max(0, Number(c.haloW) || 0) };   // 버퍼(선 둘레 테두리)
   };
   App.protLabelKey = f => f.get('kind') + '|' + (f.get('name') || '');
   App.PROT = PROT;
@@ -127,7 +128,7 @@
     if (!show) return null;
     const nb = p.overlapOnly && !f.get('host');
     const lk = App.protLook(p), col = lk.color;
-    const key = p.id + '|' + s.toFixed(3) + (nb ? '|nb' : '') + '|' + col + '|' + lk.dash + '|' + lk.width;
+    const key = p.id + '|' + s.toFixed(3) + (nb ? '|nb' : '') + '|' + col + '|' + lk.dash + '|' + lk.width + '|' + lk.halo + lk.haloW;
     const w = Math.max(0.5, lk.width * s), dsh = lk.dash === 'dashed' ? [6 * s, 4 * s] : lk.dash === 'dotted' ? [1.2 * s, 2.5 * s] : undefined;
     let st = cache.get(key);
     if (!st) {
@@ -141,21 +142,25 @@
         : p.src === 'eco1'
         ? new ol.style.Style({ fill: new ol.style.Fill({ color: hexA(col, 0.45) }), stroke: new ol.style.Stroke({ color: col, width: w, lineDash: dsh }) })
         : new ol.style.Style({ fill: new ol.style.Fill({ color: hexA(col, 0.18) }), stroke: new ol.style.Stroke({ color: col, width: w, lineDash: dsh }) });
+      // 버퍼: 선 아래에 더 굵은 테두리 선
+      if (lk.haloW > 0 && !p.point) st = [new ol.style.Style({ stroke: new ol.style.Stroke({ color: lk.halo, width: w + 2 * lk.haloW * s }) }), st];
       if (cache.size > 500) cache.clear();
       cache.set(key, st);
     }
     if (App.LABELS_OFF) return st;   // 레이어 명칭은 표시하지 않음 (경계선만)
     if (App.opts.riverLabel === false && /^river_/.test(p.id)) return st;   // 하천명 끄기
     if (p.labelNearest && !f.get('labelMe')) return st;
+    const ls = (App.opts.lblSt || {})[App.protLabelKey(f)] || {};   // 명칭 하나하나의 설정 (미리보기에서 두 번 눌러 바꿈)
+    if (ls.hide) return st;
     const custom = (App.opts.protLabelText || {})[App.protLabelKey(f)];
     const label = App.opts.protLabel !== false ? (custom != null && custom !== '' ? custom : (p.mapLabel ? p.mapLabel(f.get('name') || '') : (f.get('name') || ''))) : '';
     if (!label) return st;
     const lp = labelPoint(f, set);
     if (!lp) return st;
-    return [st, new ol.style.Style({ geometry: new ol.geom.Point(lp), text: new ol.style.Text({
+    return [].concat(st, new ol.style.Style({ geometry: new ol.geom.Point(lp), text: new ol.style.Text({
       // 글자 크기(%)·글자 색(비우면 레이어 색)·버퍼 색·두께는 초기 입지 검토 > 출력 > 표시 스타일에서
-      text: label, font: `bold ${Math.round(lk.pt * 0.3528 * App.PX_PER_MM96 * s * ((Number(App.opts.lblPct) || 100) / 100) * 10) / 10}px "EcoFont","Malgun Gothic",sans-serif`,
-      fill: new ol.style.Fill({ color: App.opts.lblColor || col }), stroke: new ol.style.Stroke({ color: App.opts.lblHalo || '#fff', width: (App.opts.lblHaloW == null ? 3 : Number(App.opts.lblHaloW)) * s }), overflow: true, offsetY: p.point ? -11 * s : 0 }) })];
+      text: label, font: `bold ${Math.round(lk.pt * 0.3528 * App.PX_PER_MM96 * s * ((Number(App.opts.lblPct) || 100) / 100) * ((Number(ls.size) || 100) / 100) * 10) / 10}px "EcoFont","Malgun Gothic",sans-serif`,
+      fill: new ol.style.Fill({ color: ls.auto === false && ls.color ? ls.color : (App.opts.lblColor || col) }), stroke: new ol.style.Stroke({ color: ls.halo || App.opts.lblHalo || '#fff', width: (ls.haloW != null && ls.haloW !== '' ? Number(ls.haloW) : (App.opts.lblHaloW == null ? 3 : Number(App.opts.lblHaloW))) * s }), overflow: true, offsetY: p.point ? -11 * s : 0 }) }));
   };
 
   // ------------------------------------------------------------ 자료 받기

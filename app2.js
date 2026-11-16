@@ -744,13 +744,19 @@
     // 명칭 두 번 누르기: 글자 바꾸기 (비우면 원래 이름)
     paper.addEventListener('dblclick', e => {
       if (!active) return;
-      const lf = labelHit(e); if (!lf) return;
+      const lf = labelHit(e);
+      if (!lf) {   // 레이어(면·선)를 두 번 누르면 레이어 속성 창
+        let hitF = null; map.forEachFeatureAtPixel(map.getEventPixel(e), f => { if (!hitF && f.get('kind') && f.get('kind') !== 'adm') hitF = f; }, { layerFilter: l => l === set.prot, hitTolerance: 4 });
+        if (hitF) { e.stopPropagation(); e.preventDefault(); layerPopup(hitF.get('kind'), e.clientX, e.clientY); }
+        return;
+      }
       e.stopPropagation(); e.preventDefault();
       if (lf.get('siteId') != null) {   // 도면 명칭 글자 바꾸기
         const s = App.sites.find(x => x.id === lf.get('siteId')); if (!s) return;
         const v = prompt('도면 명칭 (비우면 구분 이름)', s.labelText || s.category); if (v === null) return;
         s.labelText = v.trim() && v.trim() !== s.category ? v.trim() : ''; App.liveSets.forEach(x => x.changed()); redraw(); return;
       }
+      if (lf.get('kind') !== 'adm') { labelPopup(lf, e.clientX, e.clientY); return; }   // 레이어 명칭: 속성 창
       const key = lf.get('kind') === 'adm' ? 'adm|' + lf.get('name') : App.protLabelKey(lf);
       App.opts.protLabelText = App.opts.protLabelText || {};
       const cur = App.opts.protLabelText[key] || lf.get('name') || '';
@@ -760,6 +766,50 @@
       App.saveOpts(); App.liveSets.forEach(s => s.changed()); redraw();
     }, true);
   }
+
+  // ---------------------------------------------------- 속성 창 (미리보기에서 레이어·명칭 두 번 누르기)
+  function popup(x, y, title, html, onChange) {
+    let el = document.getElementById('propPop');
+    if (!el) { el = document.createElement('div'); el.id = 'propPop'; el.className = 'prop-pop'; document.body.appendChild(el);
+      document.addEventListener('pointerdown', ev => { if (!el.hidden && !el.contains(ev.target)) el.hidden = true; }, true);
+      document.addEventListener('keydown', ev => { if (ev.key === 'Escape') el.hidden = true; }); }
+    el.innerHTML = `<div class="pp-h"><b>${title}</b><button type="button" class="pp-x" title="닫기">×</button></div><div class="pp-b">${html}</div>`;
+    el.hidden = false;
+    el.style.left = Math.max(8, Math.min(x + 14, innerWidth - el.offsetWidth - 8)) + 'px'; el.style.top = Math.max(8, Math.min(y + 14, innerHeight - el.offsetHeight - 8)) + 'px';
+    el.querySelector('.pp-x').onclick = () => { el.hidden = true; };
+    el.oninput = el.onchange = ev => { onChange(ev.target, el); App.saveOpts(); App.liveSets.forEach(s => s.changed()); redraw(); App.emit(); };
+  }
+  const DASHES = [['solid', '실선'], ['dashed', '파선'], ['dotted', '점선']];
+  function layerPopup(id, x, y) {
+    const p = (App.PROT || []).find(q => q.id === id); if (!p) return; const lk = App.protLook(p);
+    popup(x, y, '레이어 · ' + esc(lk.name), `<label class="check"><input type="checkbox" data-pp="show" ${(App.opts.protShow || {})[id] !== false ? 'checked' : ''}> 지도에 표시</label>
+      <div class="pp-g"><label>레이어 색 <input type="color" data-pp="color" value="${lk.color}"></label><label>두께 <input type="number" data-pp="width" min="0.5" max="10" step="0.5" value="${lk.width}"></label>
+      <label>버퍼 색 <input type="color" data-pp="halo" value="${lk.halo}"></label><label>버퍼 <input type="number" data-pp="haloW" min="0" max="10" step="0.5" value="${lk.haloW}"></label>
+      <label class="pp-w">선 종류 <select data-pp="dash">${DASHES.map(d => `<option value="${d[0]}" ${lk.dash === d[0] ? 'selected' : ''}>${d[1]}</option>`).join('')}</select></label></div>`, t => {
+      const k = t.dataset.pp; if (!k) return;
+      if (k === 'show') { App.opts.protShow = App.opts.protShow || {}; App.opts.protShow[id] = t.checked; return; }
+      App.opts.protCustom = App.opts.protCustom || {}; const c = App.opts.protCustom[id] = Object.assign({}, App.opts.protCustom[id]);
+      c[k] = t.type === 'number' ? Number(t.value) : t.value;
+    });
+  }
+  function labelPopup(f, x, y) {
+    const key = App.protLabelKey(f), p = (App.PROT || []).find(q => q.id === f.get('kind')), lk = p ? App.protLook(p) : { color: '#111' };
+    const ls = (App.opts.lblSt || {})[key] || {}, txt = (App.opts.protLabelText || {})[key] || '';
+    popup(x, y, '명칭 · ' + esc(f.get('name') || ''), `<label class="check"><input type="checkbox" data-pl="show" ${ls.hide ? '' : 'checked'}> 명칭 표시</label>
+      <label class="pp-w">글자 <input type="text" data-pl="text" value="${esc(txt)}" placeholder="${esc(f.get('name') || '')}"></label>
+      <div class="pp-g"><label>크기 <input type="number" data-pl="size" min="30" max="400" step="10" value="${ls.size || 100}"> %</label>
+      <label>글자 색 <input type="color" data-pl="color" value="${ls.color || lk.color}" ${ls.auto === false ? '' : 'disabled'}></label>
+      <label class="check pp-w"><input type="checkbox" data-pl="auto" ${ls.auto === false ? '' : 'checked'}> 레이어 색과 같게</label>
+      <label>버퍼 색 <input type="color" data-pl="halo" value="${ls.halo || App.opts.lblHalo || '#ffffff'}"></label><label>버퍼 <input type="number" data-pl="haloW" min="0" max="10" step="0.5" value="${ls.haloW != null && ls.haloW !== '' ? ls.haloW : (App.opts.lblHaloW == null ? 3 : App.opts.lblHaloW)}"></label></div>`, (t, el) => {
+      const k = t.dataset.pl; if (!k) return;
+      if (k === 'text') { App.opts.protLabelText = App.opts.protLabelText || {}; const v = t.value.trim(); if (!v || v === f.get('name')) delete App.opts.protLabelText[key]; else App.opts.protLabelText[key] = v; return; }
+      App.opts.lblSt = App.opts.lblSt || {}; const s = App.opts.lblSt[key] = Object.assign({}, App.opts.lblSt[key]);
+      if (k === 'show') s.hide = !t.checked;
+      else if (k === 'auto') { s.auto = t.checked; el.querySelector('[data-pl=color]').disabled = t.checked; if (!t.checked) s.color = el.querySelector('[data-pl=color]').value; }
+      else s[k] = t.type === 'number' ? Number(t.value) : t.value;
+    });
+  }
+  App.layerPopup = layerPopup;
 
   // ========================================================== 5. 설정 패널 UI
   const EL_UI = [

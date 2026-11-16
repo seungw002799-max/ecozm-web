@@ -359,7 +359,7 @@
     const chosen = pointCtx && !pointCtx.onlyChosen ? PROT.slice() : PROT.filter(p => (App.opts.protOn || {})[p.id] !== false);
     if (!pointCtx && !App.sites.some(s => s.geometry)) { App.toast && App.toast('먼저 도면을 추가하세요.', 'warn'); return; }
     if (!chosen.length) { msg.hidden = false; msg.textContent = '검토할 보호구역을 하나 이상 선택하세요.'; return; }
-    const radius = (radiusKm != null ? Math.max(0.1, Number(radiusKm)) : Math.max(0, Number($('#protRadius').value) || 5)) * 1000;
+    const radius = (radiusKm != null ? Math.max(pointCtx && pointCtx.geom ? 0 : 0.1, Number(radiusKm) || 0) : Math.max(0, Number($('#protRadius').value) || 5)) * 1000;
     if (radiusKm == null) { App.opts.protRadius = radius / 1000; App.saveOpts(); }
     const q = queryBox(radius);
     btn.disabled = true; msg.hidden = false; msg.textContent = '보호구역 자료를 받는 중...';
@@ -378,13 +378,16 @@
       const gwr = new jsts.io.GeoJSONWriter(), gfac = new jsts.geom.GeometryFactory();
       const clipOf = rM => { const b = queryBox(rM * 1.3 + 2000).b5186; return gfac.toGeometry(new jsts.geom.Envelope(b[0], b[2], b[1], b[3])); };
       const clipR = clipOf(radius), clipBig = clipOf(Math.max(radius, 20000));
+      // 행정구역 전체로 검토할 때: 지도에는 행정구역(+반경) 안에 든 부분만 표시 (반경 0이면 행정구역 경계로 자름)
+      let areaClip = null; if (pointCtx && pointCtx.geom) { try { areaClip = radius > 0 ? site.buffer(radius, 16) : site; } catch (e) { areaClip = null; } }
       const disp = (jg, g5, clip) => {
         try {
           let d = jg;
-          if (!clip.getEnvelopeInternal().contains(d.getEnvelopeInternal())) d = d.intersection(clip);
+          if (areaClip) d = d.intersection(areaClip);
+          else if (!clip.getEnvelopeInternal().contains(d.getEnvelopeInternal())) d = d.intersection(clip);
           d = jsts.simplify.DouglasPeuckerSimplifier.simplify(d, 1.0);
-          return d.isEmpty() ? g5 : gwr.write(d);
-        } catch (e) { return g5; }
+          return d.isEmpty() ? (areaClip ? null : g5) : gwr.write(d);
+        } catch (e) { return areaClip ? null : g5; }
       };
       const srcs = [], errs = [];
       // 자료 받기: 4개씩 동시에 받고(순서는 유지), 같은 범위로 다시 조회하면 이번 세션에서 받아 둔 자료를 그대로 사용
@@ -431,7 +434,9 @@
           const isLine = !!p.line, tot = isLine ? jg.getLength() : jg.getArea();
           let inR = 0; try { if (radBuf) { const ig = jg.intersection(radBuf); inR = isLine ? ig.getLength() : ig.getArea(); } } catch (e) { try { const ig = jg.buffer(0).intersection(radBuf); inR = isLine ? ig.getLength() : ig.getArea(); } catch (e2) { inR = 0; } }
           rows.push({ kind: p.id, kindLabel: p.short, name, uid: (f.properties || {}).uid || '', dist, over, area: jg.getArea(), np, inR, tot, isLine });
-          const of = fmt3857.readFeature({ type: 'Feature', geometry: disp(jg, g5, p.overlapOnly ? clipBig : clipR), properties: {} }, { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' });
+          const dg = disp(jg, g5, p.overlapOnly ? clipBig : clipR);
+          if (!dg) return;   // 행정구역 밖이라 지도에 그릴 부분 없음
+          const of = fmt3857.readFeature({ type: 'Feature', geometry: dg, properties: {} }, { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' });
           of.set('kind', p.id); of.set('name', name); of.set('dist', dist); of.set('area', jg.getArea());
           if (p.overlapOnly) { of.set('host', true); hosts.push(jg); }
           App.src.prot.addFeature(of);
@@ -439,7 +444,7 @@
         // 주변 단위유역: 속한 유역과 맞닿은 유역 + 검토 반경 안의 유역을 함께 표시 (표·화살표에는 넣지 않음)
         nbr.forEach(n => {
           const touch = hosts.some(h => { try { return h.distance(n.jg) < 50; } catch (e) { return false; } });
-          if (!touch && n.dist > radius) return;
+          if (!touch && n.dist > radius) return; if (!n.g5) return;
           const of = fmt3857.readFeature({ type: 'Feature', geometry: n.g5, properties: {} }, { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' });
           of.set('kind', p.id); of.set('name', n.name); of.set('dist', n.dist); of.set('host', false);
           App.src.prot.addFeature(of);

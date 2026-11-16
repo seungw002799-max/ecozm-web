@@ -8,10 +8,10 @@
   const rd = new jsts.io.GeoJSONReader(), wr = new jsts.io.GeoJSONWriter(), f3857 = new ol.format.GeoJSON();
   const g3857 = g => f3857.readGeometry(wr.write(g), { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' });
   // 시군구 경계 등을 불러올 범위 (admin2.js)
-  App.pickBox = () => { if (App.curTab !== 'pick') return null; const r = Math.max(...radii(), 1) * 1000; if (region) { const e = region.g5.getEnvelopeInternal(); return [e.getMinX() - r, e.getMinY() - r, e.getMaxX() + r, e.getMaxY() + r]; } if (!pt) return null; const p = proj4('EPSG:4326', 'EPSG:5186', ol.proj.toLonLat(pt)); return [p[0] - r, p[1] - r, p[0] + r, p[1] + r]; };
+  App.pickBox = () => { if (App.curTab !== 'pick') return null; const r = Math.max(0.1, ...radii()) * 1000; if (region) { const e = region.g5.getEnvelopeInternal(); return [e.getMinX() - r, e.getMinY() - r, e.getMaxX() + r, e.getMaxY() + r]; } if (!pt) return null; const p = proj4('EPSG:4326', 'EPSG:5186', ol.proj.toLonLat(pt)); return [p[0] - r, p[1] - r, p[0] + r, p[1] + r]; };
   let picking = false;
 
-  const radii = () => String(($('#pickRadii') || {}).value || '1,3,5').split(/[,\s]+/).map(Number).filter(v => v > 0).sort((a, b) => a - b).slice(0, 6);
+  const radii = () => String(($('#pickRadii') || {}).value || '1,3,5').split(/[,\s]+/).map(Number).filter(v => isFinite(v) && v >= 0).sort((a, b) => a - b).slice(0, 6);
   const fmtR = km => km < 1 ? Math.round(km * 1000) + 'm' : (Math.round(km * 10) / 10) + 'km';
 
   // 지도 그림: 반경 원(검은 선 + 흰 테두리) + 원 위 거리 상자 + 검토 지점 표시
@@ -38,7 +38,7 @@
     // 선택 범위 밖을 흰색 반투명으로 덮어 선택 범위가 잘 보이게 (행정구역: 경계 밖 / 지점: 가장 큰 반경 밖)
     if (App.opts.pickMask !== false && (region || pt)) {
       try {
-        const inner = region ? region.g5 : (p5 => new jsts.geom.GeometryFactory().createPoint(new jsts.geom.Coordinate(p5[0], p5[1])).buffer(Math.max(...radii(), 1) * 1000, 32))(proj4('EPSG:4326', 'EPSG:5186', ol.proj.toLonLat(pt)));
+        const inner = region ? region.g5 : (p5 => new jsts.geom.GeometryFactory().createPoint(new jsts.geom.Coordinate(p5[0], p5[1])).buffer(Math.max(0.1, ...radii()) * 1000, 32))(proj4('EPSG:4326', 'EPSG:5186', ol.proj.toLonLat(pt)));
         const e = inner.getEnvelopeInternal(), m = 300000, gf = new jsts.geom.GeometryFactory();
         const big = gf.toGeometry(new jsts.geom.Envelope(e.getMinX() - m, e.getMaxX() + m, e.getMinY() - m, e.getMaxY() + m));
         const fm = new ol.Feature(g3857(big.difference(inner))); fm.set('pk', 'mask'); App.src.pick.addFeature(fm);
@@ -46,11 +46,11 @@
     }
     if (region) {
       const fr = new ol.Feature(g3857(region.g5)); fr.set('pk', 'region'); App.src.pick.addFeature(fr);
-      radii().forEach(km => { let b; try { b = region.g5.buffer(km * 1000, 16); } catch (e) { return; } const f = new ol.Feature(g3857(b)); f.set('pk', 'ring'); f.set('km', String(km)); f.set('label', fmtR(km)); App.src.pick.addFeature(f); });
+      radii().filter(km => km > 0).forEach(km => { let b; try { b = region.g5.buffer(km * 1000, 16); } catch (e) { return; } const f = new ol.Feature(g3857(b)); f.set('pk', 'ring'); f.set('km', String(km)); f.set('label', fmtR(km)); App.src.pick.addFeature(f); });
     } else if (pt) {
       const lonlat = ol.proj.toLonLat(pt);
       const f0 = new ol.Feature(new ol.geom.Point(pt)); f0.set('pk', 'pt'); App.src.pick.addFeature(f0);
-      radii().forEach(km => {
+      radii().filter(km => km > 0).forEach(km => {
         const c = ol.geom.Polygon.circular(lonlat, km * 1000, 128).transform('EPSG:4326', 'EPSG:3857');
         const f = new ol.Feature(c); f.set('pk', 'ring'); f.set('km', String(km)); f.set('label', fmtR(km)); App.src.pick.addFeature(f);
       });
@@ -76,7 +76,7 @@
       const e = g.getEnvelopeInternal();
       $('#pickCoord').innerHTML = `<b>${it.title}</b> 전체<br><small>행정구역 경계 기준 (반경은 경계에서 바깥으로)</small>`;
       draw(); out.hidden = true;
-      App.workMap.getView().fit(g3857(g.buffer(Math.max(...radii(), 1) * 1000)).getExtent(), { duration: 300, padding: [30, 30, 30, 30] });
+      App.workMap.getView().fit(g3857(g.buffer(Math.max(0.1, ...radii()) * 1000)).getExtent(), { duration: 300, padding: [30, 30, 30, 30] });
     } catch (e) { App.toast(e.message, 'warn'); }
   }
   function setPoint(p, zoom) {
@@ -84,7 +84,7 @@
     const ll = ol.proj.toLonLat(p), p5 = proj4('EPSG:4326', 'EPSG:5186', ll);
     $('#pickCoord').innerHTML = `위도 ${ll[1].toFixed(5)} · 경도 ${ll[0].toFixed(5)}<br><small>EPSG:5186 X ${p5[0].toFixed(1)} · Y ${p5[1].toFixed(1)}</small>`;
     draw();
-    if (zoom) { const r = Math.max(...radii(), 1) * 1000; App.workMap.getView().fit(ol.extent.buffer(ol.extent.boundingExtent([p]), r * 1.25 / Math.cos(ll[1] * Math.PI / 180)), { duration: 300 }); }
+    if (zoom) { const r = Math.max(0.1, ...radii()) * 1000; App.workMap.getView().fit(ol.extent.buffer(ol.extent.boundingExtent([p]), r * 1.25 / Math.cos(ll[1] * Math.PI / 180)), { duration: 300 }); }
   }
   function togglePick(on) {
     picking = on == null ? !picking : on;
@@ -130,7 +130,7 @@
     if (!pt && !region) { App.toast && App.toast('먼저 검토 위치를 정하세요.', 'warn'); return; }
     if (App.theme !== 'prot') App.setTheme('prot');
     const p5 = region ? null : proj4('EPSG:4326', 'EPSG:5186', ol.proj.toLonLat(pt));
-    await App.protRunAt(p5, Math.max(...radii()), { geom: region ? region.gj : null, bbox: region ? (e => [e.getMinX(), e.getMinY(), e.getMaxX(), e.getMaxY()])(region.g5.getEnvelopeInternal()) : null, btn: $('#btnPickRun'), msg: $('#pickMsg'), onlyChosen: !!($('#pickOnlyChosen') || {}).checked });
+    await App.protRunAt(p5, Math.max(0, ...radii()), { geom: region ? region.gj : null, bbox: region ? (e => [e.getMinX(), e.getMinY(), e.getMaxX(), e.getMaxY()])(region.g5.getEnvelopeInternal()) : null, btn: $('#btnPickRun'), msg: $('#pickMsg'), onlyChosen: !!($('#pickOnlyChosen') || {}).checked });
   }
 
   function build() {

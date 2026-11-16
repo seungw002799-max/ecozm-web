@@ -71,6 +71,11 @@
   }
   // 최신 연도 찾기: 올해+1 부터 2022 까지 차례로 (해마다 전국 갱신)
   async function latestYear(b5) {
+    // 최근에 찾은 연도는 7일 동안 다시 찾지 않음 (없는 연도 확인에 몇 초씩 걸림)
+    const o = O(); if (o.lyYear && Date.now() - (o.lyT || 0) < 7 * 864e5) return o.lyYear;
+    const y = await latestYear0(b5); if (y) { o.lyYear = y; o.lyT = Date.now(); App.saveOpts(); } return y;
+  }
+  async function latestYear0(b5) {
     const now = new Date().getFullYear(), c = [(b5[0] + b5[2]) / 2, (b5[1] + b5[3]) / 2];
     const small = [c[0] - 50, c[1] - 50, c[0] + 50, c[1] + 50];
     for (let y = now + 1; y >= 2022; y--) {

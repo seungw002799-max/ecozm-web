@@ -319,7 +319,33 @@
 
 
   // 일반 WFS (bbox 조건, 중계 서버 경유): 하천정보관리시스템 하천망도, 환경공간정보 소하천구역
+  // 국가하천: 한 하천이 통째로(예: 낙동강 전체) 내려와 매우 느림 → 범위 안 하천 목록만 먼저 받고(빠름),
+  // 하천 도형은 하천마다 한 번만 받아 이 컴퓨터(IndexedDB)에 60일 보관
+  const RCACHE_DAYS = 60;
+  function rdb() { return new Promise((ok, no) => { const q = indexedDB.open('ecozmCache', 1); q.onupgradeneeded = () => q.result.createObjectStore('river'); q.onsuccess = () => ok(q.result); q.onerror = () => no(q.error); }); }
+  async function rget(k) { try { const db = await rdb(); return await new Promise(ok => { const r = db.transaction('river').objectStore('river').get(k); r.onsuccess = () => ok(r.result); r.onerror = () => ok(null); }); } catch (e) { return null; } }
+  async function rput(k, v) { try { const db = await rdb(); db.transaction('river', 'readwrite').objectStore('river').put(v, k); } catch (e) { /* 저장 못 해도 진행 */ } }
+  async function fetchRiverByList(p, b) {
+    const base = `${p.base}?service=WFS&version=1.0.0&request=GetFeature&outputFormat=application/json&typeName=${p.typename}`;
+    const get = async (u, ms) => { const ac = new AbortController(); const tm = setTimeout(() => ac.abort(), ms); try { const r = await fetch(PROXY + encodeURIComponent(u), { signal: ac.signal }); if (!r.ok) throw new Error('HTTP ' + r.status); return JSON.parse(await r.text()); } finally { clearTimeout(tm); } };
+    const list = await get(`${base}&propertyName=id,rivcd,rivnm&bbox=${b.join(',')},EPSG:4326`, 40000);
+    const ids = [...new Map((list.features || []).map(f => [f.properties.id, f.properties])).values()];
+    const feats = [];
+    for (const pr of ids) {
+      const key = p.typename + '|' + pr.id; let c = await rget(key);
+      if (!c || Date.now() - c.t > RCACHE_DAYS * 864e5) {
+        const j = await get(`${base}&srsName=EPSG:4326&CQL_FILTER=${encodeURIComponent('id=' + pr.id)}`, 150000);
+        const f = (j.features || [])[0]; if (!f || !f.geometry) continue;
+        let geom = f.geometry;
+        try { const rd = new jsts.io.GeoJSONReader(), wr = new jsts.io.GeoJSONWriter(); geom = wr.write(jsts.simplify.DouglasPeuckerSimplifier.simplify(rd.read(geom), 0.00002)); } catch (e) { /* 원본 사용 */ }   // 약 2m 단위로 단순화
+        c = { t: Date.now(), geom, props: f.properties || pr }; rput(key, c);
+      }
+      feats.push({ type: 'Feature', geometry: c.geom, properties: { name: p.name(c.props || pr) } });
+    }
+    return { type: 'FeatureCollection', _src: '하천정보관리시스템 실시간 (하천 도형은 이 컴퓨터에 보관)', features: feats };
+  }
   async function fetchWfsBbox(p, b) {
+    if (p.id === 'river_nat') { try { return await fetchRiverByList(p, snapB(b)); } catch (e) { throw new Error(`${p.short} 자료를 받지 못했습니다 (${e.name === 'AbortError' ? '시간 초과' : e.message})`); } }
     b = snapB(b);
     const u = `${p.base}?service=WFS&version=1.0.0&request=GetFeature&outputFormat=application/json&srsName=EPSG:4326&typeName=${p.typename}&bbox=${b.join(',')},EPSG:4326`;
     const ac = new AbortController(); const tm = setTimeout(() => ac.abort(), 40000);

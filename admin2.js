@@ -125,6 +125,7 @@
 
   function wantedBox(pad) {
     const bs = App.sites.filter(s => s.bbox).map(s => s.bbox);
+    const pb = App.pickBox && App.pickBox(); if (pb) bs.push(pb);   // 초기 입지 검토 지점·행정구역 주변도
     if (!bs.length) return null;
     const b = [Math.min(...bs.map(x => x[0])) - pad, Math.min(...bs.map(x => x[1])) - pad, Math.max(...bs.map(x => x[2])) + pad, Math.max(...bs.map(x => x[3])) + pad];
     return b.map(v => Math.round(v / 1000) * 1000);
@@ -190,13 +191,13 @@
   App.loadAdmin = load;
 
   function sync() {
-    ['#admChk', '#admChk2'].forEach(id => { const c = $(id); if (c) c.checked = !!App.opts.adm; });
+    ['#admChk', '#admChk2', '#admChk3'].forEach(id => { const c = $(id); if (c) c.checked = !!App.opts.adm; });
     ['#admLabelChk'].forEach(id => { const c = $(id); if (c) c.checked = App.opts.admLabel !== false; });
     const sc = $('#admEmdScale'); if (sc) sc.value = String(emdScale());
   }
   function build() {
     if (App.opts.admLabel === undefined || App.opts.admLabelV !== 2) { App.opts.admLabel = true; App.opts.admLabelV = 2; App.saveOpts(); }   // 새 명칭 방식은 기본으로 켬
-    ['#admChk', '#admChk2'].forEach(id => {
+    ['#admChk', '#admChk2', '#admChk3'].forEach(id => {
       const c = $(id); if (!c) return;
       c.addEventListener('change', e => {
         App.opts.adm = e.target.checked; App.saveOpts(); sync();

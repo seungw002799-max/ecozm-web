@@ -342,7 +342,7 @@
   let pointCtx = null;
   const fcCache = new Map();   // 세션 동안 받은 레이어 자료 (레이어|범위 → 자료)   // 초기 입지 검토: 도면 대신 한 점(EPSG:5186)을 기준으로 조회
   function queryBox(radiusM) {
-    const bs = pointCtx ? [[pointCtx.pt[0], pointCtx.pt[1], pointCtx.pt[0], pointCtx.pt[1]]] : App.sites.filter(s => s.bbox).map(s => s.bbox);
+    const bs = pointCtx ? [pointCtx.bbox || [pointCtx.pt[0], pointCtx.pt[1], pointCtx.pt[0], pointCtx.pt[1]]] : App.sites.filter(s => s.bbox).map(s => s.bbox);
     if (!bs.length) return null;
     const b = [Math.min(...bs.map(x => x[0])) - radiusM, Math.min(...bs.map(x => x[1])) - radiusM,
       Math.max(...bs.map(x => x[2])) + radiusM, Math.max(...bs.map(x => x[3])) + radiusM];
@@ -369,7 +369,8 @@
       // 사업지구 합치기 (EPSG:5186)
       const rd = new jsts.io.GeoJSONReader();
       let site;
-      if (pointCtx) site = new jsts.geom.GeometryFactory().createPoint(new jsts.geom.Coordinate(pointCtx.pt[0], pointCtx.pt[1])).buffer(1);   // 검토 지점 (반지름 1m)
+      if (pointCtx && pointCtx.geom) site = rd.read(pointCtx.geom);   // 행정구역 전체를 기준으로
+      else if (pointCtx) site = new jsts.geom.GeometryFactory().createPoint(new jsts.geom.Coordinate(pointCtx.pt[0], pointCtx.pt[1])).buffer(1);   // 검토 지점 (반지름 1m)
       else { const siteGeoms = App.sites.filter(s => s.geometry).map(s => rd.read(s.geometry)); site = siteGeoms[0]; for (let i = 1; i < siteGeoms.length; i++) site = site.union(siteGeoms[i]); }
       const fmt3857 = new ol.format.GeoJSON();
       // 지도용 도형: 검토 범위(+여유) 밖은 잘라내고 1m 단위로 단순화 (거리·중첩 계산은 원본 도형으로)

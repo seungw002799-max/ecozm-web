@@ -564,3 +564,6 @@ body:not([data-theme="target"]) #elList [data-elkey="table"] { display: none; }
 #flowBox .el-body { display: block; }
 #flowBox .fl-row { grid-template-columns: 18px minmax(130px,1fr) 72px 30px 28px; margin-top: 4px; }
 #flowBox .fl-row .stepper { min-width: 130px; }
+
+.pick-rings { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 2px 0 6px 22px; font-size: 12px; }
+.pick-item.region b { color: #C2185B; }

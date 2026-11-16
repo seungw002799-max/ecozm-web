@@ -214,7 +214,7 @@
     if (App.theme === 'lc' && App.lcLegend) App.lcLegend().forEach(r => rows.push(r));
     if ((App.theme === 'target' || App.theme === 'meas') && App.targetLegend) App.targetLegend().filter(r => !hide['t:' + r.t]).forEach(r => rows.push({ t: r.t, prot: { color: r.color, dash: 'solid', id: 't' } }));
     // 행정구역 경계는 범례에 넣지 않음 (보통 범례에 들어가지 않음)
-    if (rows.length === 1 && ['target', 'meas', 'lc'].includes(App.theme)) return null;   // 넣을 항목이 없으면 범례 상자도 안 그림
+    if (rows.length === 1 && ['target', 'meas', 'lc', 'prot'].includes(App.theme)) return null;   // 넣을 항목이 없으면 범례 상자도 안 그림
       let tw = 0;
       rows.forEach(r => { if (!r.head) tw = Math.max(tw, textW(ctx, r.t, f, false)); });
       // 열 수: 직접 정하거나(1~4), 자동이면 항목이 많을 때(15개 넘음) 2열

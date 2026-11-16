@@ -17,11 +17,10 @@
   // 지도 그림: 반경 원(검은 선 + 흰 테두리) + 원 위 거리 상자 + 검토 지점 표시
   App.pickStyle = function (f, s) {
     if (f.get('pk') === 'mask') return App.theme === 'prot' ? new ol.style.Style({ fill: new ol.style.Fill({ color: `rgba(255,255,255,${App.opts.pickMaskA == null ? 0.55 : Number(App.opts.pickMaskA)})` }) }) : null;
-    if (f.get('pk') === 'region') return App.theme === 'prot' ? [new ol.style.Style({ stroke: new ol.style.Stroke({ color: '#fff', width: 4.5 * s }) }), new ol.style.Style({ stroke: new ol.style.Stroke({ color: '#E91E63', width: 2.2 * s }) })] : null;   // 고른 행정구역 경계는 항상
+    if (f.get('pk') === 'region') return App.theme === 'prot' ? [new ol.style.Style({ stroke: new ol.style.Stroke({ color: '#fff', width: 4.5 * s }) }), new ol.style.Style({ stroke: new ol.style.Stroke({ color: App.opts.pickRegionColor || '#E91E63', width: 2.2 * s }) })] : null;   // 고른 행정구역 경계는 항상
     if (App.theme !== 'prot') return null;
     if (f.get('src') === 'prot' ? App.opts.protRingShow === false : App.opts.pickShow === false) return null;   // 레이어 모음 검토 반경 / 초기 입지 검토 반경
     const k = f.get('pk');
-    if (f.get('src') !== 'prot' && k === 'ring' && (App.opts.pickHide || {})[f.get('km')]) return null;   // 반경별 끄기
     if (k === 'pt') return new ol.style.Style({ image: new ol.style.RegularShape({ points: 4, radius: 9 * s, radius2: 0, angle: Math.PI / 4, stroke: new ol.style.Stroke({ color: '#E91E63', width: 3 * s }) }) });
     const g = f.getGeometry(), ex = g.getExtent();
     const top = [(ex[0] + ex[2]) / 2 - (ex[2] - ex[0]) * 0.18, ex[1] + (ex[3] - ex[1]) * 0.948];
@@ -144,12 +143,12 @@
     $('#btnPickClear').addEventListener('click', () => { pt = null; region = null; draw(); $('#pickCoord').textContent = '위치를 정하지 않았습니다'; });
     $('#pickShow').addEventListener('change', e => { App.opts.pickShow = e.target.checked; const p2 = $('#pickShow2'); if (p2) p2.checked = e.target.checked; App.saveOpts(); App.liveSets.forEach(s => s.changed && s.changed()); App.emit(); });
     $('#btnPickLayers').addEventListener('click', () => App.switchTab('prot'));
-    $('#pickRingChecks').addEventListener('change', e => { const k = e.target.dataset.pkm; if (!k) return; App.opts.pickHide = App.opts.pickHide || {}; if (e.target.checked) delete App.opts.pickHide[k]; else App.opts.pickHide[k] = true; App.saveOpts(); App.liveSets.forEach(s => s.changed && s.changed()); App.emit(); });
     $('#pickMask').checked = App.opts.pickMask !== false; $('#pickMaskA').value = Math.round((App.opts.pickMaskA == null ? 0.55 : App.opts.pickMaskA) * 100);
     $('#pickMask').addEventListener('change', e => { App.opts.pickMask = e.target.checked; App.saveOpts(); draw(); });
     $('#pickMaskA').addEventListener('input', e => { App.opts.pickMaskA = Math.max(0, Math.min(95, Number(e.target.value) || 0)) / 100; App.saveOpts(); App.liveSets.forEach(s => s.changed && s.changed()); });
-    $('#pickShow2').checked = App.opts.pickShow !== false; $('#pickShow').checked = App.opts.pickShow !== false;   // 두 체크 상태를 저장값과 맞춤
-    $('#pickShow2').addEventListener('change', e => { App.opts.pickShow = e.target.checked; $('#pickShow').checked = e.target.checked; App.saveOpts(); App.liveSets.forEach(s => s.changed && s.changed()); App.emit(); });
+    $('#pickShow').checked = App.opts.pickShow !== false;   // 체크 상태를 저장값과 맞춤
+    $('#pickRegionColor').value = App.opts.pickRegionColor || '#E91E63';
+    $('#pickRegionColor').addEventListener('input', e => { App.opts.pickRegionColor = e.target.value; App.saveOpts(); App.liveSets.forEach(s => s.changed && s.changed()); });
     renderRingChecks();
     $('#pickTable').addEventListener('change', e => {
       if (e.target.dataset.show) { App.opts.protShow[e.target.dataset.show] = e.target.checked; App.saveOpts(); App.liveSets.forEach(s => s.changed && s.changed()); App.emit(); return; }

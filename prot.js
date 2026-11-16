@@ -145,6 +145,7 @@
       cache.set(key, st);
     }
     if (App.LABELS_OFF) return st;   // 레이어 명칭은 표시하지 않음 (경계선만)
+    if (App.opts.riverLabel === false && /^river_/.test(p.id)) return st;   // 하천명 끄기
     if (p.labelNearest && !f.get('labelMe')) return st;
     const custom = (App.opts.protLabelText || {})[App.protLabelKey(f)];
     const label = App.opts.protLabel !== false ? (custom != null && custom !== '' ? custom : (p.mapLabel ? p.mapLabel(f.get('name') || '') : (f.get('name') || ''))) : '';
@@ -580,6 +581,7 @@
     $('#protLabelChk').addEventListener('change', e => { App.opts.protLabel = e.target.checked; App.saveOpts(); cache.clear(); App.liveSets.forEach(s => s.changed()); App.emit(); });
     $('#protRingChk').checked = App.opts.protRingShow !== false;
     $('#protRingChk').addEventListener('change', e => { App.opts.protRingShow = e.target.checked; App.saveOpts(); App.liveSets.forEach(s => s.changed()); App.emit(); });
+    ['#riverLblChk', '#riverLblChk2'].forEach(id => { const c = $(id); if (!c) return; c.checked = App.opts.riverLabel !== false; c.addEventListener('change', e => { App.opts.riverLabel = e.target.checked; App.saveOpts(); ['#riverLblChk', '#riverLblChk2'].forEach(j => { const d = $(j); if (d) d.checked = e.target.checked; }); cache.clear(); App.liveSets.forEach(s => s.changed()); App.emit(); }); });
     $('#btnProt').addEventListener('click', () => run());   // 이벤트 객체가 반경 인자로 들어가지 않도록
     const sb = $('#protStyleBox');
     if (sb) sb.addEventListener('input', e => {

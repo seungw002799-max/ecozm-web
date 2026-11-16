@@ -746,7 +746,7 @@
       if (!active) return;
       const lf = labelHit(e);
       if (!lf) {   // 레이어(면·선)를 두 번 누르면 레이어 속성 창
-        let hitF = null; map.forEachFeatureAtPixel(map.getEventPixel(e), f => { if (!hitF && f.get('kind') && f.get('kind') !== 'adm') hitF = f; }, { layerFilter: l => l === set.prot, hitTolerance: 4 });
+        let hitF = null; map.forEachFeatureAtPixel(map.getEventPixel(e), f => { if (!f.get('kind') || f.get('kind') === 'adm') return; const a = Number(f.get('area')) || 0; if (!hitF || a < (Number(hitF.get('area')) || 0)) hitF = f; }, { layerFilter: l => l === set.prot, hitTolerance: 4 });   // 겹치면 가장 작은 레이어(예: 하천)를 고름
         if (hitF) { e.stopPropagation(); e.preventDefault(); layerPopup(hitF.get('kind'), e.clientX, e.clientY); }
         return;
       }

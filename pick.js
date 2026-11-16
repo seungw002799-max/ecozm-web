@@ -16,6 +16,7 @@
 
   // 지도 그림: 반경 원(검은 선 + 흰 테두리) + 원 위 거리 상자 + 검토 지점 표시
   App.pickStyle = function (f, s) {
+    if (f.get('pk') === 'mask') return App.theme === 'prot' ? new ol.style.Style({ fill: new ol.style.Fill({ color: `rgba(255,255,255,${App.opts.pickMaskA == null ? 0.55 : Number(App.opts.pickMaskA)})` }) }) : null;
     if (f.get('pk') === 'region') return App.theme === 'prot' ? [new ol.style.Style({ stroke: new ol.style.Stroke({ color: '#fff', width: 4.5 * s }) }), new ol.style.Style({ stroke: new ol.style.Stroke({ color: '#E91E63', width: 2.2 * s }) })] : null;   // 고른 행정구역 경계는 항상
     if (App.theme !== 'prot') return null;
     if (f.get('src') === 'prot' ? App.opts.protRingShow === false : App.opts.pickShow === false) return null;   // 레이어 모음 검토 반경 / 초기 입지 검토 반경
@@ -35,6 +36,15 @@
   function draw() {
     App.src.pick.getFeatures().filter(f => f.get('src') !== 'prot').forEach(f => App.src.pick.removeFeature(f));
     renderRingChecks();
+    // 선택 범위 밖을 흰색 반투명으로 덮어 선택 범위가 잘 보이게 (행정구역: 경계 밖 / 지점: 가장 큰 반경 밖)
+    if (App.opts.pickMask !== false && (region || pt)) {
+      try {
+        const inner = region ? region.g5 : (p5 => new jsts.geom.GeometryFactory().createPoint(new jsts.geom.Coordinate(p5[0], p5[1])).buffer(Math.max(...radii(), 1) * 1000, 32))(proj4('EPSG:4326', 'EPSG:5186', ol.proj.toLonLat(pt)));
+        const e = inner.getEnvelopeInternal(), m = 300000, gf = new jsts.geom.GeometryFactory();
+        const big = gf.toGeometry(new jsts.geom.Envelope(e.getMinX() - m, e.getMaxX() + m, e.getMinY() - m, e.getMaxY() + m));
+        const fm = new ol.Feature(g3857(big.difference(inner))); fm.set('pk', 'mask'); App.src.pick.addFeature(fm);
+      } catch (err) { /* 덮개 생략 */ }
+    }
     if (region) {
       const fr = new ol.Feature(g3857(region.g5)); fr.set('pk', 'region'); App.src.pick.addFeature(fr);
       radii().forEach(km => { let b; try { b = region.g5.buffer(km * 1000, 16); } catch (e) { return; } const f = new ol.Feature(g3857(b)); f.set('pk', 'ring'); f.set('km', String(km)); f.set('label', fmtR(km)); App.src.pick.addFeature(f); });
@@ -135,6 +145,9 @@
     $('#pickShow').addEventListener('change', e => { App.opts.pickShow = e.target.checked; const p2 = $('#pickShow2'); if (p2) p2.checked = e.target.checked; App.saveOpts(); App.liveSets.forEach(s => s.changed && s.changed()); App.emit(); });
     $('#btnPickLayers').addEventListener('click', () => App.switchTab('prot'));
     $('#pickRingChecks').addEventListener('change', e => { const k = e.target.dataset.pkm; if (!k) return; App.opts.pickHide = App.opts.pickHide || {}; if (e.target.checked) delete App.opts.pickHide[k]; else App.opts.pickHide[k] = true; App.saveOpts(); App.liveSets.forEach(s => s.changed && s.changed()); App.emit(); });
+    $('#pickMask').checked = App.opts.pickMask !== false; $('#pickMaskA').value = Math.round((App.opts.pickMaskA == null ? 0.55 : App.opts.pickMaskA) * 100);
+    $('#pickMask').addEventListener('change', e => { App.opts.pickMask = e.target.checked; App.saveOpts(); draw(); });
+    $('#pickMaskA').addEventListener('input', e => { App.opts.pickMaskA = Math.max(0, Math.min(95, Number(e.target.value) || 0)) / 100; App.saveOpts(); App.liveSets.forEach(s => s.changed && s.changed()); });
     $('#pickShow2').checked = App.opts.pickShow !== false;
     $('#pickShow2').addEventListener('change', e => { App.opts.pickShow = e.target.checked; $('#pickShow').checked = e.target.checked; App.saveOpts(); App.liveSets.forEach(s => s.changed && s.changed()); App.emit(); });
     renderRingChecks();

@@ -567,3 +567,5 @@ body:not([data-theme="target"]) #elList [data-elkey="table"] { display: none; }
 
 .pick-rings { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 2px 0 6px 22px; font-size: 12px; }
 .pick-item.region b { color: #C2185B; }
+
+.pick-mask { align-items: center; gap: 10px; } .pick-mask .unit-input { width: 110px; }

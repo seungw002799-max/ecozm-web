@@ -148,7 +148,7 @@
     $('#pickMask').checked = App.opts.pickMask !== false; $('#pickMaskA').value = Math.round((App.opts.pickMaskA == null ? 0.55 : App.opts.pickMaskA) * 100);
     $('#pickMask').addEventListener('change', e => { App.opts.pickMask = e.target.checked; App.saveOpts(); draw(); });
     $('#pickMaskA').addEventListener('input', e => { App.opts.pickMaskA = Math.max(0, Math.min(95, Number(e.target.value) || 0)) / 100; App.saveOpts(); App.liveSets.forEach(s => s.changed && s.changed()); });
-    $('#pickShow2').checked = App.opts.pickShow !== false;
+    $('#pickShow2').checked = App.opts.pickShow !== false; $('#pickShow').checked = App.opts.pickShow !== false;   // 두 체크 상태를 저장값과 맞춤
     $('#pickShow2').addEventListener('change', e => { App.opts.pickShow = e.target.checked; $('#pickShow').checked = e.target.checked; App.saveOpts(); App.liveSets.forEach(s => s.changed && s.changed()); App.emit(); });
     renderRingChecks();
     $('#pickTable').addEventListener('change', e => {

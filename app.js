@@ -93,7 +93,7 @@ async function limited(fn) {
 
 async function fetchJsonRetry(url, tries, ms) {
   let last = null;
-  tries = tries || 3; ms = ms || 30000;
+  tries = tries || 4; ms = ms || 40000;   // 공공데이터포털이 잠깐 느려질 때가 있어 4번까지, 간격을 늘려 다시 시도
   for (let a = 0; a < tries; a++) {
     const ac = new AbortController();
     const tm = setTimeout(() => ac.abort(), ms);
@@ -104,9 +104,10 @@ async function fetchJsonRetry(url, tries, ms) {
       try { return JSON.parse(txt); } catch (e) { throw new Error('응답 형식 오류: ' + txt.slice(0, 120)); }
     } catch (e) {
       last = e.name === 'AbortError' ? new Error('시간 초과(' + Math.round(ms / 1000) + '초)') : e;
-      await sleep(500 * (a + 1));
+      if (a < tries - 1) await sleep([1500, 4000, 8000][a] || 8000);
     } finally { clearTimeout(tm); }
   }
+  if (last && /시간 초과/.test(last.message)) throw new Error('공공데이터포털(생태자연도 서버)이 응답하지 않습니다. 잠시 후 다시 시도해 주세요 (' + last.message + ')');
   throw last;
 }
 

@@ -406,7 +406,7 @@
       await Promise.all(Array.from({ length: Math.min(4, chosen.length) }, worker));
       if (fcCache.size > 80) fcCache.clear();
       // 검토 반경 범위 (사업지구 경계에서 반경만큼): 레이어가 이 안에 얼마나 들어오는지 계산 + 지도에 표시
-      let radBuf = null; try { radBuf = site.buffer(radius, 32); } catch (e) { radBuf = null; }
+      let radBuf = null; try { radBuf = radius > 0 ? site.buffer(radius, 32) : site; } catch (e) { radBuf = null; }
       App.src.pick.getFeatures().filter(f => f.get('src') === 'prot').forEach(f => App.src.pick.removeFeature(f));
       if (radBuf && !pointCtx) { try { const rg = fmt3857.readGeometry(new jsts.io.GeoJSONWriter().write(radBuf), { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' }); const rf = new ol.Feature(rg); rf.set('pk', 'ring'); rf.set('src', 'prot'); rf.set('label', '검토 반경 ' + fmt(radius / 1000) + 'km'); App.src.pick.addFeature(rf); } catch (e) { /* 표시 생략 */ } }
       for (let ci = 0; ci < chosen.length; ci++) {

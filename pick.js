@@ -17,7 +17,7 @@
   // 지도 그림: 반경 원(검은 선 + 흰 테두리) + 원 위 거리 상자 + 검토 지점 표시
   App.pickStyle = function (f, s) {
     if (f.get('pk') === 'mask') return App.theme === 'prot' ? new ol.style.Style({ fill: new ol.style.Fill({ color: `rgba(255,255,255,${App.opts.pickMaskA == null ? 0.55 : Number(App.opts.pickMaskA)})` }) }) : null;
-    if (f.get('pk') === 'region') return App.theme === 'prot' ? [new ol.style.Style({ stroke: new ol.style.Stroke({ color: '#fff', width: 4.5 * s }) }), new ol.style.Style({ stroke: new ol.style.Stroke({ color: App.opts.pickRegionColor || '#E91E63', width: 2.2 * s }) })] : null;   // 고른 행정구역 경계는 항상
+    if (f.get('pk') === 'region') return App.theme === 'prot' ? (rw => [...(Number(App.opts.regionBuf == null ? 1.15 : App.opts.regionBuf) > 0 ? [new ol.style.Style({ stroke: new ol.style.Stroke({ color: '#fff', width: (rw + 2 * Number(App.opts.regionBuf == null ? 1.15 : App.opts.regionBuf)) * s }) })] : []), new ol.style.Style({ stroke: new ol.style.Stroke({ color: App.opts.pickRegionColor || '#E91E63', width: rw * s }) })])(Number(App.opts.regionW) || 2.2) : null;   // 고른 행정구역 경계는 항상
     if (App.theme !== 'prot') return null;
     if (f.get('src') === 'prot' ? App.opts.protRingShow === false : App.opts.pickShow === false) return null;   // 레이어 모음 검토 반경 / 초기 입지 검토 반경
     const k = f.get('pk');
@@ -159,7 +159,7 @@
   function initStyle() {
     const o = App.opts, apply = () => { App.saveOpts(); App.liveSets.forEach(s => s.changed && s.changed()); if (App.layout && App.layout.redraw) App.layout.redraw(); App.emit(); };
     const bind = (id, k, def) => { const el = $(id); if (!el) return; el.value = o[k] == null ? def : o[k]; el.addEventListener('input', e => { o[k] = el.type === 'number' ? Number(e.target.value) : e.target.value; apply(); }); };
-    bind('#psRingColor', 'ringColor', '#111111'); bind('#psRingW', 'ringW', 1.8); bind('#psRingHalo', 'ringHalo', '#ffffff'); bind('#psRingBuf', 'ringBuf', 1.1); bind('#psLblPct', 'lblPct', 100);
+    bind('#psRingColor', 'ringColor', '#111111'); bind('#psRingW', 'ringW', 1.8); bind('#psRingHalo', 'ringHalo', '#ffffff'); bind('#psRingBuf', 'ringBuf', 1.1); bind('#psLblPct', 'lblPct', 100); bind('#psRegionW', 'regionW', 2.2); bind('#psRegionBuf', 'regionBuf', 1.15); bind('#psAdmW', 'admWPct', 100);
     const kinds = () => [...new Set((App.protRows ? App.protRows() : []).map(r => r.kind))];
     $('#psLayersOff').addEventListener('click', () => { o.protShow = o.protShow || {}; kinds().forEach(k => { o.protShow[k] = false; }); apply(); });
     $('#psLayersOn').addEventListener('click', () => { o.protShow = o.protShow || {}; kinds().forEach(k => { o.protShow[k] = true; }); apply(); });

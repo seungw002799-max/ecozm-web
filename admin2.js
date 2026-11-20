@@ -97,11 +97,11 @@
 
   const stCache = new Map();
   function lineStyle(lvl, s) {
-    const lk = App.admLook(), key = lvl + lk.color + s.toFixed(3);
+    const lk = App.admLook(), wk = (Number(App.opts.admWPct) || 100) / 100, key = lvl + lk.color + s.toFixed(3) + '|' + wk;
     let st = stCache.get(key); if (st) return st;
     const w = lvl === 'sido' ? 2.4 : lvl === 'sigg' ? 1.6 : 0.9;
     const dash = lvl === 'sido' ? [12, 4, 2, 4] : lvl === 'sigg' ? [9, 3, 2, 3] : [2, 2.5];
-    st = new ol.style.Style({ stroke: new ol.style.Stroke({ color: lk.color, width: Math.max(0.6, w * s), lineDash: dash.map(v => v * s) }) });
+    st = new ol.style.Stroke ? new ol.style.Style({ stroke: new ol.style.Stroke({ color: lk.color, width: Math.max(0.3, w * wk * s), lineDash: dash.map(v => v * s) }) }) : null;   // 두께(%)는 초기 입지 검토 > 출력 > 표시 스타일
     if (stCache.size > 200) stCache.clear(); stCache.set(key, st);
     return st;
   }

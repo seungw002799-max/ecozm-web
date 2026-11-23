@@ -88,11 +88,14 @@
     if (/SERVICE_KEY_IS_NOT_REGISTERED|등록되지 않은/.test(t)) { const e = new Error('NOTREG'); e.notReg = true; throw e; }
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const x = new DOMParser().parseFromString(t, 'text/xml');
-    return [...x.querySelectorAll('item')].map(it => Object.fromEntries([...it.children].map(c => [c.tagName, c.textContent.trim()])));
+    const items = [...x.querySelectorAll('item')].map(it => Object.fromEntries([...it.children].map(c => [c.tagName, c.textContent.trim()])));
+    const tc = x.querySelector('totalCount'), total = tc ? Number(tc.textContent) || 0 : 0;
+    if (params.pageNo < 4 && total > params.pageNo * params.numOfRows) { const more = await apiList(path, Object.assign({}, params, { pageNo: params.pageNo + 1 })); return items.concat(more); }
+    return items;
   }
   async function runByName(words, msg) {
     const yrs = new Set(yearsList().map(String)), out = new Map(), want = opt().kinds;
-    const add = (code, kind, name, dt, organ) => { if (!code || out.has(code)) return; const y = String(dt || '').slice(0, 4) || String(code).slice(2, 6); if (!yrs.has(y)) return; out.set(code, { code, kind, name, year: y, organ: organ || '' }); };
+    const add = (code, kind, name, dt, organ) => { if (!code || out.has(code)) return; const cy = String(code).slice(2, 6), y = /^(19|20)\d\d$/.test(cy) ? cy : String(dt || '').slice(0, 4); if (!yrs.has(y)) return; out.set(code, { code, kind, name, year: y, organ: organ || '' }); };
     for (const w of words) {
       msg.textContent = `사업명에 "${w}"이(가) 들어간 사업을 찾는 중...`;
       const jobs = [];

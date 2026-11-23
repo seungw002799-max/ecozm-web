@@ -95,8 +95,12 @@
   }
   async function runByName(words, msg) {
     const yrs = new Set(yearsList().map(String)), out = new Map(), want = opt().kinds;
-    const add = (code, kind, name, dt, organ) => { if (!code || out.has(code)) return; const cy = String(code).slice(2, 6), y = /^(19|20)\d\d$/.test(cy) ? cy : String(dt || '').slice(0, 4); if (!yrs.has(y)) return; out.set(code, { code, kind, name, year: y, organ: organ || '' }); };
+    // 다른 지역의 비슷한 이름 빼기: '대구미천'(앞에 한글), '구미리'(리·동), '청주시 … 구미리'(앞에 다른 시·군 이름)
+    const okName = (name, w) => { const s = String(name || ''); let i = s.indexOf(w); while (i >= 0) { const pre = s.slice(0, i), nx = s.charAt(i + w.length); const badPre = /[가-힣]$/.test(pre), badNx = /^[리동읍면]$/.test(nx) && !/^(시|군|구)$/.test(nx), otherCity = pre.split(/[\s()]+/).some(t => t.length >= 3 && /[시군]$/.test(t)); if (!badPre && !badNx && !otherCity) return true; i = s.indexOf(w, i + 1); } return false; };
+    let curW = '';
+    const add = (code, kind, name, dt, organ) => { if (!code || out.has(code) || (curW && !okName(name, curW))) return; const cy = String(code).slice(2, 6), y = /^(19|20)\d\d$/.test(cy) ? cy : String(dt || '').slice(0, 4); if (!yrs.has(y)) return; out.set(code, { code, kind, name, year: y, organ: organ || '' }); };
     for (const w of words) {
+      curW = w;
       msg.textContent = `사업명에 "${w}"이(가) 들어간 사업을 찾는 중...`;
       const jobs = [];
       if (want.strat !== false) jobs.push(apiList('BeffatStrtgySmallScaleDscssSttusInfoInqireService/getBsnsStrtgySmallScaleDscssListInfoInqire', { pageNo: 1, numOfRows: 300, pressGubn: 'S', searchText: w }).then(a => a.forEach(i => add(i.perCd, 'strat', i.bizNm, i.applyDt))));

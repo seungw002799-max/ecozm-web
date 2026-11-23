@@ -629,3 +629,5 @@ body:not([data-theme="prot"]) #tabLayout.embedded .row:has(#btnLabelReset), body
 .eia-note { font-size: 12px; color: #a33; margin: 4px 0; }
 .eia-foot li { font-size: 11px; }
 #tabEia .table-wrap { max-height: 46vh; overflow: auto; }
+.eia-tbl td:nth-child(4), .eia-tbl td:nth-child(1) { white-space: nowrap; }
+#eiaNameTable td:nth-child(3) { white-space: nowrap; }

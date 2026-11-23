@@ -52,8 +52,9 @@
     const c = [[env.getMinX() - radius, env.getMinY() - radius], [env.getMaxX() + radius, env.getMinY() - radius], [env.getMinX() - radius, env.getMaxY() + radius], [env.getMaxX() + radius, env.getMaxY() + radius]].map(p => proj4('EPSG:5186', 'EPSG:3857', p));
     const b = [Math.min(...c.map(p => p[0])), Math.min(...c.map(p => p[1])), Math.max(...c.map(p => p[0])), Math.max(...c.map(p => p[1]))].map(v => Math.round(v));
     const yrs = yearsList();
-    const cql = `BBOX(geom,${b.join(',')},'EPSG:3857') AND (${yrs.map(y => `mgtno LIKE '__${y}%'`).join(' OR ')})`;
-    const u = `${WFS}?SERVICE=WFS&VERSION=1.0.0&REQUEST=GetFeature&typeName=EIASS:ICT_BA00&outputFormat=application/json&srsName=EPSG:4326&maxFeatures=3000` +
+    const cql = `BBOX(geom,${b.join(',')},'EPSG:3857')`;   // 연도 조건을 같이 넣으면 서버가 응답하지 않아 연도는 받은 뒤 거름
+    const ySet = new Set(yrs.map(String));
+    const u = `${WFS}?SERVICE=WFS&VERSION=1.0.0&REQUEST=GetFeature&typeName=EIASS:ICT_BA00&outputFormat=application/json&srsName=EPSG:4326&maxFeatures=5000` +
       '&propertyName=mgtno,eia_gb_cd,biz_nm,clss,sp_sd_nm,sp_sgg_nm,sp_emd_nm,sp_etc_txt,spape_area,geom&CQL_FILTER=' + encodeURIComponent(cql);
     msg.textContent = '환경영향평가 지리정보서비스에서 사업 위치를 받는 중...';
     const j = await fetchJson(u);
@@ -62,6 +63,7 @@
     for (const f of j.features || []) {
       if (!f.geometry) continue;
       const p = f.properties || {};
+      if (!ySet.has(String(p.mgtno || '').slice(2, 6))) continue;
       let g5186;
       try { g5186 = JSON.parse(JSON.stringify(f.geometry)); const tf = a => typeof a[0] === 'number' ? proj4('EPSG:4326', 'EPSG:5186', a) : a.map(tf); g5186.coordinates = tf(g5186.coordinates); } catch (e) { continue; }
       let d; try { const jg = rd.read(g5186); d = site.distance(jg.isValid() ? jg : jg.buffer(0)); } catch (e) { continue; }

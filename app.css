@@ -494,9 +494,11 @@ body { -webkit-font-smoothing: antialiased; }
 /* 도면 출력 탭: 평가대상지역 표는 대상지역 설정도에서만 */
 body:not([data-theme="target"]) #elList [data-elkey="table"] { display: none; }
 /* 대상지역 설정도·측정지점 위치도 탭 안 출력: 생태자연도·레이어 모음 관련 칸은 숨김 */
-#tabLayout.embedded [data-row="opA"], #tabLayout.embedded [data-row="opI"], #tabLayout.embedded [data-row="opE"] { display: none; }
-#tabLayout.embedded label.check:has([data-f="all"]) { display: none; }
-#tabLayout.embedded .row:has(#btnLabelReset), #tabLayout.embedded #styleSection { display: none; }
+body:not([data-theme="eco"]) #tabLayout.embedded [data-row="opA"], body:not([data-theme="eco"]) #tabLayout.embedded [data-row="opI"], body:not([data-theme="ecvam"]) #tabLayout.embedded [data-row="opE"] { display: none; }
+body:not([data-theme="eco"]):not([data-theme="ecvam"]) #tabLayout.embedded label.check:has([data-f="all"]) { display: none; }
+body:not([data-theme="prot"]) #tabLayout.embedded .row:has(#btnLabelReset), body:not([data-theme="prot"]) #tabLayout.embedded #styleSection { display: none; }
+#styleBox .sty-row { grid-template-columns: 20px 16px 1fr !important; }
+#styleBox .sty-head.lg2 { display: grid; grid-template-columns: 20px 16px 1fr; }
 #tabLayout.embedded .card-section .bullets li:nth-child(n+4) { display: none; }
 
 /* 토지피복지도 */

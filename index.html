@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>도면 출력 관련</title>
 <link rel="stylesheet" href="vendor/ol.css">
-<link rel="stylesheet" href="app.css?v=20261117u">
+<link rel="stylesheet" href="app.css?v=20261117v">
 </head>
 <body>
 <header class="topbar">
@@ -17,8 +17,7 @@
       <span class="tab-sep"></span>
       <button class="tab tab-grp" data-tab="grp-region" type="button">지역개황</button>
       <button class="tab tab-grp" data-tab="grp-etc" type="button">기타</button>
-      <span class="tab-sep"></span>
-      <button class="tab" data-tab="layout" type="button">도면 출력</button>
+      <button class="tab" hidden data-tab="layout" type="button">도면 출력</button>
       <button class="tab" hidden data-tab="ecvam" type="button"></button><button class="tab" hidden data-tab="eco" type="button"></button><button class="tab" hidden data-tab="prot" type="button"></button><button class="tab" hidden data-tab="target" type="button"></button><button class="tab" hidden data-tab="meas" type="button"></button><button class="tab" hidden data-tab="lc" type="button"></button>
   </nav>
   <div class="topbar-right" id="healthInfo"></div>
@@ -88,7 +87,8 @@
 
     <!-- ===================== 생태자연도 탭 ===================== -->
     <div id="tabEco" class="tabpane" hidden>
-      <section class="card-section">
+      <div class="view-toggle" data-embed="eco"><button type="button" data-view="map" class="on">작업</button><button type="button" data-view="print">출력</button></div>
+      <section class="card-section" data-mode="work">
         <h2>1. 자료 상태</h2>
         <div id="freshBanner" class="banner warn" hidden></div>
         <div class="fresh-row">
@@ -98,12 +98,12 @@
         <div class="src-note">출처 : 국립생태원 에코뱅크 생태·자연도 <span class="tag">실시간</span> <a href="https://www.nie-ecobank.kr/spceinfo/naturalMap.do" target="_blank" rel="noopener">에코뱅크</a></div>
       </section>
 
-      <section class="card-section">
+      <section class="card-section" data-mode="work">
         <h2>2. 생태자연도 표시</h2>
         <div class="mapopts" id="ecoOpts"></div>
       </section>
 
-      <section class="card-section">
+      <section class="card-section" data-mode="work">
         <h2>3. 면적 산정</h2>
         <label class="field inline"><span>주변 표시 범위(m)</span>
           <input type="number" id="optRange" min="0" step="50" value="500"></label>
@@ -130,11 +130,13 @@
           </div>
         </div>
       </section>
+      <div id="ecoLayoutSlot" class="layout-slot"></div>
     </div>
 
     <!-- ===================== 보호구역 탭 ===================== -->
     <div id="tabProt" class="tabpane" hidden>
-      <section class="card-section">
+      <div class="view-toggle" data-embed="prot"><button type="button" data-view="map" class="on">작업</button><button type="button" data-view="print">출력</button></div>
+      <section class="card-section" data-mode="work">
         <h2>조회할 레이어 선택</h2>
         <div id="protList" class="prot-list"></div>
           <div class="prot-manual"><b>지질공원</b> (자연공원법) <span class="tag-warn">개인 확인 필요</span><small>공개된 구역 공간자료가 없어 자동 조회에서 빠집니다</small></div>
@@ -149,6 +151,7 @@
         <div id="protTable" class="prot-result" hidden></div>
         <div id="protStyleBox" class="style-box prot-style" hidden></div>
       </section>
+      <div id="protLayoutSlot" class="layout-slot"></div>
     </div>
 
     <!-- ===================== 초기 입지 검토 탭 ===================== -->
@@ -273,7 +276,8 @@
       </div>
       <!-- ===================== 국토환경성평가 탭 ===================== -->
     <div id="tabEcvam" class="tabpane" hidden>
-      <section class="card-section">
+      <div class="view-toggle" data-embed="ecvam"><button type="button" data-view="map" class="on">작업</button><button type="button" data-view="print">출력</button></div>
+      <section class="card-section" data-mode="work">
         <h2>1. 국토환경성평가지도 표시</h2>
         <label class="field"><span>평가 지도</span><select id="ecvamLayerSel"></select></label>
         <div class="mapopts" id="ecvamOpts"></div>
@@ -291,7 +295,7 @@
           <li>이 탭과 도면 출력의 국토환경성평가지도 주제에만 적용됩니다</li>
         </ul>
       </section>
-      <section class="card-section">
+      <section class="card-section" data-mode="work">
         <h2>2. 등급별 면적 산정</h2>
         <div class="row"><button id="btnEcvam" class="btn primary wide" type="button">국토환경성평가 면적 계산</button></div>
         <div id="ecvamMsg" class="progress" hidden></div>
@@ -301,6 +305,7 @@
           <li>합계는 도면의 정확한 면적에 맞춰 나눕니다</li>
         </ul>
       </section>
+      <div id="ecvamLayoutSlot" class="layout-slot"></div>
     </div>
 
     <!-- ===================== 도면 출력 탭 ===================== -->
@@ -355,7 +360,7 @@
       </section>
 
       <section class="card-section" id="styleSection">
-        <h2>표시 이름·크기·색</h2>
+        <h2>범례 이름 · 화살표</h2>
         <div id="styleBox" class="style-box"></div>
       </section>
 
@@ -386,15 +391,15 @@
 <script src="vendor/proj4.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jsts.min.js"></script>
-<script src="cad.js?v=20261117u"></script>
-<script src="backend.js?v=20261117u"></script>
-<script src="app.js?v=20261117u"></script>
-<script src="ecvam.js?v=20261117u"></script>
-<script src="prot.js?v=20261117u"></script> <script src="target.js?v=20261117u"></script> <script src="meas.js?v=20261117u"></script> <script src="lc.js?v=20261117u"></script> <script src="flow.js?v=20261117u"></script> <script src="style.js?v=20261117u"></script>
-  <script src="admin2.js?v=20261117u"></script>
-  <script src="measure.js?v=20261117u"></script>
-  <script src="pick.js?v=20261117u"></script>
-  <script src="project.js?v=20261117u"></script>
-<script src="app2.js?v=20261117u"></script>
+<script src="cad.js?v=20261117v"></script>
+<script src="backend.js?v=20261117v"></script>
+<script src="app.js?v=20261117v"></script>
+<script src="ecvam.js?v=20261117v"></script>
+<script src="prot.js?v=20261117v"></script> <script src="target.js?v=20261117v"></script> <script src="meas.js?v=20261117v"></script> <script src="lc.js?v=20261117v"></script> <script src="flow.js?v=20261117v"></script> <script src="style.js?v=20261117v"></script>
+  <script src="admin2.js?v=20261117v"></script>
+  <script src="measure.js?v=20261117v"></script>
+  <script src="pick.js?v=20261117v"></script>
+  <script src="project.js?v=20261117v"></script>
+<script src="app2.js?v=20261117v"></script>
 </body>
 </html>

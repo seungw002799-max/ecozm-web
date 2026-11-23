@@ -79,7 +79,7 @@
   App.protLabelKey = f => f.get('kind') + '|' + (f.get('name') || '');
   App.PROT = PROT;
   // 대상지역 설정도(target.js)에서 하천 등 한 레이어만 받을 때
-  App.protFetchLayer = (id, b4326) => { const p = BY_ID[id]; if (!p) return Promise.reject(new Error('레이어 없음')); return fetchWfsBbox(p, b4326); };
+  App.protFetchLayer = (id, b4326) => { const p = BY_ID[id]; if (!p) return Promise.reject(new Error('레이어 없음')); return cachedWfs(p, b4326); };
 
   const fmt = n => Number(n).toLocaleString('ko-KR', { maximumFractionDigits: 0 });
   const hexA = (hex, a) => {
@@ -346,6 +346,16 @@
     }
     return { type: 'FeatureCollection', _src: '하천정보관리시스템 실시간 (하천 도형은 이 컴퓨터에 보관)', features: feats };
   }
+  // 하천 등 WFS 자료: 이번 세션에서 이미 받은 더 넓은 범위가 있으면 다시 받지 않음 (레이어 모음·초기 입지·대상지역·측정지점이 같이 씀)
+  const wfsCov = {};
+  async function cachedWfs(p, b) {
+    const L = wfsCov[p.id] = wfsCov[p.id] || [];
+    const hit = L.find(x => x.b[0] <= b[0] && x.b[1] <= b[1] && x.b[2] >= b[2] && x.b[3] >= b[3]);
+    if (hit) return hit.fc;
+    const fc = await fetchWfsBbox(p, b);
+    L.push({ b: b.slice(), fc }); if (L.length > 6) L.shift();
+    return fc;
+  }
   async function fetchWfsBbox(p, b) {
     if (p.id === 'river_nat') { try { return await fetchRiverByList(p, snapB(b)); } catch (e) { throw new Error(`${p.short} 자료를 받지 못했습니다 (${e.name === 'AbortError' ? '시간 초과' : e.message})`); } }
     b = snapB(b);
@@ -425,7 +435,7 @@
       };
       const srcs = [], errs = [];
       // 자료 받기: 4개씩 동시에 받고(순서는 유지), 같은 범위로 다시 조회하면 이번 세션에서 받아 둔 자료를 그대로 사용
-      const fetchOne = p => p.src === 'vworld' ? fetchVworld(p, q.b4326) : p.src === 'egis' ? fetchEgis(p, q.b4326) : p.src === 'kei' ? fetchKei(p, q.b4326) : p.src === 'nier' ? fetchNier(p, queryBox(Math.max(radius, 20000)).b4326) : p.src === 'eco1' ? fetchEco1(p, q.b5186, msg, radius) : p.src === 'local' ? fetchLocal(p, q.b4326) : p.src === 'wfsb' ? fetchWfsBbox(p, q.b4326) : fetchEiagis(p, q.b4326);
+      const fetchOne = p => p.src === 'vworld' ? fetchVworld(p, q.b4326) : p.src === 'egis' ? fetchEgis(p, q.b4326) : p.src === 'kei' ? fetchKei(p, q.b4326) : p.src === 'nier' ? fetchNier(p, queryBox(Math.max(radius, 20000)).b4326) : p.src === 'eco1' ? fetchEco1(p, q.b5186, msg, radius) : p.src === 'local' ? fetchLocal(p, q.b4326) : p.src === 'wfsb' ? cachedWfs(p, q.b4326) : fetchEiagis(p, q.b4326);
       const bkey = q.b4326.map(v => v.toFixed(4)).join(',');
       const got = new Array(chosen.length); let done = 0, next = 0;
       const worker = async () => {

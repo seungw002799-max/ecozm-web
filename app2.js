@@ -513,12 +513,11 @@
     const lg = k => `<input type="checkbox" data-lg="${esc(k)}" ${(App.opts.legendHide || {})[k] ? '' : 'checked'} title="범례에 표시">`;
     const row = (sk, name, color, pt, ph) => `<div class="sty-row">
         ${lg(sk === 'adm' ? 'adm' : 'p:' + sk)}
-        <input type="color" data-sk="${sk}" data-f="color" value="${color}" title="색">
-        <input type="text" data-sk="${sk}" data-f="name" value="${esc(name)}" placeholder="${esc(ph)}" title="범례 이름">
-        <input type="number" step="0.5" min="4" data-sk="${sk}" data-f="pt" value="${pt}" title="지도 명칭 글자 크기(pt)"><span class="unit">pt</span></div>`;
+        <span class="sty-sw" style="background:${color}"></span>
+        <input type="text" data-sk="${sk}" data-f="name" value="${esc(name)}" placeholder="${esc(ph)}" title="범례 이름"></div>`;   // 색·명칭 크기는 '레이어·문자 스타일'에서
     let h = '';
     if (kinds.length || adm) {
-      h += '<div class="sty-head"><span title="범례에 표시">✓</span><span>색</span><span>범례 이름</span><span>명칭 크기</span></div>';
+      h += '<div class="sty-head lg2"><span title="범례에 표시">✓</span><span></span><span>범례 이름</span></div>';
       kinds.forEach(p => { const c = (App.opts.protCustom || {})[p.id] || {}; const lk = App.protLook(p); h += row(p.id, c.name || '', lk.color, lk.pt, p.short); });
       // 행정구역 경계: 범례에 넣지 않으므로 이름·색 칸에서도 뺌
     }

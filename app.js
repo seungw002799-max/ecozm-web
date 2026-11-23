@@ -951,7 +951,7 @@ function switchTab(name) {
   if (name === 'eco' || name === 'prot' || name === 'ecvam') App.setTheme(name);
   if (name === 'pick') App.setTheme('prot'); if (name === 'meas') App.setTheme('meas'); if (name === 'lc') App.setTheme('lc'); if (name === 'target') { App.setTheme('target'); if (App.targetRefresh) App.targetRefresh(); }
   App.curTab = name;
-  if (name === 'target' || name === 'meas' || name === 'lc' || name === 'pick') { setEmbedView(name, App.embedView[name]); return; }
+  if (['target', 'meas', 'lc', 'pick', 'eco', 'ecvam', 'prot'].includes(name)) { setEmbedView(name, App.embedView[name]); return; }
   homeLayout();
   // 대상지역 설정도·측정지점 위치도는 각 탭에서만 출력: 도면 출력 탭으로 오면 원래 주제로
   if (name === 'layout' && ['target', 'meas', 'lc'].includes(App.theme)) App.setTheme(App.baseTheme || 'eco');
@@ -962,14 +962,14 @@ function switchTab(name) {
   else { if (App.layout) App.layout.leave(); App.workMap.updateSize(); }
 }
 // 대상지역 설정도·측정지점 위치도: 탭 안에서 바로 도면 출력 (작업 지도 / 출력 미리보기 전환)
-App.embedView = { target: 'print', meas: 'print', lc: 'print', pick: 'map' };
+App.embedView = { target: 'print', meas: 'print', lc: 'print', pick: 'map', eco: 'map', ecvam: 'map', prot: 'map' };
 let layoutHome = null;
 // 탭 안 출력: 섹션 배치. data-mode="work" 작업에서만, "print" 출력에서만, "both" 둘 다 (출력에서는 '요소' 다음, '내보내기' 앞으로 옮김)
 function restoreSections() {
   document.querySelectorAll('[data-mode]').forEach(el => { if (el._home && el._home.parentNode && el.parentNode !== el._home.parentNode) el._home.parentNode.insertBefore(el, el._home.nextSibling); });
 }
 function arrangeSections(name, view) {
-  const tab = $({ target: '#tabTarget', meas: '#tabMeas', lc: '#tabLc', pick: '#tabPick' }[name]); if (!tab) return;
+  const tab = $({ target: '#tabTarget', meas: '#tabMeas', lc: '#tabLc', pick: '#tabPick', eco: '#tabEco', ecvam: '#tabEcvam', prot: '#tabProt' }[name]); if (!tab) return;
   restoreSections();
   const ex = $('#exportSection');
   tab.querySelectorAll('[data-mode]').forEach(el => {
@@ -989,7 +989,7 @@ function setEmbedView(name, view) {
   App.embedView[name] = view;
   document.querySelectorAll(`[data-embed="${name}"] [data-view]`).forEach(b => b.classList.toggle('on', b.dataset.view === view));
   if (App.curTab !== name) return;
-  const tl = $('#tabLayout'), slot = $({ target: '#tgtLayoutSlot', meas: '#measLayoutSlot', lc: '#lcLayoutSlot', pick: '#pickLayoutSlot' }[name]);
+  const tl = $('#tabLayout'), slot = $({ target: '#tgtLayoutSlot', meas: '#measLayoutSlot', lc: '#lcLayoutSlot', pick: '#pickLayoutSlot', eco: '#ecoLayoutSlot', ecvam: '#ecvamLayoutSlot', prot: '#protLayoutSlot' }[name]);
   if (!layoutHome) layoutHome = { parent: tl.parentNode, next: tl.nextSibling };
   if (view === 'print') {
     slot.appendChild(tl); tl.classList.add('embedded'); tl.hidden = false; arrangeSections(name, 'print');

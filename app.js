@@ -951,6 +951,7 @@ function switchTab(name) {
   $('#tabProt').hidden = name !== 'prot';
   const tp = $('#tabPick'); if (tp) tp.hidden = name !== 'pick'; const tt = $('#tabTarget'); if (tt) tt.hidden = name !== 'target'; const tm = $('#tabMeas'); if (tm) tm.hidden = name !== 'meas'; const tlc = $('#tabLc'); if (tlc) tlc.hidden = name !== 'lc';
   $('#tabEcvam').hidden = name !== 'ecvam';
+  const te = $('#tabEia'); if (te) te.hidden = name !== 'eia'; if (App.eiaShow) App.eiaShow(name === 'eia');
   if (name === 'eco' || name === 'prot' || name === 'ecvam') App.setTheme(name);
   if (name === 'pick') App.setTheme('prot'); if (name === 'meas') App.setTheme('meas'); if (name === 'lc') App.setTheme('lc'); if (name === 'target') { App.setTheme('target'); if (App.targetRefresh) App.targetRefresh(); }
   App.curTab = name;

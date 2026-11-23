@@ -610,3 +610,22 @@ body:not([data-theme="prot"]) #tabLayout.embedded .row:has(#btnLabelReset), body
 .sty-pop .sp-h { font-weight: 700; font-size: 11.5px; color: #445; margin-top: 4px; border-top: 1px solid #eef0f4; padding-top: 6px; }
 .sty-pop .sp-h:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
 .sty-pop .sp-btns { margin-top: 4px; }
+
+/* 주변 평가사업 */
+.eia-kinds { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 6px 0; }
+.eia-head { display: flex; justify-content: space-between; align-items: center; margin: 8px 0 4px; }
+.eia-chip { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 10px; margin-right: 4px; color: #fff; background: var(--c); font-weight: 700; }
+.eia-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.eia-tbl th { background: #f4f6f9; font-weight: 700; padding: 4px 3px; border-bottom: 1px solid #dde; white-space: nowrap; }
+.eia-tbl td { padding: 4px 3px; border-bottom: 1px solid #eef0f4; vertical-align: top; }
+.eia-tbl td.num { text-align: right; white-space: nowrap; }
+.eia-tbl tr[data-code] { cursor: pointer; }
+.eia-tbl tr[data-code]:hover, .eia-tbl tr.flash { background: #fff7d6; }
+.eia-nm a { color: #0b4f8a; text-decoration: none; }
+.eia-nm a:hover { text-decoration: underline; }
+.eia-loc { color: #667; font-size: 11px; }
+.eia-k { display: inline-block; font-size: 10.5px; padding: 0 5px; border-radius: 4px; color: #fff; background: var(--c); white-space: nowrap; }
+.eia-ap { font-size: 10px; color: #a15c00; border: 1px solid #e0b070; border-radius: 3px; padding: 0 3px; white-space: nowrap; }
+.eia-note { font-size: 12px; color: #a33; margin: 4px 0; }
+.eia-foot li { font-size: 11px; }
+#tabEia .table-wrap { max-height: 46vh; overflow: auto; }

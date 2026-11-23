@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>도면 출력 관련</title>
 <link rel="stylesheet" href="vendor/ol.css">
-<link rel="stylesheet" href="app.css?v=20261117w">
+<link rel="stylesheet" href="app.css?v=20261123a">
 </head>
 <body>
 <header class="topbar">
@@ -17,6 +17,8 @@
       <span class="tab-sep"></span>
       <button class="tab tab-grp" data-tab="grp-region" type="button">지역개황</button>
       <button class="tab tab-grp" data-tab="grp-etc" type="button">기타</button>
+      <span class="tab-sep"></span>
+      <button class="tab" data-tab="eia" type="button">주변 평가사업</button>
       <button class="tab" hidden data-tab="layout" type="button">도면 출력</button>
       <button class="tab" hidden data-tab="ecvam" type="button"></button><button class="tab" hidden data-tab="eco" type="button"></button><button class="tab" hidden data-tab="prot" type="button"></button><button class="tab" hidden data-tab="target" type="button"></button><button class="tab" hidden data-tab="meas" type="button"></button><button class="tab" hidden data-tab="lc" type="button"></button>
   </nav>
@@ -193,6 +195,45 @@
     </div>
 
     <!-- ===================== 토지피복지도 탭 ===================== -->
+      <div id="tabEia" class="tabpane" hidden>
+        <section class="card-section">
+          <h2>주변 평가사업 찾기</h2>
+          <div class="src-note">출처 : 환경영향평가정보지원시스템(EIASS) 지리정보서비스 사업지, 공공데이터포털 EIASS 협의현황 <span class="tag">실시간</span></div>
+          <ul class="bullets">
+            <li>도면 탭에서 올린 사업지구 경계에서 반경 안에 있는 평가 사업을 찾습니다</li>
+            <li>사업명을 누르면 EIASS 사업 정보 화면이 새 창으로 열립니다</li>
+            <li>목록 줄을 누르면 지도에서 그 사업으로 이동합니다</li>
+          </ul>
+          <div class="grid2">
+            <label class="unit-input"><span class="lbl">반경</span><input type="number" id="eiaRadius" min="0.1" max="5" step="0.5" value="3"><span class="unit">km</span></label>
+            <label class="unit-input"><span class="lbl">최근</span><input type="number" id="eiaYears" min="1" max="20" step="1" value="5"><span class="unit">년</span></label>
+          </div>
+          <div class="eia-kinds">
+            <label class="check"><input type="checkbox" id="eiaK_strat" checked> 전략환경영향평가</label>
+            <label class="check"><input type="checkbox" id="eiaK_eia" checked> 환경영향평가</label>
+            <label class="check"><input type="checkbox" id="eiaK_small" checked> 소규모환경영향평가</label>
+          </div>
+          <label class="check"><input type="checkbox" id="eiaUseName" checked> 사업명으로도 찾기 (위치가 등록 안 된 최근·전략 사업)</label>
+          <label class="field"><span>사업명 검색어 (시군구, 쉼표로 여러 개)</span><input type="text" id="eiaWords" placeholder="비우면 찾은 사업의 시군구로 자동"></label>
+          <div class="row"><button id="btnEiaRun" class="btn primary wide" type="button">주변 평가사업 찾기</button></div>
+          <div id="eiaMsg" class="progress" hidden></div>
+          <div id="eiaResult" hidden>
+            <div class="eia-head"><div id="eiaSum"></div><button id="btnEiaCsv" class="btn small" type="button">엑셀(CSV) 저장</button></div>
+            <div class="key-name">위치 기준 (반경 안, 가까운 순)</div>
+            <div class="table-wrap"><table id="eiaTable" class="eia-tbl"></table></div>
+            <details id="eiaNameBox" class="lc-detail" hidden open><summary>사업명 검색 결과 <span id="eiaNameCnt"></span> · 위치 미확인, 직접 확인 필요</summary>
+              <div id="eiaNameNote" class="eia-note"></div>
+              <div class="table-wrap"><table id="eiaNameTable" class="eia-tbl"></table></div>
+            </details>
+            <ul class="bullets eia-foot">
+              <li>위치 기준 자료는 EIASS 지리정보서비스에 경계가 등록된 환경영향평가·소규모 사업입니다 (현재 2024년 접수분까지)</li>
+              <li>전략환경영향평가와 2025년 이후 사업은 위치가 없어 사업명 검색으로만 찾습니다</li>
+              <li>"위치 대략"은 경계가 아닌 법정동 위치로 등록된 사업이라 거리가 대략입니다</li>
+            </ul>
+          </div>
+        </section>
+      </div>
+      <!-- ===== -->
       <div id="tabLc" class="tabpane" hidden>
         <div class="view-toggle" data-embed="lc"><button type="button" data-view="map">작업</button><button type="button" data-view="print" class="on">출력</button></div>
         <section class="card-section">
@@ -391,15 +432,15 @@
 <script src="vendor/proj4.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jsts.min.js"></script>
-<script src="cad.js?v=20261117w"></script>
-<script src="backend.js?v=20261117w"></script>
-<script src="app.js?v=20261117w"></script>
-<script src="ecvam.js?v=20261117w"></script>
-<script src="prot.js?v=20261117w"></script> <script src="target.js?v=20261117w"></script> <script src="meas.js?v=20261117w"></script> <script src="lc.js?v=20261117w"></script> <script src="flow.js?v=20261117w"></script> <script src="style.js?v=20261117w"></script>
-  <script src="admin2.js?v=20261117w"></script>
-  <script src="measure.js?v=20261117w"></script>
-  <script src="pick.js?v=20261117w"></script>
-  <script src="project.js?v=20261117w"></script>
-<script src="app2.js?v=20261117w"></script>
+<script src="cad.js?v=20261123a"></script>
+<script src="backend.js?v=20261123a"></script>
+<script src="app.js?v=20261123a"></script>
+<script src="ecvam.js?v=20261123a"></script>
+<script src="prot.js?v=20261123a"></script> <script src="target.js?v=20261123a"></script> <script src="meas.js?v=20261123a"></script> <script src="lc.js?v=20261123a"></script> <script src="flow.js?v=20261123a"></script> <script src="style.js?v=20261123a"></script> <script src="eia.js?v=20261123a"></script>
+  <script src="admin2.js?v=20261123a"></script>
+  <script src="measure.js?v=20261123a"></script>
+  <script src="pick.js?v=20261123a"></script>
+  <script src="project.js?v=20261123a"></script>
+<script src="app2.js?v=20261123a"></script>
 </body>
 </html>

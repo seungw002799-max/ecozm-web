@@ -114,13 +114,13 @@
     groups.forEach(g => {
       const pk = g.ll.map(v => v.toFixed(6)).join(','); const n = at.get(pk) || 0; at.set(pk, n + 1);
       const f = new ol.Feature(new ol.geom.Point(ol.proj.fromLonLat(g.ll)));
-      f.setProperties({ shape: g.c.shape, color: g.c.color, label: g.codes.join('\n'), pos: g.pos, nudge: n });
+      f.setProperties({ shape: g.c.shape, color: g.c.color, label: g.codes.join('\n'), pos: g.pos, nudge: n, mcat: g.c.k });
       App.src.meas.addFeature(f);
     });
     refreshMaps();
   }
-  function symbol(shape, color, r, s) {
-    const fill = new ol.style.Fill({ color }), stroke = new ol.style.Stroke({ color: '#111', width: Math.max(1, 1.4 * s) });
+  function symbol(shape, color, r, s, hc, hw) {
+    const fill = new ol.style.Fill({ color }), stroke = new ol.style.Stroke({ color: hc || '#111', width: Math.max(0.5, (hw == null ? 1.4 : Number(hw)) * s) });
     if (shape === 'square') return new ol.style.RegularShape({ points: 4, radius: r * 1.25, angle: Math.PI / 4, fill, stroke });
     if (shape === 'triangle') return new ol.style.RegularShape({ points: 3, radius: r * 1.3, fill, stroke });
     if (shape === 'diamond') return new ol.style.RegularShape({ points: 4, radius: r * 1.35, angle: 0, fill, stroke });
@@ -134,11 +134,11 @@
     if (n && res) { const c = g.getCoordinates(); g = new ol.geom.Point([c[0] + n * r * 2.4 * res, c[1]]); }
     const pos = f.get('pos') || 'u';
     const anchor = { u: 'above', d: 'below', l: 'left', r: 'right' }[pos] || 'above';
-    const rows = String(f.get('label') || '').split('\n').map(t => ({ t, fg: '#111', bg: '#fff' }));
-    return [
-      new ol.style.Style({ geometry: g, image: symbol(f.get('shape'), f.get('color'), r, s), zIndex: 1 }),
-      new ol.style.Style({ geometry: g, image: App.badge({ rows, border: '#222', font: 11 * fsc, anchor, gap: 6.5 * fsc + 5 }, s), zIndex: 2 }),
-    ];
+    const mg = (k, d) => App.styGet('ms:' + f.get('mcat'), k, d);
+    const rows = String(f.get('label') || '').split('\n').map(t => ({ t, fg: mg('lcolor', '#111111'), bg: '#fff' }));
+    const symSt = new ol.style.Style({ geometry: g, image: symbol(f.get('shape'), f.get('color'), r, s, mg('halo', '#111111'), mg('haloW', 1.4)), zIndex: 1 });
+    if (mg('lshow', true) === false) return [symSt];
+    return [symSt, new ol.style.Style({ geometry: g, image: App.badge({ rows, border: mg('lhalo', '#222222'), borderW: mg('lhaloW', 1.1), font: 11 * fsc * (Number(mg('lsize', 100)) || 100) / 100, anchor, gap: 6.5 * fsc + 5 }, s), zIndex: 2 })];
   };
   // 범례: 모양·색이 같은 항목은 한 줄로 (예: 대기질·소음진동 측정지점)
   App.measLegend = function () {

@@ -69,7 +69,7 @@
     const key = JSON.stringify(spec) + '|' + s.toFixed(3);
     let ic = BCACHE.get(key); if (ic) return ic;
     const K = 2, sc = s * K;   // 2배로 그려서 선명하게
-    const fpx = (spec.font || 11) * sc, padX = 5 * sc, rowH = fpx * 1.42, rad = 3 * sc, lw = Math.max(1, 1.1 * sc), m = 4 * sc;
+    const fpx = (spec.font || 11) * sc, padX = 5 * sc, rowH = fpx * 1.42, rad = 3 * sc, lw = Math.max(0.5, (spec.borderW == null ? 1.1 : Number(spec.borderW)) * sc), m = 4 * sc;   // 테두리 두께: 스타일 편집기
     const cv = document.createElement('canvas'), ctx = cv.getContext('2d');
     ctx.font = `bold ${fpx}px ${FONT_FAMILY}`;
     const W = Math.ceil(Math.max(...spec.rows.map(r => ctx.measureText(r.t).width)) + padX * 2), H = Math.ceil(rowH * spec.rows.length);
@@ -103,22 +103,26 @@
     const o = T(), k = f.get('tk'), fsc = (Number(o.fontPct) || 100) / 100;
     if (k === 'ring') {
       if (o.ringShow === false) return null;
+      const sg = (k, d) => App.styGet('tg:ring', k, d), rw = Number(o.ringW || 1.8) * s, dd = sg('dash', 'solid');
       const out = [
-        ...(Number(o.ringBuf) > 0 ? [new ol.style.Style({ stroke: new ol.style.Stroke({ color: ringStroke(ringCol()), width: (Number(o.ringW || 1.8) + 2 * Number(o.ringBuf)) * s }) })] : []),
-        new ol.style.Style({ stroke: new ol.style.Stroke({ color: ringCol(), width: Number(o.ringW || 1.8) * s }) }),
+        ...(Number(o.ringBuf) > 0 ? [new ol.style.Style({ stroke: new ol.style.Stroke({ color: sg('halo', '') || ringStroke(ringCol()), width: (Number(o.ringW || 1.8) + 2 * Number(o.ringBuf)) * s }) })] : []),
+        new ol.style.Style({ stroke: new ol.style.Stroke({ color: ringCol(), width: rw, lineDash: dd === 'dashed' ? [rw * 3.5, rw * 2.2] : dd === 'dotted' ? [rw * 0.6, rw * 1.8] : undefined }) }),
       ];
-      const ic = App.badge({ rows: [{ t: f.get('label'), fg: '#111', bg: '#fff' }], border: '#111', font: 11 * fsc, anchor: 'center' }, s);
+      if (sg('lshow', true) === false) return out;
+      const ic = App.badge({ rows: [{ t: f.get('label'), fg: sg('lcolor', '#111111'), bg: '#fff' }], border: sg('lhalo', '#111111'), borderW: sg('lhaloW', 1.1), font: 11 * fsc * (Number(sg('lsize', 100)) || 100) / 100, anchor: 'center' }, s);
       ringTops(f, set).forEach(p => out.push(new ol.style.Style({ geometry: new ol.geom.Point(p), image: ic, zIndex: 10 })));
       return out;
     }
     if (k === 'river') {
       const r = RIVER.find(x => x.id === f.get('rid')); if (!r || !o.river[r.id]) return null;
-      const st = [new ol.style.Style({ fill: new ol.style.Fill({ color: hexA(r.color, 0.45) }), stroke: new ol.style.Stroke({ color: r.color, width: 1.2 * s }) })];
+      const rg = (k, d) => App.styGet('tg:' + r.id, k, d), rc = rg('color', r.color), rhw = Number(rg('haloW', 0)) || 0;
+      const st = [...(rhw > 0 ? [new ol.style.Style({ stroke: new ol.style.Stroke({ color: rg('halo', '#ffffff'), width: (Number(rg('width', 1.2)) + 2 * rhw) * s }) })] : []), new ol.style.Style({ fill: new ol.style.Fill({ color: hexA(rc, 0.45) }), stroke: new ol.style.Stroke({ color: rc, width: Number(rg('width', 1.2)) * s }) })];
       const lp = (set && set.viewExtent && App.protLabelPoint) ? (App.protLabelPoint(f, set) || f.get('lp')) : f.get('lp');
       const nm = f.get('name'), named = nm && nm !== r.cls && !/구역$/.test(nm);
-      if (lp && f.get('labelMe')) {
-        const rows = named ? [{ t: nm, fg: '#fff', bg: r.color }, { t: r.cls, fg: '#111', bg: '#fff' }] : [{ t: r.cls, fg: '#111', bg: '#fff' }];
-        st.push(new ol.style.Style({ geometry: new ol.geom.Point(lp), image: App.badge({ rows, border: r.color, font: 10.5 * fsc, anchor: 'center' }, s), zIndex: 9 }));
+      if (lp && f.get('labelMe') && rg('lshow', true) !== false) {
+        const nb = rg('lauto', true) === false ? rg('lcolor', rc) : rc;
+        const rows = named ? [{ t: nm, fg: '#fff', bg: nb }, { t: r.cls, fg: '#111', bg: '#fff' }] : [{ t: r.cls, fg: '#111', bg: '#fff' }];
+        st.push(new ol.style.Style({ geometry: new ol.geom.Point(lp), image: App.badge({ rows, border: rg('lhalo', rc), borderW: rg('lhaloW', 1), font: 10.5 * fsc * (Number(rg('lsize', 100)) || 100) / 100, anchor: 'center' }, s), zIndex: 9 }));
       }
       return st;
     }

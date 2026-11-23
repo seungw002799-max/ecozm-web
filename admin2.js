@@ -97,11 +97,12 @@
 
   const stCache = new Map();
   function lineStyle(lvl, s) {
-    const lk = App.admLook(), wk = (Number(App.opts.admWPct) || 100) / 100, key = lvl + lk.color + s.toFixed(3) + '|' + wk;
+    const lk = App.admLook(), wk = (Number(App.opts.admWPct) || 100) / 100, hc = (App.styGet||((i,k,d)=>d))('adm', 'halo', '#ffffff'), hw = Number((App.styGet||((i,k,d)=>d))('adm', 'haloW', 0)) || 0, key = lvl + lk.color + s.toFixed(3) + '|' + wk + hc + hw;
     let st = stCache.get(key); if (st) return st;
     const w = lvl === 'sido' ? 2.4 : lvl === 'sigg' ? 1.6 : 0.9;
     const dash = lvl === 'sido' ? [12, 4, 2, 4] : lvl === 'sigg' ? [9, 3, 2, 3] : [2, 2.5];
-    st = new ol.style.Stroke ? new ol.style.Style({ stroke: new ol.style.Stroke({ color: lk.color, width: Math.max(0.3, w * wk * s), lineDash: dash.map(v => v * s) }) }) : null;   // 두께(%)는 초기 입지 검토 > 출력 > 표시 스타일
+    st = new ol.style.Style({ stroke: new ol.style.Stroke({ color: lk.color, width: Math.max(0.3, w * wk * s), lineDash: dash.map(v => v * s) }) });
+    if (hw > 0) st = [new ol.style.Style({ stroke: new ol.style.Stroke({ color: hc, width: Math.max(0.3, w * wk * s) + 2 * hw * s }) }), st];   // 두께(%)는 초기 입지 검토 > 출력 > 표시 스타일
     if (stCache.size > 200) stCache.clear(); stCache.set(key, st);
     return st;
   }
@@ -120,7 +121,7 @@
     if (!lp) return st;
     const custom = (App.opts.protLabelText || {})['adm|' + f.get('name')];
     const img = tileImage(custom != null && custom !== '' ? custom : f.get('name'), lvl, s);
-    return [st, new ol.style.Style({ geometry: new ol.geom.Point(lp), image: new ol.style.Icon({ img }), zIndex: lvl === 'sido' ? 3 : lvl === 'sigg' ? 2 : 1 })];
+    return [].concat(st, new ol.style.Style({ geometry: new ol.geom.Point(lp), image: new ol.style.Icon({ img }), zIndex: lvl === 'sido' ? 3 : lvl === 'sigg' ? 2 : 1 }));
   };
 
   function wantedBox(pad) {

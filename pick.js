@@ -17,7 +17,7 @@
   // 지도 그림: 반경 원(검은 선 + 흰 테두리) + 원 위 거리 상자 + 검토 지점 표시
   App.pickStyle = function (f, s) {
     if (f.get('pk') === 'mask') return App.theme === 'prot' ? new ol.style.Style({ fill: new ol.style.Fill({ color: `rgba(255,255,255,${App.opts.pickMaskA == null ? 0.55 : Number(App.opts.pickMaskA)})` }) }) : null;
-    if (f.get('pk') === 'region') return App.theme === 'prot' ? (rw => [...(Number(App.opts.regionBuf == null ? 1.15 : App.opts.regionBuf) > 0 ? [new ol.style.Style({ stroke: new ol.style.Stroke({ color: '#fff', width: (rw + 2 * Number(App.opts.regionBuf == null ? 1.15 : App.opts.regionBuf)) * s }) })] : []), new ol.style.Style({ stroke: new ol.style.Stroke({ color: App.opts.pickRegionColor || '#E91E63', width: rw * s }) })])(Number(App.opts.regionW) || 2.2) : null;   // 고른 행정구역 경계는 항상
+    if (f.get('pk') === 'region') return App.theme === 'prot' ? (rw => [...(Number(App.opts.regionBuf == null ? 1.15 : App.opts.regionBuf) > 0 ? [new ol.style.Style({ stroke: new ol.style.Stroke({ color: App.opts.regionHalo || '#fff', width: (rw + 2 * Number(App.opts.regionBuf == null ? 1.15 : App.opts.regionBuf)) * s }) })] : []), new ol.style.Style({ stroke: new ol.style.Stroke({ color: App.opts.pickRegionColor || '#E91E63', width: rw * s, lineDash: ((d, w) => d === 'dashed' ? [w * 3.5, w * 2.2] : d === 'dotted' ? [w * 0.6, w * 1.8] : undefined)(App.styGet('pk:region', 'dash', 'solid'), rw * s) }) })])(Number(App.opts.regionW) || 2.2) : null;   // 고른 행정구역 경계는 항상
     if (App.theme !== 'prot') return null;
     if (f.get('src') === 'prot' ? App.opts.protRingShow === false : App.opts.pickShow === false) return null;   // 레이어 모음 검토 반경 / 초기 입지 검토 반경
     const k = f.get('pk');
@@ -27,9 +27,9 @@
     return [
       // 반경 원: 선 색·두께, 흰 테두리(버퍼) 두께는 출력 > 표시 스타일에서
       ...(Number(App.opts.ringBuf == null ? 1.1 : App.opts.ringBuf) > 0 ? [new ol.style.Style({ stroke: new ol.style.Stroke({ color: App.opts.ringHalo || '#fff', width: ((Number(App.opts.ringW) || 1.8) + 2 * Number(App.opts.ringBuf == null ? 1.1 : App.opts.ringBuf)) * s }) })] : []),
-      new ol.style.Style({ stroke: new ol.style.Stroke({ color: App.opts.ringColor || '#111', width: (Number(App.opts.ringW) || 1.8) * s }) }),
-      new ol.style.Style({ geometry: new ol.geom.Point(top), text: new ol.style.Text({ text: f.get('label'), font: `bold ${Math.round(12 * s)}px "EcoFont","Malgun Gothic",sans-serif`,
-        fill: new ol.style.Fill({ color: '#111' }), backgroundFill: new ol.style.Fill({ color: '#fff' }), backgroundStroke: new ol.style.Stroke({ color: '#111', width: 1.2 * s }), padding: [2 * s, 4 * s, 1 * s, 4 * s] }) }),
+      new ol.style.Style({ stroke: new ol.style.Stroke({ color: App.opts.ringColor || '#111', width: (Number(App.opts.ringW) || 1.8) * s, lineDash: ((d, w) => d === 'dashed' ? [w * 3.5, w * 2.2] : d === 'dotted' ? [w * 0.6, w * 1.8] : undefined)(App.styGet('pk:ring', 'dash', 'solid'), (Number(App.opts.ringW) || 1.8) * s) }) }),
+      ...(App.styGet('pk:ring', 'lshow', true) === false ? [] : [new ol.style.Style({ geometry: new ol.geom.Point(top), text: new ol.style.Text({ text: f.get('label'), font: `bold ${Math.round(12 * s * (Number(App.styGet('pk:ring', 'lsize', 100)) || 100) / 100)}px "EcoFont","Malgun Gothic",sans-serif`,
+        fill: new ol.style.Fill({ color: App.styGet('pk:ring', 'lcolor', '#111111') }), backgroundFill: new ol.style.Fill({ color: '#fff' }), backgroundStroke: new ol.style.Stroke({ color: App.styGet('pk:ring', 'lhalo', '#111111'), width: Number(App.styGet('pk:ring', 'lhaloW', 1.2)) * s }), padding: [2 * s, 4 * s, 1 * s, 4 * s] }) })]),
     ];
   };
 

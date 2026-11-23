@@ -325,23 +325,25 @@ App.siteLabelPoint = function (s) {
 function siteStyleFull(f, s) {
   const site = App.sites.find(x => x.id === f.get('siteId')) || {};
   const st = siteStyle(f.get('category'), s, site.opacity);
-  const o = App.opts.siteLabel || {};
-  if (o.show === false || !site.feature) return st;
+  const o = App.opts.siteLabel || {}, sid = 'site:' + f.get('category'), sg = (k, d) => (App.styGet||((i,k,d)=>d))(sid, k, d);
+  if (sg('lshow', o.show !== false) === false || !site.feature) return st;
   const lp = App.siteLabelPoint(site); if (!lp) return st;
   const PXMM = PX_PER_MM96 * s, off = site.labelOff || [0, 0];
-  const pt = (Number(o.pt) || 14) * ((Number(o.scale) || 100) / 100), bold = o.bold === false ? '' : 'bold ', buf = o.buf == null || o.buf === '' ? 0.8 : Math.max(0, Number(o.buf));
-  const col = App.catStyleFor(f.get('category')).color;
+  const pt = (Number(o.pt) || 14) * ((Number(o.scale) || 100) / 100) * ((Number(sg('lsize', 100)) || 100) / 100), bold = o.bold === false ? '' : 'bold ', buf = Math.max(0, Number(sg('lhaloW', o.buf == null || o.buf === '' ? 0.8 : o.buf)) || 0);
+  const col = sg('lauto', true) === false ? sg('lcolor', App.catStyleFor(f.get('category')).color) : App.catStyleFor(f.get('category')).color, hcol = sg('lhalo', '#ffffff');
   return [st, new ol.style.Style({ geometry: new ol.geom.Point(lp), zIndex: 10, text: new ol.style.Text({
     text: site.labelText || site.category || '', font: `${bold}${Math.round(pt * 0.3528 * PXMM * 10) / 10}px "EcoFont","Malgun Gothic",sans-serif`,
     offsetX: (Number(off[0]) || 0) * PXMM, offsetY: (Number(off[1]) || 0) * PXMM,
-    fill: new ol.style.Fill({ color: col }), stroke: buf > 0 ? new ol.style.Stroke({ color: '#fff', width: buf * 2 * PXMM }) : undefined, overflow: true }) })];
+    fill: new ol.style.Fill({ color: col }), stroke: buf > 0 ? new ol.style.Stroke({ color: hcol, width: buf * 2 * PXMM }) : undefined, overflow: true }) })].flat();
 }
 function siteStyle(cat, s, op) {
   const st = App.catStyleFor(cat);
   const a = op == null || op === '' ? 1 : Math.max(0, Math.min(1, Number(op)));   // 도면별 투명도 (도면 출력)
-  return cached(`s|${cat}|${st.color}|${st.width}|${st.dash}|${s.toFixed(3)}|${a}`, () => {
+  const hc = (App.styGet||((i,k,d)=>d))('site:' + cat, 'halo', '#ffffff'), hw = Number((App.styGet||((i,k,d)=>d))('site:' + cat, 'haloW', 0)) || 0;   // 버퍼 (스타일 편집기)
+  return cached(`s|${cat}|${st.color}|${st.width}|${st.dash}|${s.toFixed(3)}|${a}|${hc}${hw}`, () => {
     const w = st.width * s;
-    return new ol.style.Style({ stroke: new ol.style.Stroke({ color: hexA(st.color, a), width: w, lineDash: dashArr(st.dash, w), lineCap: 'butt' }) });
+    const main = new ol.style.Style({ stroke: new ol.style.Stroke({ color: hexA(st.color, a), width: w, lineDash: dashArr(st.dash, w), lineCap: 'butt' }) });
+    return hw > 0 ? [new ol.style.Style({ stroke: new ol.style.Stroke({ color: hexA(hc, a), width: w + 2 * hw * s }) }), main] : main;
   });
 }
 
@@ -932,8 +934,15 @@ function downloadBlob(blob, name) {
 App.downloadBlob = downloadBlob;
 
 // ============================================================ 11. 탭 / 시작
+// 탭 묶음: 지역개황(국토환경성평가·생태자연도·레이어 모음), 기타(대상지역 설정도·측정지점 위치도·토지피복지도)
+const TAB_GROUPS = { 'grp-region': ['ecvam', 'eco', 'prot'], 'grp-etc': ['target', 'meas', 'lc'] };
+const TAB_NAMES = { ecvam: '국토환경성평가', eco: '생태자연도', prot: '레이어 모음', target: '대상지역 설정도', meas: '측정지점 위치도', lc: '토지피복지도' };
 function switchTab(name) {
-  $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  App.lastSub = App.lastSub || {};
+  if (TAB_GROUPS[name]) name = App.lastSub[name] || TAB_GROUPS[name][0];
+  const grp = Object.keys(TAB_GROUPS).find(g => TAB_GROUPS[g].includes(name)); if (grp) App.lastSub[grp] = name;
+  $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name || t.dataset.tab === grp));
+  const sb = $('#subTabs'); if (sb) { sb.hidden = !grp; if (grp) sb.innerHTML = TAB_GROUPS[grp].map(k => `<button type="button" class="sub-tab${k === name ? ' on' : ''}" data-sub="${k}">${TAB_NAMES[k]}</button>`).join(''); }
   $('#tabWork').hidden = name !== 'work';
   $('#tabEco').hidden = name !== 'eco';
   $('#tabProt').hidden = name !== 'prot';
@@ -1045,6 +1054,7 @@ async function init() {
   initCatStyles();
   initSiteList();
   $$('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+  { const sb = $('#subTabs'); if (sb) sb.addEventListener('click', e => { const b = e.target.closest('[data-sub]'); if (b) switchTab(b.dataset.sub); }); }
   $$('[data-embed] [data-view]').forEach(b => b.addEventListener('click', () => setEmbedView(b.closest('[data-embed]').dataset.embed, b.dataset.view)));
   $('#btnSaveCfg').addEventListener('click', saveConfig);
   $('#btnKeyEdit').addEventListener('click', () => renderKeys(true));

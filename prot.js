@@ -152,6 +152,8 @@
     if (p.labelNearest && !f.get('labelMe')) return st;
     const ls = (App.opts.lblSt || {})[App.protLabelKey(f)] || {};   // 명칭 하나하나의 설정 (미리보기에서 두 번 눌러 바꿈)
     if (ls.hide) return st;
+    const LS = (App.opts.sty || {})['p:' + p.id] || {};   // 레이어 단위 문자 설정 (스타일 편집기)
+    if (LS.lshow === false) return st;
     const custom = (App.opts.protLabelText || {})[App.protLabelKey(f)];
     const label = App.opts.protLabel !== false ? (custom != null && custom !== '' ? custom : (p.mapLabel ? p.mapLabel(f.get('name') || '') : (f.get('name') || ''))) : '';
     if (!label) return st;
@@ -159,8 +161,8 @@
     if (!lp) return st;
     return [].concat(st, new ol.style.Style({ geometry: new ol.geom.Point(lp), text: new ol.style.Text({
       // 글자 크기(%)·글자 색(비우면 레이어 색)·버퍼 색·두께는 초기 입지 검토 > 출력 > 표시 스타일에서
-      text: label, font: `bold ${Math.round(lk.pt * 0.3528 * App.PX_PER_MM96 * s * ((Number(App.opts.lblPct) || 100) / 100) * ((Number(ls.size) || 100) / 100) * 10) / 10}px "EcoFont","Malgun Gothic",sans-serif`,
-      fill: new ol.style.Fill({ color: ls.auto === false && ls.color ? ls.color : (App.opts.lblColor || col) }), stroke: new ol.style.Stroke({ color: ls.halo || App.opts.lblHalo || '#fff', width: (ls.haloW != null && ls.haloW !== '' ? Number(ls.haloW) : (App.opts.lblHaloW == null ? 3 : Number(App.opts.lblHaloW))) * s }), overflow: true, offsetY: p.point ? -11 * s : 0 }) }));
+      text: label, font: `bold ${Math.round(lk.pt * 0.3528 * App.PX_PER_MM96 * s * ((Number(App.opts.lblPct) || 100) / 100) * ((Number(ls.size) || 100) / 100) * ((Number(LS.lsize) || 100) / 100) * 10) / 10}px "EcoFont","Malgun Gothic",sans-serif`,
+      fill: new ol.style.Fill({ color: ls.auto === false && ls.color ? ls.color : (LS.lauto === false && LS.lcolor ? LS.lcolor : (App.opts.lblColor || col)) }), stroke: new ol.style.Stroke({ color: ls.halo || LS.lhalo || App.opts.lblHalo || '#fff', width: (ls.haloW != null && ls.haloW !== '' ? Number(ls.haloW) : (LS.lhaloW != null && LS.lhaloW !== '' ? Number(LS.lhaloW) : (App.opts.lblHaloW == null ? 3 : Number(App.opts.lblHaloW)))) * s }), overflow: true, offsetY: p.point ? -11 * s : 0 }) }));
   };
 
   // ------------------------------------------------------------ 자료 받기

@@ -746,8 +746,10 @@
       if (!active) return;
       const lf = labelHit(e);
       if (!lf) {   // 레이어(면·선)를 두 번 누르면 레이어 속성 창
-        let hitF = null; map.forEachFeatureAtPixel(map.getEventPixel(e), f => { if (!f.get('kind') || f.get('kind') === 'adm') return; const a = Number(f.get('area')) || 0; if (!hitF || a < (Number(hitF.get('area')) || 0)) hitF = f; }, { layerFilter: l => l === set.prot, hitTolerance: 4 });   // 겹치면 가장 작은 레이어(예: 하천)를 고름
-        if (hitF) { e.stopPropagation(); e.preventDefault(); layerPopup(hitF.get('kind'), e.clientX, e.clientY); }
+        // 모든 레이어에서 설정 가능한 도형을 찾음: 점 > 선 > 면, 면끼리는 가장 작은 것 (예: 단위유역 안의 하천)
+        let hitF = null, best = Infinity;
+        map.forEachFeatureAtPixel(map.getEventPixel(e), f => { if (!App.styIdOf || !App.styIdOf(f)) return; const g = f.getGeometry(), t = g ? g.getType() : ''; const sc = /Point/.test(t) ? -1 : /Line/.test(t) ? 0 : (Number(f.get('area')) || (g && g.getArea ? g.getArea() : 1e15)); if (sc < best) { best = sc; hitF = f; } }, { hitTolerance: 5 });
+        if (hitF) { e.stopPropagation(); e.preventDefault(); const id = App.styIdOf(hitF); if (!(App.stylePopup && App.stylePopup(id, e.clientX, e.clientY)) && hitF.get('kind')) layerPopup(hitF.get('kind'), e.clientX, e.clientY); }
         return;
       }
       e.stopPropagation(); e.preventDefault();

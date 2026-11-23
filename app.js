@@ -937,8 +937,11 @@ App.downloadBlob = downloadBlob;
 // 탭 묶음: 지역개황(국토환경성평가·생태자연도·레이어 모음), 기타(대상지역 설정도·측정지점 위치도·토지피복지도)
 const TAB_GROUPS = { 'grp-region': ['ecvam', 'eco', 'prot'], 'grp-etc': ['target', 'meas', 'lc'] };
 const TAB_NAMES = { ecvam: '국토환경성평가', eco: '생태자연도', prot: '레이어 모음', target: '대상지역 설정도', meas: '측정지점 위치도', lc: '토지피복지도' };
+function guardTiles() {   // 숨겨진 지도(크기 0)에서 늦게 도착한 타일이 오류를 내지 않게 함
+  (App.liveSets || []).forEach(s => { const m = s.base && s.base.getMapInternal && s.base.getMapInternal(); const q = m && m.tileQueue_; if (!q || q.__g) return; const pf = q.priorityFunction_; q.priorityFunction_ = e => (m.frameState_ ? pf(e) : Infinity); q.__g = 1; });
+}
 function switchTab(name) {
-  App.lastSub = App.lastSub || {};
+  App.lastSub = App.lastSub || {}; try { guardTiles(); } catch (e) {}
   if (TAB_GROUPS[name]) name = App.lastSub[name] || TAB_GROUPS[name][0];
   const grp = Object.keys(TAB_GROUPS).find(g => TAB_GROUPS[g].includes(name)); if (grp) App.lastSub[grp] = name;
   $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name || t.dataset.tab === grp));

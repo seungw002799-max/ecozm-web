@@ -154,18 +154,18 @@
       const r = await fetch(PROXY + encodeURIComponent(u), { signal: ac.signal }); const t = await r.text();
       if (!r.ok || /host not allowed/.test(t)) { if (/host not allowed/.test(t) || r.status === 403) detailBlocked = true; return null; }
       const doc = new DOMParser().parseFromString(t, 'text/html');
-      const txt = (doc.body ? doc.body.innerText || doc.body.textContent : '').replace(/\r/g, '');
+      const txt = (doc.body ? doc.body.textContent : '').replace(/\s+/g, ' ');
       const i = txt.indexOf('사업위치'); if (i < 0) return null;
       const seg = txt.slice(i, i + 1500);
-      const m = seg.match(/소재지[^\n]*\n\s*([^\n]+)/); if (!m) return null;
-      return m[1].replace(/\t.*$/, '').trim() || null;
+      const m = seg.match(/소재지\s*(?:면적\s*)?(.+?)(?=\s[\d,.]+\s*㎡|\s협의대상|\s사업구분|\s사업시행자|$)/); if (!m) return null;
+      return m[1].trim().slice(0, 300) || null;
     } catch (e) { return null; } finally { clearTimeout(tm); }
   }
   // 주소 문자열 -> 위치 (지번 > 리 > 읍면동, '전역'은 시군구 전체)
   async function geoAddr(addr, sg) {
     const c = String(addr).replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim();
     const sido = (c.match(/^([가-힣]+(?:특별자치도|특별자치시|광역시|특별시|도))\s/) || [])[1] || '';
-    if (/전역|일원\s*전체/.test(c) && !/\d/.test(c.replace(/\d+\s*㎢/g, ''))) { const cm = c.match(/([가-힣]{2,5}[시군])/); if (cm) return { how: '시군구', city: cm[1] }; }
+    if (/전역/.test(addr)) { const cm = c.match(/([가-힣]{2,5}[시군])/); if (cm) return { how: '시군구', city: cm[1] }; }
     const m1 = c.match(/([가-힣]{2,5}[시군])\s+(?:([가-힣]{1,5}구)\s+)?([가-힣]{1,5}(?:읍|면|동|\d가))\s+(?:([가-힣]{1,5}리)\s+)?(산\s?\d+(?:-\d+)?|\d+(?:-\d+)?)/);
     if (m1) {
       const q = [sido, m1[1], m1[2], m1[3], m1[4], m1[5].replace(/\s/g, '')].filter(Boolean).join(' ');

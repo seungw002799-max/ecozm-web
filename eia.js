@@ -144,23 +144,55 @@
     if (city && sg && city !== sg.name && city.replace(/[시군]$/, '') !== sg.stem) return { other: city };   // 다른 시군 사업
     return { emd, ri, num };
   }
-  async function locate(r, sg, site) {
-    const key = r.code; if (gcache.has(key)) return gcache.get(key);
-    const p = parseName(r.name, sg); let res = { how: 'none' };
+  // EIASS 사업 상세 화면의 '소재지' (중계 서버 경유)
+  let detailBlocked = false;
+  async function detailAddr(code) {
+    if (detailBlocked) return null;
+    const u = isEiaCode(code) ? 'https://www.eiass.go.kr/biz/base/info/eiaInfo.do?EIA_CD=' + code : 'https://www.eiass.go.kr/biz/base/info/perInfo.do?PER_CD=' + code;
+    const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 20000);
     try {
-      if (p.other) res = { how: 'other', note: p.other };
-      else if (p.emd && p.num) {   // 지번
-        const q = [sg.full, p.emd, p.ri, p.num].filter(Boolean).join(' ');
-        const it = (await vwSearch('address', 'parcel', q))[0];
-        if (it && it.point) res = { how: '지번', g: ptGeom(+it.point.x, +it.point.y), pt: [+it.point.x, +it.point.y] };
-      }
-      if (res.how === 'none' && p.emd && p.ri) {   // 리 경계
-        const fs = (await vwData('LT_C_ADRI_INFO', 'li_kor_nm:=:' + p.ri)).filter(f => { const n = (f.properties || {}).full_nm || ''; return n.includes(sg.name) && n.includes(p.emd); });
-        if (fs[0]) res = { how: '리', g: to5186(fs[0].geometry), gj: fs[0].geometry };
-      }
-      if (res.how === 'none' && p.emd) {   // 읍면동 경계
-        const it = (await vwSearch('district', 'L4', sg.full + ' ' + p.emd))[0];
-        if (it && it.id) { const fs = await vwData('LT_C_ADEMD_INFO', 'emd_cd:=:' + it.id, 1); if (fs[0]) res = { how: '읍면동', g: to5186(fs[0].geometry), gj: fs[0].geometry }; }
+      const r = await fetch(PROXY + encodeURIComponent(u), { signal: ac.signal }); const t = await r.text();
+      if (!r.ok || /host not allowed/.test(t)) { if (/host not allowed/.test(t) || r.status === 403) detailBlocked = true; return null; }
+      const doc = new DOMParser().parseFromString(t, 'text/html');
+      const txt = (doc.body ? doc.body.innerText || doc.body.textContent : '').replace(/\r/g, '');
+      const i = txt.indexOf('사업위치'); if (i < 0) return null;
+      const seg = txt.slice(i, i + 1500);
+      const m = seg.match(/소재지[^\n]*\n\s*([^\n]+)/); if (!m) return null;
+      return m[1].replace(/\t.*$/, '').trim() || null;
+    } catch (e) { return null; } finally { clearTimeout(tm); }
+  }
+  // 주소 문자열 -> 위치 (지번 > 리 > 읍면동, '전역'은 시군구 전체)
+  async function geoAddr(addr, sg) {
+    const c = String(addr).replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim();
+    const sido = (c.match(/^([가-힣]+(?:특별자치도|특별자치시|광역시|특별시|도))\s/) || [])[1] || '';
+    if (/전역|일원\s*전체/.test(c) && !/\d/.test(c.replace(/\d+\s*㎢/g, ''))) { const cm = c.match(/([가-힣]{2,5}[시군])/); if (cm) return { how: '시군구', city: cm[1] }; }
+    const m1 = c.match(/([가-힣]{2,5}[시군])\s+(?:([가-힣]{1,5}구)\s+)?([가-힣]{1,5}(?:읍|면|동|\d가))\s+(?:([가-힣]{1,5}리)\s+)?(산\s?\d+(?:-\d+)?|\d+(?:-\d+)?)/);
+    if (m1) {
+      const q = [sido, m1[1], m1[2], m1[3], m1[4], m1[5].replace(/\s/g, '')].filter(Boolean).join(' ');
+      const it = (await vwSearch('address', 'parcel', q))[0];
+      if (it && it.point) return { how: '지번', g: ptGeom(+it.point.x, +it.point.y), pt: [+it.point.x, +it.point.y] };
+    }
+    const m2 = c.match(/([가-힣]{2,5}[시군])\s+(?:([가-힣]{1,5}구)\s+)?([가-힣]{1,5}(?:읍|면|동))(?:\s+([가-힣]{1,5}리))?/);
+    if (m2) return geoParsed({ emd: m2[3], ri: m2[4] }, { name: m2[1], full: (sido ? sido + ' ' : '') + m2[1] });
+    return { how: 'none' };
+  }
+  async function geoParsed(p, sg) {
+    if (p.emd && p.num) { const it = (await vwSearch('address', 'parcel', [sg.full, p.emd, p.ri, p.num].filter(Boolean).join(' ')))[0]; if (it && it.point) return { how: '지번', g: ptGeom(+it.point.x, +it.point.y), pt: [+it.point.x, +it.point.y] }; }
+    if (p.emd && p.ri) { const fs = (await vwData('LT_C_ADRI_INFO', 'li_kor_nm:=:' + p.ri)).filter(f => { const n = (f.properties || {}).full_nm || ''; return n.includes(sg.name) && n.includes(p.emd); }); if (fs[0]) return { how: '리', g: to5186(fs[0].geometry), gj: fs[0].geometry }; }
+    if (p.emd) { const it = (await vwSearch('district', 'L4', sg.full + ' ' + p.emd))[0]; if (it && it.id) { const fs = await vwData('LT_C_ADEMD_INFO', 'emd_cd:=:' + it.id, 1); if (fs[0]) return { how: '읍면동', g: to5186(fs[0].geometry), gj: fs[0].geometry }; } }
+    return { how: 'none' };
+  }
+  async function locate(r, sg, site, sgs) {
+    const key = r.code; if (gcache.has(key)) return gcache.get(key);
+    let res = { how: 'none' };
+    try {
+      const addr = await detailAddr(r.code);
+      if (addr) { res = await geoAddr(addr, sg); res.addr = addr; res.src = 'EIASS 소재지'; }
+      if (res.how === '시군구') { const inR = sgs.some(s => res.city === s.name || res.city.replace(/[시군]$/, '') === s.stem); res = inR ? Object.assign(res, { dist: 0 }) : { how: 'other', note: res.city, addr }; }
+      if (res.how === 'none') {
+        const p = parseName(r.name, sg);
+        if (p.other) res = { how: 'other', note: p.other, addr: res.addr };
+        else { const a = res.addr; res = await geoParsed(p, sg); res.addr = a; res.src = '사업명'; }
       }
     } catch (e) { res = { how: 'none' }; }
     if (res.g) { try { res.dist = site.distance(res.g); } catch (e) { res.dist = Infinity; } }
@@ -205,9 +237,9 @@
           $('#eiaWords').placeholder = '자동: ' + sgs.map(s => s.name).join(', ');
           const found = await runByName(sgs, msg);
           let done = 0; const pool = found.slice(), out = [];
-          await Promise.all(Array.from({ length: 4 }, async () => { while (pool.length) { const r = pool.shift(); const L = await locate(r, r.sg, site); done++; msg.textContent = '사업명에서 위치를 찾는 중... ' + done + '/' + found.length; r.loc = L; out.push(r); } }));
-          out.forEach(r => { const L = r.loc; if (L.how === 'other') nameOut.other++; else if (!L.g) nameOut.none.push(r); else if (L.dist > radius) nameOut.far++; else nameRows.push(r); });
-          nameRows.sort((a, b) => a.loc.dist - b.loc.dist);
+          await Promise.all(Array.from({ length: 4 }, async () => { while (pool.length) { const r = pool.shift(); const L = await locate(r, r.sg, site, sgs); done++; msg.textContent = '사업명에서 위치를 찾는 중... ' + done + '/' + found.length; r.loc = L; out.push(r); } }));
+          out.forEach(r => { const L = r.loc; if (L.how === 'other') nameOut.other++; else if (L.how === '시군구') nameRows.push(r); else if (!L.g) nameOut.none.push(r); else if (L.dist > radius) nameOut.far++; else nameRows.push(r); });
+          nameRows.sort((a, b) => (a.loc.how === '시군구') - (b.loc.how === '시군구') || a.loc.dist - b.loc.dist);
           drawNamePts();
         } catch (e) { $('#eiaNameNote').innerHTML = e.notReg ? '공공데이터포털에서 <b>환경영향평가 협의 현황정보(15142987)</b>, <b>사전/전략/소규모협의현황정보(15142990)</b> 활용신청이 필요합니다.' : '사업명 검색 실패: ' + esc(e.message); }
       }
@@ -240,7 +272,8 @@
         `<td class="eia-nm"><a href="${App.eiassLink(r.code)}" target="_blank" rel="noopener" title="EIASS에서 열기 (${esc(r.code)})">${esc(r.name)}</a>${r.approx ? ' <span class="eia-ap" title="경계가 아니라 법정동 위치로 등록된 사업이라 거리가 대략입니다">위치 대략</span>' : ''}</td>` +
         `<td>${r.year}</td><td class="eia-loc">${esc(r.loc)}</td><td class="num">${fmtD(r.dist)}</td></tr>`).join('') : '<tr><td colspan="6" class="empty">반경 안에 위치가 등록된 사업이 없습니다</td></tr>') + '</tbody>';
   }
-  const HOW = { '지번': '지번', '리': '리 범위', '읍면동': '읍면동 범위' };
+  const HOW = { '지번': '지번', '리': '리 범위', '읍면동': '읍면동 범위', '시군구': '시군구 전역' };
+  const howTxt = L => HOW[L.how] + (L.src === 'EIASS 소재지' ? '' : ' (사업명)');
   function renderName() {
     const want = opt().kinds, codes = new Set(rows.map(r => r.code));
     const list = nameRows.filter(r => want[r.kind] !== false && !codes.has(r.code));
@@ -248,10 +281,10 @@
     const d = $('#eiaNameBox'); d.hidden = !list.length && !none.length && !$('#eiaNameNote').textContent;
     $('#eiaNameCnt').textContent = list.length ? '(' + list.length + '건)' : '(0건)';
     const kn = k => k === 'eia' ? '환경' : k === 'small' ? '소규모' : '전략';
-    const dTxt = r => r.loc.how === '지번' ? fmtD(r.loc.dist) : (r.loc.dist <= 0.5 ? '범위가 겹침' : fmtD(r.loc.dist) + ' (경계까지)');
-    $('#eiaNameTable').innerHTML = (list.length ? '<thead><tr><th>구분</th><th>사업명</th><th>연도</th><th>위치 근거</th><th>거리</th></tr></thead><tbody>' + list.map(r => '<tr data-ncode="' + esc(r.code) + '"><td><span class="eia-k" style="--c:' + KIND[r.kind].color + '">' + kn(r.kind) + '</span></td><td class="eia-nm"><a href="' + App.eiassLink(r.code) + '" target="_blank" rel="noopener">' + esc(r.name) + '</a></td><td>' + esc(r.year) + '</td><td class="eia-loc">' + HOW[r.loc.how] + '</td><td class="num">' + dTxt(r) + '</td></tr>').join('') + '</tbody>' : '<tbody><tr><td class="empty">사업명 주소로 보면 반경 안에 있는 사업이 없습니다</td></tr></tbody>');
+    const dTxt = r => r.loc.how === '지번' ? fmtD(r.loc.dist) : r.loc.how === '시군구' ? '-' : (r.loc.dist <= 0.5 ? '범위가 겹침' : fmtD(r.loc.dist) + ' (경계까지)');
+    $('#eiaNameTable').innerHTML = (list.length ? '<thead><tr><th>구분</th><th>사업명</th><th>연도</th><th>위치 근거</th><th>거리</th></tr></thead><tbody>' + list.map(r => '<tr data-ncode="' + esc(r.code) + '"><td><span class="eia-k" style="--c:' + KIND[r.kind].color + '">' + kn(r.kind) + '</span></td><td class="eia-nm"><a href="' + App.eiassLink(r.code) + '" target="_blank" rel="noopener">' + esc(r.name) + '</a></td><td>' + esc(r.year) + '</td><td class="eia-loc" title="' + esc(r.loc.addr || '') + '">' + howTxt(r.loc) + '</td><td class="num">' + dTxt(r) + '</td></tr>').join('') + '</tbody>' : '<tbody><tr><td class="empty">사업명 주소로 보면 반경 안에 있는 사업이 없습니다</td></tr></tbody>');
     $('#eiaNameMore').innerHTML = '<div class="eia-note2">반경 밖으로 확인되어 뺀 사업 ' + nameOut.far + '건, 다른 시군 사업 ' + nameOut.other + '건</div>' +
-      (none.length ? '<details><summary>사업명에 주소가 없어 위치를 못 찾은 사업 ' + none.length + '건 (직접 확인)</summary><table class="eia-tbl"><tbody>' + none.map(r => '<tr><td><span class="eia-k" style="--c:' + KIND[r.kind].color + '">' + kn(r.kind) + '</span></td><td class="eia-nm"><a href="' + App.eiassLink(r.code) + '" target="_blank" rel="noopener">' + esc(r.name) + '</a></td><td>' + esc(r.year) + '</td></tr>').join('') + '</tbody></table></details>' : '');
+      (none.length ? '<details><summary>' + (detailBlocked ? '사업명에 주소가 없어 위치를 못 찾은 사업 ' : '소재지로 위치를 못 찾은 사업 ') + none.length + '건 (직접 확인)</summary><table class="eia-tbl"><tbody>' + none.map(r => '<tr><td><span class="eia-k" style="--c:' + KIND[r.kind].color + '">' + kn(r.kind) + '</span></td><td class="eia-nm"><a href="' + App.eiassLink(r.code) + '" target="_blank" rel="noopener">' + esc(r.name) + '</a></td><td>' + esc(r.year) + '</td></tr>').join('') + '</tbody></table></details>' : '');
   }
   function drawNamePts() {
     ensureLayer(); if (!layer) return;
@@ -267,7 +300,7 @@
     const L = [['번호', '구분', '사업코드', '사업명', '연도', '소재지', '최근접 거리(km)', '비고', 'EIASS 링크']];
     rows.filter(r => want[r.kind] !== false).forEach(r => L.push([r.no, KIND[r.kind].name, r.code, r.name, r.year, r.loc, r.dist <= 0.5 ? 0 : (r.dist / 1000).toFixed(r.dist < 1000 ? 2 : 1), r.approx ? '위치 대략(법정동)' : '', App.eiassLink(r.code)]));
     const codes = new Set(rows.map(r => r.code));
-    nameRows.filter(r => want[r.kind] !== false && !codes.has(r.code)).forEach(r => L.push(['', KIND[r.kind].name, r.code, r.name, r.year, '', r.loc.dist <= 0.5 ? 0 : (r.loc.dist / 1000).toFixed(r.loc.dist < 1000 ? 2 : 1), '사업명 주소 기준 (' + HOW[r.loc.how] + ')', App.eiassLink(r.code)]));
+    nameRows.filter(r => want[r.kind] !== false && !codes.has(r.code)).forEach(r => L.push(['', KIND[r.kind].name, r.code, r.name, r.year, '', r.loc.dist <= 0.5 ? 0 : (r.loc.dist / 1000).toFixed(r.loc.dist < 1000 ? 2 : 1), howTxt(r.loc) + (r.loc.addr ? ' / ' + r.loc.addr : ''), App.eiassLink(r.code)]));
     nameOut.none.filter(r => want[r.kind] !== false && !codes.has(r.code)).forEach(r => L.push(['', KIND[r.kind].name, r.code, r.name, r.year, '', '', '위치 못 찾음 (직접 확인)', App.eiassLink(r.code)]));
     const csv = '\ufeff' + L.map(r => r.map(v => { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(',')).join('\r\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));

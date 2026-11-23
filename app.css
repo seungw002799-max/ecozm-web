@@ -631,3 +631,7 @@ body:not([data-theme="prot"]) #tabLayout.embedded .row:has(#btnLabelReset), body
 #tabEia .table-wrap { max-height: 46vh; overflow: auto; }
 .eia-tbl td:nth-child(4), .eia-tbl td:nth-child(1) { white-space: nowrap; }
 #eiaNameTable td:nth-child(3) { white-space: nowrap; }
+.eia-note2 { font-size: 11.5px; color: #667; margin: 6px 0 2px; }
+#eiaNameMore details summary { font-size: 12px; cursor: pointer; margin: 4px 0; }
+.eia-tbl tr[data-ncode] { cursor: pointer; }
+.eia-tbl tr[data-ncode]:hover { background: #fff7d6; }

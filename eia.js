@@ -244,7 +244,7 @@
         } catch (e) { $('#eiaNameNote').innerHTML = e.notReg ? '공공데이터포털에서 <b>환경영향평가 협의 현황정보(15142987)</b>, <b>사전/전략/소규모협의현황정보(15142990)</b> 활용신청이 필요합니다.' : '사업명 검색 실패: ' + esc(e.message); }
       }
       renderName();
-      msg.textContent = `반경 ${o.radius}km 안 ${rows.length}건 (최근 ${o.years}년, 위치 기준)` + ($('#eiaUseName').checked ? ` · 사업명 주소 기준 반경 안 ${nameRows.length}건` : '');
+      msg.textContent = `반경 ${o.radius}km 안 ${rows.length}건 (최근 ${o.years}년, 위치 기준)` + ($('#eiaUseName').checked ? ` · 사업명 주소 기준 반경 안 ${nameRows.filter(r => !rows.some(x => x.code === r.code)).length}건 추가` : '');
     } catch (e) { msg.className = 'progress err'; msg.textContent = '조회 실패: ' + e.message; }
     finally { btn.disabled = false; }
   }

@@ -18,6 +18,17 @@
   // 천연기념물 명칭: 별칭(alias)에 이름, 비고(remark)에 지정번호가 있는 경우가 많아 '이름 (천연기념물 제○호)' 로 합침
   const uo = p => { const a = (p.alias || '').trim(), r = (p.remark || '').trim(); if (/천연기념물/.test(r) && a && !/천연기념물/.test(a)) return a + ' (' + r + ')'; if (/천연기념물/.test(a)) return a; return r || a || '천연기념물'; };
   const sg = p => [p.sigg_name, p.uname].filter(Boolean).join(' ');
+  // 상수원보호구역 명칭: 짐작하지 않음. ① 원자료 별칭(alias)에 구체적 이름이 있으면 사용 ② 팀 명칭표(사람이 확인해 저장) ③ 없으면 '명칭 미확인'
+  // 구역 식별: 고시번호가 있으면 같은 고시의 조각을 한 구역으로(관리번호 끝 3자리=조각 번호 제외), 고시번호가 없으면 조각마다 따로
+  App.waterNames = App.waterNames || {};
+  App.WATER_UNK = '상수원보호구역(명칭 미확인)';
+  App.waterUid = p => { const m = String(p.mnum || ''); return p.dyear && p.dyear !== '0000' && m.length > 3 ? m.slice(0, -3) : m; };
+  const fullWater = n => /보호구역$/.test(n) ? n : n + ' 상수원보호구역';
+  App.waterName = p => { const a = String(p.alias || '').trim(); if (a && a !== '상수원보호구역' && /상수원|보호구역|수원지/.test(a)) return fullWater(a); const t = App.waterNames[App.waterUid(p)]; return t && t.n ? fullWater(t.n) : App.WATER_UNK; };
+  App.waterInfo = App.waterInfo || {};
+  const NAMES_URL = 'https://ecozm-proxy.seungw002799.workers.dev/names?l=water';
+  App.loadWaterNames = async () => { try { const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 6000); const r = await fetch(NAMES_URL, { signal: ac.signal, cache: 'no-store' }); clearTimeout(tm); if (r.ok) App.waterNames = await r.json(); } catch (e) { /* 명칭표를 못 받아도 조회는 계속 */ } return App.waterNames; };
+  App.saveWaterName = async (uids, name) => { const r = await fetch(NAMES_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ uids, name }) }); if (!r.ok) throw new Error('저장 실패 (HTTP ' + r.status + ')'); App.waterNames = await r.json(); return App.waterNames; };
   // 야생생물 보호구역: 자료 명칭이 옛 법령 이름(야생동·식물)이라 현행 이름으로 표기
   const sgW = p => sg(p).replace(/야생동·식물/g, '야생생물');
   // 묶음(group)은 목록에서 한 칸으로 보이고, 안의 항목을 각각 켜고 끌 수 있다. cat 은 비슷한 것끼리 모으는 구분
@@ -51,7 +62,7 @@
     { cat: 'egis', group: 'egis', id: 'discharge', label: '폐수배출시설 설치제한지역', short: '폐수배출시설 설치제한지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='배출시설설치제한지역'", name: () => '폐수배출시설 설치제한지역', color: '#F4511E', note: Object.assign({}, EG, { extra: '물환경보전법 제33조' }) },
     { cat: 'egis', group: 'egis', id: 'wq_special', label: '상수원 수질보전 특별대책지역', short: '상수원 수질보전 특별대책지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='수질보전특별대책지역'", name: () => '특별대책지역', nameG: (p, g) => { let y = null; const w = c => { if (y !== null) return; if (typeof c[0] === 'number') y = c[1]; else c.forEach(w); }; w(g.coordinates); return (y > 37 ? '팔당호' : '대청호') + ' 특별대책지역'; }, color: '#00897B', note: Object.assign({}, EG, { extra: '팔당·대청호 2곳' }) },
     { cat: 'egis', group: 'egis', id: 'river_small', label: '소하천 (소하천구역)', short: '소하천', src: 'wfsb', base: 'https://api.mcee.go.kr/geoserver/ows', typename: 'EGIS:K33UJC100', name: () => '소하천구역', labelNearest: true, color: '#7986CB', note: VW },
-    { cat: 'egis', group: 'egis', id: 'water', label: '상수원보호구역', short: '상수원보호구역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='상수원보호구역'", name: () => '상수원보호구역', color: '#1565C0', note: EG },
+    { cat: 'vworld', id: 'water', label: '상수원보호구역', short: '상수원보호구역', src: 'vworld', data: 'LT_C_UM710', name: p => App.waterName(p), uid: p => App.waterUid(p), wuid: p => App.waterUid(p), info: p => ({ sigg: [p.sido_name, p.sigg_name].filter(Boolean).join(' '), remark: p.remark || '', alias: p.alias || '', gosi: p.dyear && p.dyear !== '0000' ? p.dyear + '-' + p.dnum : '' }), color: '#1565C0', note: Object.assign({}, VW, { extra: ['국토교통부 연속주제도 (수도법 상수원보호구역)', '명칭: 원자료 별칭 → 팀 명칭표 → 없으면 명칭 미확인'] }) },
     { cat: 'egis', group: 'egis', id: 'air', label: '대기환경규제지역', short: '대기환경규제지역', src: 'egis', typename: 'me:ca_plg_air_restrict', name: () => '대기환경규제지역', color: '#FFB300', note: EG },
     // kei
     { cat: 'kei', group: 'ridge', id: 'ridge1', label: '백두대간', short: '백두대간', src: 'kei', typename: 'keilocal:mtridge_l1_pl', name: p => p.mbsnnm || '백두대간', color: '#4E342E', line: true, note: KEI },
@@ -76,7 +87,7 @@
       dash: ['solid', 'dashed', 'dotted'].includes(c.dash) ? c.dash : dDash, width: Number(c.width) > 0 ? Number(c.width) : dW,
       halo: /^#[0-9a-fA-F]{6}$/.test(c.halo || '') ? c.halo : '#ffffff', haloW: Math.max(0, Number(c.haloW) || 0) };   // 버퍼(선 둘레 테두리)
   };
-  App.protLabelKey = f => f.get('kind') + '|' + (f.get('name') || '');
+  App.protLabelKey = f => f.get('kind') + '|' + (f.get('name') || '') + (f.get('wuid') && f.get('name') === App.WATER_UNK ? '|' + f.get('wuid') : '');
   App.PROT = PROT;
   // 대상지역 설정도(target.js)에서 하천 등 한 레이어만 받을 때
   App.protFetchLayer = (id, b4326) => { const p = BY_ID[id]; if (!p) return Promise.reject(new Error('레이어 없음')); return cachedWfs(p, b4326); };
@@ -222,7 +233,7 @@
       if (r.status === 'NOT_FOUND') break;
       if (r.status !== 'OK') throw new Error(`${p.short}: ${(r.error && r.error.text) || r.status}${/인증키/.test((r.error && r.error.text) || '') ? ' (브이월드 키가 이 사이트 주소로 등록됐는지 확인)' : ''}`);
       const fs = (r.result && r.result.featureCollection && r.result.featureCollection.features) || [];
-      fs.filter(f => !p.keep || p.keep(f.properties || {})).forEach(f => feats.push({ type: 'Feature', geometry: f.geometry, properties: { name: p.name(f.properties || {}) || p.short, uid: p.uid ? p.uid(f.properties || {}) : '' } }));
+      fs.filter(f => !p.keep || p.keep(f.properties || {})).forEach(f => feats.push({ type: 'Feature', geometry: f.geometry, properties: { name: p.name(f.properties || {}) || p.short, uid: p.uid ? p.uid(f.properties || {}) : '', wuid: p.wuid ? p.wuid(f.properties || {}) : '', info: p.info ? p.info(f.properties || {}) : null } }));
       const total = Number(r.record && r.record.total) || 0;
       if (feats.length >= total || !fs.length) break;
     }
@@ -410,6 +421,7 @@
     App.src.prot.clear();
     App.setArrows('prot', []);
     rows = [];
+    if (chosen.some(p => p.id === 'water')) { await App.loadWaterNames(); fcCache.forEach((v, k) => { if (k.startsWith('water|')) fcCache.delete(k); }); }   // 팀 명칭표 최신으로
     try {
       // 사업지구 합치기 (EPSG:5186)
       const rd = new jsts.io.GeoJSONReader();
@@ -477,11 +489,12 @@
           // 반경 안에 든 양: 면은 면적, 선(산줄기 등)은 길이. 전체 대비 비율도 함께
           const isLine = !!p.line, tot = isLine ? jg.getLength() : jg.getArea();
           let inR = 0; try { if (radBuf) { const ig = jg.intersection(radBuf); inR = isLine ? ig.getLength() : ig.getArea(); } } catch (e) { try { const ig = jg.buffer(0).intersection(radBuf); inR = isLine ? ig.getLength() : ig.getArea(); } catch (e2) { inR = 0; } }
-          rows.push({ kind: p.id, kindLabel: p.short, name, uid: (f.properties || {}).uid || '', dist, over, area: jg.getArea(), np, inR, tot, isLine });
+          const wuid = (f.properties || {}).wuid || ''; if (wuid && (f.properties || {}).info) App.waterInfo[wuid] = (f.properties || {}).info;
+          rows.push({ kind: p.id, kindLabel: p.short, name, wuid, wuids: wuid ? [wuid] : [], uid: (f.properties || {}).uid || '', dist, over, area: jg.getArea(), np, inR, tot, isLine });
           const dg = disp(jg, g5, p.overlapOnly ? clipBig : clipR);
           if (!dg) return;   // 행정구역 밖이라 지도에 그릴 부분 없음
           const of = fmt3857.readFeature({ type: 'Feature', geometry: dg, properties: {} }, { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' });
-          of.set('kind', p.id); of.set('name', name); of.set('dist', dist); of.set('area', jg.getArea());
+          of.set('kind', p.id); of.set('name', name); of.set('dist', dist); of.set('area', jg.getArea()); if (wuid) { of.set('wuid', wuid); of.set('g5', jg); }
           if (p.overlapOnly) { of.set('host', true); hosts.push(jg); }
           App.src.prot.addFeature(of);
         });
@@ -501,12 +514,12 @@
       }
       // 같은 구분·명칭이 여러 조각이면 한 줄로 (최근접 거리 = 가장 가까운 조각, 중첩 = 합)
       const merged = new Map();
-      rows.forEach(r => { const k = r.kind + '|' + r.name.trim() + '|' + (r.uid || ''); const m = merged.get(k); if (!m) merged.set(k, Object.assign({}, r, { name: r.name.trim() })); else { if (r.dist < m.dist) { m.dist = r.dist; m.np = r.np; } m.over += r.over; } });
+      rows.forEach(r => { const unk = r.kind === 'water' && r.name === App.WATER_UNK; const k = r.kind + '|' + r.name.trim() + '|' + (r.kind === 'water' ? (unk ? r.wuid : '') : (r.uid || '')); const m = merged.get(k); if (!m) merged.set(k, Object.assign({}, r, { name: r.name.trim(), wuids: (r.wuids || []).slice() })); else { if (r.dist < m.dist) { m.dist = r.dist; m.np = r.np; } m.over += r.over; (r.wuids || []).forEach(w => { if (!m.wuids.includes(w)) m.wuids.push(w); }); } });
       rows = [...merged.values()];
       rows.sort((a, b) => a.dist - b.dist);
       // 화살표: 구분별 가장 가까운 1곳만 기본으로 켬 (겹치는 곳 제외)
       const seenKind = new Set();
-      rows.forEach(r => { r.key = r.kind + '|' + r.name + (r.uid ? '|' + r.uid : ''); r.arrow = false; });   // 화살표는 기본 꺼짐 (필요한 것만 체크)
+      rows.forEach(r => { r.key = r.kind + '|' + r.name + (r.uid ? '|' + r.uid : '') + (r.kind === 'water' && r.name === App.WATER_UNK ? '|' + r.wuid : ''); r.arrow = false; });   // 화살표는 기본 꺼짐 (필요한 것만 체크)
       if (pointCtx) rows.forEach(r => { r.arrow = false; r.noArrow = true; });   // 초기 입지 검토: 화살표 없이 목록만
       chosen.forEach(p => { App.opts.protShow[p.id] = true; }); App.saveOpts();   // 조회한 레이어는 지도에 표시 (결과 목록의 구분 체크로 끄고 켬)
       syncArrows();
@@ -538,7 +551,7 @@
     const inTxt = r => r.inR != null && r.tot > 0 ? `<span class="pr-in" title="검토 반경 안에 든 ${r.isLine ? '길이' : '면적'} / 전체 ${qty(r.tot, r.isLine)}">반경 내 ${qty(r.inR, r.isLine)} · ${pctT(r.inR, r.tot)}</span>` : '';
     const item = r => `<div class="pr-row">
         ${r.np && !r.noArrow ? `<input type="checkbox" data-arrow="${r.key}" ${r.arrow ? 'checked' : ''} title="최근접 거리 화살표">` : '<span class="pr-nochk"></span>'}
-        <span class="pr-name">${r.name}</span>
+        <span class="pr-name">${r.name}${r.kind === 'water' && r.name === App.WATER_UNK ? ` <button type="button" class="pr-confirm" data-wconfirm="${r.wuid}">명칭 확인</button>` : ''}</span>
         <span class="pr-dist ${r.dist === 0 ? 'zero' : ''}">${dtxt(r)}</span>
         ${r.over > 0 ? `<span class="pr-over">${fmt(r.over)}㎡</span>` : ''}${inTxt(r)}</div>`;
     const noArr = rows.every(r => r.noArrow);
@@ -639,7 +652,50 @@
       c[f] = f === 'width' ? Number(e.target.value) || null : e.target.value;
       App.saveOpts(); cache.clear(); App.liveSets.forEach(s => s.changed()); App.emit();
     });
-    $('#protTable').addEventListener('change', e => {
+    $('#protTable').addEventListener('click', e => { const b = e.target.closest('[data-wconfirm]'); if (!b) return; e.preventDefault(); const r = b.getBoundingClientRect(); App.waterConfirm(b.dataset.wconfirm, r.left, r.bottom + 4); });
+  // 상수원보호구역 명칭 확인 창: 확인한 이름을 팀 명칭표에 저장 (도면 표시용 글자 바꾸기와는 별개)
+  App.waterConfirm = (wuid, x, y) => {
+    const info = App.waterInfo[wuid] || {};
+    let box = document.getElementById('wcPop');
+    if (!box) { box = document.createElement('div'); box.id = 'wcPop'; box.className = 'prop-pop wc-pop'; document.body.appendChild(box); }
+    const q = encodeURIComponent([info.sigg, '상수원보호구역', info.remark].filter(Boolean).join(' '));
+    const esc2 = s => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    box.innerHTML = '<div class="pp-h"><b>상수원보호구역 명칭 확인</b><button type="button" class="pp-x" data-wc="x">×</button></div>' +
+      '<div class="wc-info"><div><span>시군구</span>' + esc2(info.sigg || '-') + '</div>' + (info.gosi ? '<div><span>고시번호</span>' + esc2(info.gosi) + '</div>' : '') + (info.remark ? '<div><span>원자료 비고</span>' + esc2(info.remark) + ' <small>(이름이 아닐 수 있음)</small></div>' : '') + '</div>' +
+      '<div class="wc-links"><a class="btn small" target="_blank" rel="noopener" href="https://www.google.com/search?q=' + q + '">인터넷에서 찾기</a>' + (info.gosi ? '<a class="btn small" target="_blank" rel="noopener" href="https://www.eum.go.kr/web/gs/gv/gvGosiList.jsp" title="고시번호 ' + esc2(info.gosi) + ' 로 검색">토지이음 고시정보</a>' : '') + '</div>' +
+      '<label class="field"><span>확인한 명칭</span><input type="text" data-wc="name" placeholder="예: 신흥 (뒤에 상수원보호구역은 자동)"></label>' +
+      '<label class="check"><input type="checkbox" data-wc="conn" checked> 붙어 있는 미확인 조각에도 같이 적용</label>' +
+      '<div class="row"><button type="button" class="btn primary small" data-wc="save">팀 명칭표에 저장</button></div>' +
+      '<ul class="bullets"><li>팀 전체에 저장되어 다음부터 모든 팀원 화면에 이 명칭이 나옵니다</li><li>도면에서만 다르게 쓰려면 지금처럼 명칭을 두 번 눌러 글자를 바꾸세요</li></ul><div class="wc-msg"></div>';
+    box.hidden = false; box.style.left = Math.max(8, Math.min(x, innerWidth - 340)) + 'px'; box.style.top = Math.max(8, Math.min(y, innerHeight - 380)) + 'px';
+    box.querySelector('[data-wc=name]').focus();
+    box.onclick = async ev => {
+      const t = ev.target.closest('[data-wc]'); if (!t) return;
+      if (t.dataset.wc === 'x') { box.hidden = true; return; }
+      if (t.dataset.wc !== 'save') return;
+      const nm = box.querySelector('[data-wc=name]').value.trim(), msgEl = box.querySelector('.wc-msg');
+      if (!nm) { msgEl.textContent = '명칭을 넣으세요'; return; }
+      let uids = [wuid];
+      if (box.querySelector('[data-wc=conn]').checked) {   // 같은 시군구의 미확인 조각 중 서로 붙어 있는 것 (5m 이내)
+        const fs = App.src.prot.getFeatures().filter(f => f.get('kind') === 'water' && f.get('name') === App.WATER_UNK && f.get('g5') && (App.waterInfo[f.get('wuid')] || {}).sigg === info.sigg);
+        let frontier = fs.filter(f => f.get('wuid') === wuid), seen = new Set(frontier);
+        while (frontier.length) { const nx = []; frontier.forEach(a => fs.forEach(b => { if (seen.has(b)) return; try { if (a.get('g5').distance(b.get('g5')) < 5) { seen.add(b); nx.push(b); } } catch (e2) {} })); frontier = nx; }
+        seen.forEach(f => { if (!uids.includes(f.get('wuid'))) uids.push(f.get('wuid')); });
+      }
+      t.disabled = true; msgEl.textContent = '저장 중...';
+      try {
+        await App.saveWaterName(uids, nm);
+        const full = /보호구역$/.test(nm) ? nm : nm + ' 상수원보호구역';
+        App.src.prot.getFeatures().forEach(f => { if (f.get('kind') === 'water' && uids.includes(f.get('wuid'))) f.set('name', full); });
+        const keep = [];
+        rows.forEach(r => { if (r.kind === 'water' && (r.wuids || [r.wuid]).some(w => uids.includes(w))) { r.name = full; r.key = 'water|' + full; } const m = keep.find(k => k.kind === 'water' && r.kind === 'water' && k.name === r.name && r.name !== App.WATER_UNK); if (m) { if (r.dist < m.dist) { m.dist = r.dist; m.np = r.np; } m.over += r.over; (r.wuids || []).forEach(w => { if (!m.wuids.includes(w)) m.wuids.push(w); }); } else keep.push(r); });
+        rows = keep; rows.sort((a, b) => a.dist - b.dist);
+        syncArrows(); renderTable(); App.liveSets.forEach(s => s.changed()); App.layout && App.layout.redraw && App.layout.redraw();
+        msgEl.textContent = '저장했습니다 (' + uids.length + '개 구역)'; setTimeout(() => { box.hidden = true; }, 900);
+      } catch (e2) { msgEl.textContent = e2.message; t.disabled = false; }
+    };
+  };
+  $('#protTable').addEventListener('change', e => {
       if (e.target.dataset.show) { App.opts.protShow[e.target.dataset.show] = e.target.checked; App.saveOpts(); mirror(); App.liveSets.forEach(s => s.changed()); App.emit(); return; }
       const k = e.target.dataset.arrow; if (!k) return;
       const r = rows.find(x => x.key === k); if (r) { r.arrow = e.target.checked; syncArrows(); }

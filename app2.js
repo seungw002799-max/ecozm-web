@@ -757,7 +757,7 @@
         const v = prompt('도면 명칭 (비우면 구분 이름)', s.labelText || s.category); if (v === null) return;
         s.labelText = v.trim() && v.trim() !== s.category ? v.trim() : ''; App.liveSets.forEach(x => x.changed()); redraw(); return;
       }
-      if (lf.get('kind') !== 'adm') { labelPopup(lf, e.clientX, e.clientY); return; }   // 레이어 명칭: 속성 창
+      if (lf.get('kind') !== 'adm') { labelPopup(lf, e.clientX, e.clientY); if (lf.get('kind') === 'water' && lf.get('name') === App.WATER_UNK && lf.get('wuid') && App.waterConfirm) { const pp = document.getElementById('propPop'), wid = lf.get('wuid'), cx = e.clientX, cy = e.clientY; if (pp) { const d = document.createElement('div'); d.className = 'pp-wconf'; d.innerHTML = '<b>명칭 미확인</b> <button type="button" class="btn small">명칭 확인</button>'; d.querySelector('button').onclick = () => { pp.hidden = true; App.waterConfirm(wid, cx, cy); }; const body = pp.querySelector('.pp-h'); if (body && body.nextSibling) pp.insertBefore(d, body.nextSibling); else pp.prepend(d); } } return; }   // 레이어 명칭: 속성 창
       const key = lf.get('kind') === 'adm' ? 'adm|' + lf.get('name') : App.protLabelKey(lf);
       App.opts.protLabelText = App.opts.protLabelText || {};
       const cur = App.opts.protLabelText[key] || lf.get('name') || '';

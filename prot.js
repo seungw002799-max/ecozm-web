@@ -39,7 +39,7 @@
     egis: { label: '환경공간정보서비스', note: { src: '환경공간정보서비스 API', tags: ['실시간', '중계'], extra: ['기후에너지환경부'] } },
   };
   // 출처(제공 기관)별로 분류: 검증할 때 어디 자료인지 바로 보이도록
-  const CATS = { ecobank: '에코뱅크 (국립생태원)', vworld: '브이월드 (국토교통부 등)', egis: '환경공간정보서비스 (기후에너지환경부)', kei: 'KEI 지역환경정보시스템', rim: '하천정보관리시스템 (RIMGIS)', nibr: '국립생물자원관', nier: '물환경정보시스템 (국립환경과학원)' };
+  const CATS = { ecobank: '에코뱅크 (국립생태원)', vworld: '브이월드 (국토교통부 등)', egis: '환경공간정보서비스 (기후에너지환경부)', kei: 'KEI 지역환경정보시스템', rim: '하천정보관리시스템 (RIMGIS)', nibr: '국립생물자원관', nier: '물환경정보시스템 (국립환경과학원)', kdpa: '보호·보전지역 정보망 (KDPA)' };
   const PROT = [
     // ecobank
     { cat: 'ecobank', id: 'eco1', grade: '1', label: '생태자연도 1등급', short: '생태자연도 1등급', src: 'eco1', name: () => '생태자연도 1등급', labelNearest: true, color: '#1AA800', note: ECZ },
@@ -62,7 +62,7 @@
     { cat: 'egis', group: 'egis', id: 'discharge', label: '폐수배출시설 설치제한지역', short: '폐수배출시설 설치제한지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='배출시설설치제한지역'", name: () => '폐수배출시설 설치제한지역', color: '#F4511E', note: Object.assign({}, EG, { extra: '물환경보전법 제33조' }) },
     { cat: 'egis', group: 'egis', id: 'wq_special', label: '상수원 수질보전 특별대책지역', short: '상수원 수질보전 특별대책지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='수질보전특별대책지역'", name: () => '특별대책지역', nameG: (p, g) => { let y = null; const w = c => { if (y !== null) return; if (typeof c[0] === 'number') y = c[1]; else c.forEach(w); }; w(g.coordinates); return (y > 37 ? '팔당호' : '대청호') + ' 특별대책지역'; }, color: '#00897B', note: Object.assign({}, EG, { extra: '팔당·대청호 2곳' }) },
     { cat: 'egis', group: 'egis', id: 'river_small', label: '소하천 (소하천구역)', short: '소하천', src: 'wfsb', base: 'https://api.mcee.go.kr/geoserver/ows', typename: 'EGIS:K33UJC100', name: () => '소하천구역', labelNearest: true, color: '#7986CB', note: VW },
-    { cat: 'vworld', id: 'water', label: '상수원보호구역', short: '상수원보호구역', src: 'vworld', data: 'LT_C_UM710', name: p => App.waterName(p), uid: p => App.waterUid(p), wuid: p => App.waterUid(p), info: p => ({ sigg: [p.sido_name, p.sigg_name].filter(Boolean).join(' '), remark: p.remark || '', alias: p.alias || '', gosi: p.dyear && p.dyear !== '0000' ? p.dyear + '-' + p.dnum : '' }), color: '#1565C0', note: Object.assign({}, VW, { extra: ['국토교통부 연속주제도 (수도법 상수원보호구역)', '명칭: 원자료 별칭 → 팀 명칭표 → 없으면 명칭 미확인'] }) },
+    { cat: 'kdpa', id: 'water', label: '상수원보호구역', short: '상수원보호구역', src: 'local', local: 'data/water_kdpa.geojson', srcName: '보호·보전지역 정보망(KDPA)', nameField: 'name', nameFmt: n => /보호구역$/.test(n) ? n : n + ' 상수원보호구역', color: '#1565C0', note: { src: '보호·보전지역 정보망(KDPA, kdpa.kr)', tags: ['2025년 12월'], extra: ['WDPA 등재 국가 보호지역 중 상수원보호구역 293곳 (명칭 포함)', '사이트에 넣어 둔 자료 · 반년마다 갱신'] } },
     { cat: 'egis', group: 'egis', id: 'air', label: '대기환경규제지역', short: '대기환경규제지역', src: 'egis', typename: 'me:ca_plg_air_restrict', name: () => '대기환경규제지역', color: '#FFB300', note: EG },
     // kei
     { cat: 'kei', group: 'ridge', id: 'ridge1', label: '백두대간', short: '백두대간', src: 'kei', typename: 'keilocal:mtridge_l1_pl', name: p => p.mbsnnm || '백두대간', color: '#4E342E', line: true, note: KEI },

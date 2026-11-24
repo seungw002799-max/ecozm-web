@@ -652,7 +652,7 @@
       c[f] = f === 'width' ? Number(e.target.value) || null : e.target.value;
       App.saveOpts(); cache.clear(); App.liveSets.forEach(s => s.changed()); App.emit();
     });
-    $('#protTable').addEventListener('click', e => { const b = e.target.closest('[data-wconfirm]'); if (!b) return; e.preventDefault(); const r = b.getBoundingClientRect(); App.waterConfirm(b.dataset.wconfirm, r.left, r.bottom + 4); });
+    document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-wconfirm]'); if (!b) return; e.preventDefault(); const r = b.getBoundingClientRect(); App.waterConfirm(b.dataset.wconfirm, r.left, r.bottom + 4); });
   // 상수원보호구역 명칭 확인 창: 확인한 이름을 팀 명칭표에 저장 (도면 표시용 글자 바꾸기와는 별개)
   App.waterConfirm = (wuid, x, y) => {
     const info = App.waterInfo[wuid] || {};
@@ -690,7 +690,7 @@
         const keep = [];
         rows.forEach(r => { if (r.kind === 'water' && (r.wuids || [r.wuid]).some(w => uids.includes(w))) { r.name = full; r.key = 'water|' + full; } const m = keep.find(k => k.kind === 'water' && r.kind === 'water' && k.name === r.name && r.name !== App.WATER_UNK); if (m) { if (r.dist < m.dist) { m.dist = r.dist; m.np = r.np; } m.over += r.over; (r.wuids || []).forEach(w => { if (!m.wuids.includes(w)) m.wuids.push(w); }); } else keep.push(r); });
         rows = keep; rows.sort((a, b) => a.dist - b.dist);
-        syncArrows(); renderTable(); App.liveSets.forEach(s => s.changed()); App.layout && App.layout.redraw && App.layout.redraw();
+        syncArrows(); renderTable(); try { mirror(); } catch (e3) {} App.liveSets.forEach(s => s.changed()); App.layout && App.layout.redraw && App.layout.redraw();
         msgEl.textContent = '저장했습니다 (' + uids.length + '개 구역)'; setTimeout(() => { box.hidden = true; }, 900);
       } catch (e2) { msgEl.textContent = e2.message; t.disabled = false; }
     };

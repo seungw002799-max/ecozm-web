@@ -218,6 +218,8 @@
     })();
     return dwgLib;
   }
+  // 해치 경계의 원호/타원 변: isCCW 가 false 또는 0 이면 시계방향 (libredwg 는 0/1 숫자로 준다)
+  const cw = ed => ed.isCCW === false || ed.isCCW === 0;
   function hatchLoops(e) {
     const loops = [];
     (e.boundaryPaths || []).forEach(bp => {
@@ -227,10 +229,13 @@
       bp.edges.forEach(ed => {
         let pts = [];
         if (ed.type === 1) pts = [[ed.start.x, ed.start.y], [ed.end.x, ed.end.y]];
-        else if (ed.type === 2) pts = ed.isCCW === false ? arcPts(ed.center.x, ed.center.y, ed.radius, -ed.endAngle, -ed.startAngle).map(p => [p[0], 2 * ed.center.y - p[1]]).reverse()
+        else if (ed.type === 2) pts = cw(ed) ? arcPts(ed.center.x, ed.center.y, ed.radius, -ed.endAngle, -ed.startAngle).reverse()   // 시계방향: 저장 각도의 부호를 뒤집은 위치 (-시작 -> -끝)
           : arcPts(ed.center.x, ed.center.y, ed.radius, ed.startAngle, ed.endAngle);
-        else if (ed.type === 3) pts = ellipsePts(ed.center, ed.end, ed.lengthOfMinorAxis, ed.startAngle, ed.endAngle);
+        else if (ed.type === 3) pts = cw(ed) ? ellipsePts(ed.center, ed.end, ed.lengthOfMinorAxis, -ed.endAngle, -ed.startAngle).reverse()
+          : ellipsePts(ed.center, ed.end, ed.lengthOfMinorAxis, ed.startAngle, ed.endAngle);
         else if (ed.type === 4) pts = (ed.fitDatum && ed.fitDatum.length ? ed.fitDatum : ed.controlPoints || []).map(p => [p.x, p.y]);
+        // 변 방향이 앞 변 끝과 반대로 저장된 경우 뒤집어 잇는다
+        if (r.length && pts.length > 1) { const l = r[r.length - 1], a = pts[0], b = pts[pts.length - 1]; if (Math.hypot(l[0] - b[0], l[1] - b[1]) < Math.hypot(l[0] - a[0], l[1] - a[1])) pts.reverse(); }
         pts.forEach(p => r.push(p));
       });
       if (r.length >= 3) loops.push(r);

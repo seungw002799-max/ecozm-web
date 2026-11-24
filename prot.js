@@ -676,7 +676,11 @@
       App.liveSets.forEach(s => s.changed()); App.emit();
     });
     $('#protRadius').value = App.opts.protRadius || 5;
-  { const sc = $('#protScope'); if (sc) { sc.value = App.opts.protScope || 'radius'; const upd = () => { const r = $('#protRadius'); if (r) r.closest('label').classList.toggle('dim', sc.value === 'sigg'); }; upd(); sc.addEventListener('change', () => { App.opts.protScope = sc.value; App.saveOpts(); upd(); }); } }
+  { const sc = $('#protScope'), seg = $('#protScopeSeg'); if (sc) { sc.value = App.opts.protScope || 'radius';
+    const HINT = { radius: '사업지구 경계에서 입력한 거리 안', sigg: '사업지구가 속한 시군구 안 전체 (반경 무관)', both: '입력한 거리 안이면서 사업지구 시군구 안' };
+    const upd = () => { const r = $('#protRadius'); if (r) r.closest('label').hidden = sc.value === 'sigg'; if (seg) seg.querySelectorAll('[data-sc]').forEach(b => b.classList.toggle('on', b.dataset.sc === sc.value)); const h = $('#protScopeHint'); if (h) h.textContent = HINT[sc.value] || ''; };
+    upd(); sc.addEventListener('change', () => { App.opts.protScope = sc.value; App.saveOpts(); upd(); });
+    if (seg) seg.addEventListener('click', e => { const b = e.target.closest('[data-sc]'); if (!b) return; sc.value = b.dataset.sc; sc.dispatchEvent(new Event('change')); }); } }
     $('#protLabelChk').checked = App.opts.protLabel !== false;
     $('#protLabelChk').addEventListener('change', e => { App.opts.protLabel = e.target.checked; App.saveOpts(); cache.clear(); App.liveSets.forEach(s => s.changed()); App.emit(); });
     $('#protRingChk').checked = App.opts.protRingShow !== false;

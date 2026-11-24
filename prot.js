@@ -457,7 +457,7 @@
         const r = await siteSigg(site);
         if (!r) throw new Error('사업지구가 속한 시군구를 찾지 못했습니다 (브이월드 행정구역)');
         region = r.g; regionNm = r.names.join('·');
-        regionPrep = jsts.geom.prep.PreparedGeometryFactory.prepare(region);
+        const rEnv = region.getEnvelopeInternal(); regionPrep = { intersects: g => rEnv.intersects(g.getEnvelopeInternal()) && region.intersects(g) };
         if (scope === 'sigg') {   // 시군구 전체가 들어가도록 조회 범위를 넓힘
           const e = region.getEnvelopeInternal(), s = site.getEnvelopeInternal();
           radQ = Math.max(s.getMinX() - e.getMinX(), s.getMinY() - e.getMinY(), e.getMaxX() - s.getMaxX(), e.getMaxY() - s.getMaxY(), 0) + 200;

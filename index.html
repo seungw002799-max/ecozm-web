@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>도면 출력 관련</title>
 <link rel="stylesheet" href="vendor/ol.css">
-<link rel="stylesheet" href="app.css?v=20261124c">
+<link rel="stylesheet" href="app.css?v=20261124d">
 </head>
 <body>
 <header class="topbar">
@@ -143,6 +143,7 @@
         <div id="protList" class="prot-list"></div>
           <div class="prot-manual"><b>지질공원</b> (자연공원법) <span class="tag-warn">개인 확인 필요</span><small>공개된 구역 공간자료가 없어 자동 조회에서 빠집니다</small></div>
         <div class="prot-opts">
+          <label class="field prot-scope"><span>검토 범위</span><select id="protScope"><option value="radius">반경 안</option><option value="sigg">사업지구가 속한 시군구 안 (반경 무관)</option><option value="both">반경 안 + 시군구 안</option></select></label>
           <label class="unit-input prot-radius"><span class="lbl">검토 반경</span><input type="number" id="protRadius" min="0" step="1" value="5"><span class="unit">km</span></label>
           <label class="check"><input type="checkbox" id="protLabelChk" checked> 명칭 표시</label>
           <label class="check"><input type="checkbox" id="riverLblChk" checked> 하천명 표시</label>
@@ -433,15 +434,15 @@
 <script src="vendor/proj4.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jsts.min.js"></script>
-<script src="cad.js?v=20261124c"></script>
-<script src="backend.js?v=20261124c"></script>
-<script src="app.js?v=20261124c"></script>
-<script src="ecvam.js?v=20261124c"></script>
-<script src="prot.js?v=20261124c"></script> <script src="target.js?v=20261124c"></script> <script src="meas.js?v=20261124c"></script> <script src="lc.js?v=20261124c"></script> <script src="flow.js?v=20261124c"></script> <script src="style.js?v=20261124c"></script> <script src="eia.js?v=20261124c"></script>
-  <script src="admin2.js?v=20261124c"></script>
-  <script src="measure.js?v=20261124c"></script>
-  <script src="pick.js?v=20261124c"></script>
-  <script src="project.js?v=20261124c"></script>
-<script src="app2.js?v=20261124c"></script>
+<script src="cad.js?v=20261124d"></script>
+<script src="backend.js?v=20261124d"></script>
+<script src="app.js?v=20261124d"></script>
+<script src="ecvam.js?v=20261124d"></script>
+<script src="prot.js?v=20261124d"></script> <script src="target.js?v=20261124d"></script> <script src="meas.js?v=20261124d"></script> <script src="lc.js?v=20261124d"></script> <script src="flow.js?v=20261124d"></script> <script src="style.js?v=20261124d"></script> <script src="eia.js?v=20261124d"></script>
+  <script src="admin2.js?v=20261124d"></script>
+  <script src="measure.js?v=20261124d"></script>
+  <script src="pick.js?v=20261124d"></script>
+  <script src="project.js?v=20261124d"></script>
+<script src="app2.js?v=20261124d"></script>
 </body>
 </html>

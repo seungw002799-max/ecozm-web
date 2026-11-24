@@ -408,6 +408,25 @@
 
   // ------------------------------------------------------------ 검토
   let rows = [];
+  // 사업지구가 걸친 시군구 (브이월드 법정 시군구 경계, EPSG:5186). 여러 시군구에 걸치면 합침
+  const siggCache = new Map();
+  async function siteSigg(site) {
+    const e = site.getEnvelopeInternal();
+    const c = [[e.getMinX(), e.getMinY()], [e.getMaxX(), e.getMaxY()]].map(p => proj4('EPSG:5186', 'EPSG:4326', p));
+    const ck = c.flat().map(v => v.toFixed(5)).join(','); if (siggCache.has(ck)) return siggCache.get(ck);
+    const u = 'https://api.vworld.kr/req/data?service=data&request=GetFeature&data=LT_C_ADSIGG_INFO&format=json&size=20&page=1&geometry=true&attribute=true&crs=EPSG:4326&geomFilter=' + encodeURIComponent('BOX(' + c[0][0] + ',' + c[0][1] + ',' + c[1][0] + ',' + c[1][1] + ')') + '&key=' + App.cfg.vworldKey + '&domain=' + encodeURIComponent(location.origin);
+    const j = await jsonp(u), fs = (j.response && j.response.result && j.response.result.featureCollection && j.response.result.featureCollection.features) || [];
+    const rd = new jsts.io.GeoJSONReader(); let g = null; const names = [];
+    for (const f of fs) {
+      const tf = a => typeof a[0] === 'number' ? proj4('EPSG:4326', 'EPSG:5186', [a[0], a[1]]) : a.map(tf);
+      let jg; try { jg = rd.read({ type: f.geometry.type, coordinates: tf(f.geometry.coordinates) }); if (!jg.isValid()) jg = jg.buffer(0); } catch (e2) { continue; }
+      let a = 0; try { a = jg.intersection(site).getArea(); } catch (e2) { a = jg.intersects(site) ? 1 : 0; }
+      if (a < 1) continue;   // 경계에 살짝 닿기만 한 시군구는 제외 (1㎡ 미만)
+      names.push((f.properties || {}).sig_kor_nm || ''); g = g ? g.union(jg) : jg;
+    }
+    const r = g ? { g: jsts.simplify.TopologyPreservingSimplifier.simplify(g, 5), names } : null;
+    siggCache.set(ck, r); return r;
+  }
   async function run(radiusKm) {
     const btn = pointCtx ? pointCtx.btn : $('#btnProt'), msg = pointCtx ? pointCtx.msg : $('#protMsg');
     // 초기 입지 검토는 기본으로 전체 레이어 조회 (선택한 것만: pointCtx.onlyChosen)
@@ -416,7 +435,9 @@
     if (!chosen.length) { msg.hidden = false; msg.textContent = '검토할 보호구역을 하나 이상 선택하세요.'; return; }
     const radius = (radiusKm != null ? Math.max(pointCtx && pointCtx.geom ? 0 : 0.1, Number(radiusKm) || 0) : Math.max(0, Number($('#protRadius').value) || 5)) * 1000;
     if (radiusKm == null) { App.opts.protRadius = radius / 1000; App.saveOpts(); }
-    const q = queryBox(radius);
+    // 검토 범위: radius 반경 안 / sigg 사업지구가 속한 시군구 안(반경 무관) / both 반경 안이면서 시군구 안 (레이어 모음에서만)
+    const scope = pointCtx ? 'radius' : (App.opts.protScope || 'radius');
+    let q = queryBox(radius), radQ = radius;
     btn.disabled = true; msg.hidden = false; msg.textContent = '보호구역 자료를 받는 중...';
     App.src.prot.clear();
     App.setArrows('prot', []);
@@ -430,12 +451,26 @@
       else if (pointCtx) site = new jsts.geom.GeometryFactory().createPoint(new jsts.geom.Coordinate(pointCtx.pt[0], pointCtx.pt[1])).buffer(1);   // 검토 지점 (반지름 1m)
       else { const siteGeoms = App.sites.filter(s => s.geometry).map(s => rd.read(s.geometry)); site = siteGeoms[0]; for (let i = 1; i < siteGeoms.length; i++) site = site.union(siteGeoms[i]); }
       const fmt3857 = new ol.format.GeoJSON();
+      let region = null, regionPrep = null, regionNm = '';
+      if (scope !== 'radius') {
+        msg.textContent = '사업지구가 속한 시군구를 찾는 중...';
+        const r = await siteSigg(site);
+        if (!r) throw new Error('사업지구가 속한 시군구를 찾지 못했습니다 (브이월드 행정구역)');
+        region = r.g; regionNm = r.names.join('·');
+        regionPrep = jsts.geom.prep.PreparedGeometryFactory.prepare(region);
+        if (scope === 'sigg') {   // 시군구 전체가 들어가도록 조회 범위를 넓힘
+          const e = region.getEnvelopeInternal(), s = site.getEnvelopeInternal();
+          radQ = Math.max(s.getMinX() - e.getMinX(), s.getMinY() - e.getMinY(), e.getMaxX() - s.getMaxX(), e.getMaxY() - s.getMaxY(), 0) + 200;
+          q = queryBox(radQ);
+        }
+      }
       // 지도용 도형: 검토 범위(+여유) 밖은 잘라내고 1m 단위로 단순화 (거리·중첩 계산은 원본 도형으로)
       const gwr = new jsts.io.GeoJSONWriter(), gfac = new jsts.geom.GeometryFactory();
       const clipOf = rM => { const b = queryBox(rM * 1.3 + 2000).b5186; return gfac.toGeometry(new jsts.geom.Envelope(b[0], b[2], b[1], b[3])); };
-      const clipR = clipOf(radius), clipBig = clipOf(Math.max(radius, 20000));
+      const clipR = clipOf(radQ), clipBig = clipOf(Math.max(radQ, 20000));
       // 행정구역 전체로 검토할 때: 지도에는 행정구역(+반경) 안에 든 부분만 표시 (반경 0이면 행정구역 경계로 자름)
       let areaClip = null; if (pointCtx && pointCtx.geom) { try { areaClip = radius > 0 ? site.buffer(radius, 16) : site; } catch (e) { areaClip = null; } }
+      if (region) { try { areaClip = scope === 'both' ? region.intersection(site.buffer(radius, 32)) : region; } catch (e) { areaClip = region; } }   // 시군구 기준: 지도에는 시군구(∩반경) 안만
       const disp = (jg, g5, clip) => {
         try {
           let d = jg;
@@ -447,7 +482,7 @@
       };
       const srcs = [], errs = [];
       // 자료 받기: 4개씩 동시에 받고(순서는 유지), 같은 범위로 다시 조회하면 이번 세션에서 받아 둔 자료를 그대로 사용
-      const fetchOne = p => p.src === 'vworld' ? fetchVworld(p, q.b4326) : p.src === 'egis' ? fetchEgis(p, q.b4326) : p.src === 'kei' ? fetchKei(p, q.b4326) : p.src === 'nier' ? fetchNier(p, queryBox(Math.max(radius, 20000)).b4326) : p.src === 'eco1' ? fetchEco1(p, q.b5186, msg, radius) : p.src === 'local' ? fetchLocal(p, q.b4326) : p.src === 'wfsb' ? cachedWfs(p, q.b4326) : fetchEiagis(p, q.b4326);
+      const fetchOne = p => p.src === 'vworld' ? fetchVworld(p, q.b4326) : p.src === 'egis' ? fetchEgis(p, q.b4326) : p.src === 'kei' ? fetchKei(p, q.b4326) : p.src === 'nier' ? fetchNier(p, queryBox(Math.max(radQ, 20000)).b4326) : p.src === 'eco1' ? fetchEco1(p, q.b5186, msg, radQ) : p.src === 'local' ? fetchLocal(p, q.b4326) : p.src === 'wfsb' ? cachedWfs(p, q.b4326) : fetchEiagis(p, q.b4326);
       const bkey = q.b4326.map(v => v.toFixed(4)).join(',');
       const got = new Array(chosen.length); let done = 0, next = 0;
       const worker = async () => {
@@ -462,9 +497,9 @@
       await Promise.all(Array.from({ length: Math.min(4, chosen.length) }, worker));
       if (fcCache.size > 80) fcCache.clear();
       // 검토 반경 범위 (사업지구 경계에서 반경만큼): 레이어가 이 안에 얼마나 들어오는지 계산 + 지도에 표시
-      let radBuf = null; try { radBuf = radius > 0 ? site.buffer(radius, 32) : site; } catch (e) { radBuf = null; }
+      let radBuf = null; try { radBuf = region ? areaClip : (radius > 0 ? site.buffer(radius, 32) : site); } catch (e) { radBuf = null; }
       App.src.pick.getFeatures().filter(f => f.get('src') === 'prot').forEach(f => App.src.pick.removeFeature(f));
-      if (radBuf && !pointCtx) { try { const rg = fmt3857.readGeometry(new jsts.io.GeoJSONWriter().write(radBuf), { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' }); const rf = new ol.Feature(rg); rf.set('pk', 'ring'); rf.set('src', 'prot'); rf.set('label', '검토 반경 ' + fmt(radius / 1000) + 'km'); App.src.pick.addFeature(rf); } catch (e) { /* 표시 생략 */ } }
+      if (radBuf && !pointCtx) { try { const rg = fmt3857.readGeometry(new jsts.io.GeoJSONWriter().write(radBuf), { dataProjection: 'EPSG:5186', featureProjection: 'EPSG:3857' }); const rf = new ol.Feature(rg); rf.set('pk', 'ring'); rf.set('src', 'prot'); rf.set('label', scope === 'sigg' ? regionNm + ' 경계' : scope === 'both' ? '검토 반경 ' + fmt(radius / 1000) + 'km · ' + regionNm : '검토 반경 ' + fmt(radius / 1000) + 'km'); App.src.pick.addFeature(rf); } catch (e) { /* 표시 생략 */ } }
       for (let ci = 0; ci < chosen.length; ci++) {
         const p = chosen[ci];
         msg.textContent = `거리 계산 중... ${ci + 1} / ${chosen.length} (${p.short})`;
@@ -481,7 +516,8 @@
           let jg; try { jg = rd.read(g5); if (!jg.isValid()) jg = jg.buffer(0); } catch (e) { return; }
           const dist = jg.distance(site);
           if (p.overlapOnly && dist > 0) { nbr.push({ jg, g5: disp(jg, g5, clipBig), dist, name: (f.properties || {}).name || '' }); return; }   // 표에는 속한 유역만
-          if (dist > radius) return;                         // 반경 밖은 제외
+          if (scope !== 'sigg' && dist > radius) return;     // 반경 밖은 제외
+          if (regionPrep) { let inn = false; try { inn = regionPrep.intersects(jg); } catch (e) { inn = true; } if (!inn) return; }   // 시군구 밖은 제외
           let over = 0; try { over = dist === 0 ? jg.intersection(site).getArea() : 0; } catch (e) { over = 0; }
           const raw = (f.properties || {})[p.nameField || 'name'];
           const name = raw ? (p.nameFmt ? p.nameFmt(raw) : raw) : `(이름 없음 ${i + 1})`;
@@ -523,7 +559,8 @@
       if (pointCtx) rows.forEach(r => { r.arrow = false; r.noArrow = true; });   // 초기 입지 검토: 화살표 없이 목록만
       chosen.forEach(p => { App.opts.protShow[p.id] = true; }); App.saveOpts();   // 조회한 레이어는 지도에 표시 (결과 목록의 구분 체크로 끄고 켬)
       syncArrows();
-      msg.textContent = (rows.length ? `완료: 반경 ${fmt(radius / 1000)}km 안에 ${rows.length}곳 (${pointCtx ? (pointCtx.geom ? '행정구역 경계' : '검토 지점') : '사업지구 경계'} 기준 최근접 거리)` : `반경 ${fmt(radius / 1000)}km 안에 해당 레이어가 없습니다.`) + (errs.length ? ` · 오류 ${errs.length}건 (아래 자료 출처 참고)` : '');
+      const scopeTxt = scope === 'sigg' ? `${regionNm} 안` : scope === 'both' ? `반경 ${fmt(radius / 1000)}km 안 · ${regionNm} 안` : `반경 ${fmt(radius / 1000)}km 안`;
+      msg.textContent = (rows.length ? `완료: ${scopeTxt}에 ${rows.length}곳 (${pointCtx ? (pointCtx.geom ? '행정구역 경계' : '검토 지점') : '사업지구 경계'} 기준 최근접 거리)` : `${scopeTxt}에 해당 레이어가 없습니다.`) + (errs.length ? ` · 오류 ${errs.length}건 (아래 자료 출처 참고)` : '');
       lastSrc = { srcs, errs };
     } catch (e) {
       msg.textContent = e.message;
@@ -639,6 +676,7 @@
       App.liveSets.forEach(s => s.changed()); App.emit();
     });
     $('#protRadius').value = App.opts.protRadius || 5;
+  { const sc = $('#protScope'); if (sc) { sc.value = App.opts.protScope || 'radius'; const upd = () => { const r = $('#protRadius'); if (r) r.closest('label').classList.toggle('dim', sc.value === 'sigg'); }; upd(); sc.addEventListener('change', () => { App.opts.protScope = sc.value; App.saveOpts(); upd(); }); } }
     $('#protLabelChk').checked = App.opts.protLabel !== false;
     $('#protLabelChk').addEventListener('change', e => { App.opts.protLabel = e.target.checked; App.saveOpts(); cache.clear(); App.liveSets.forEach(s => s.changed()); App.emit(); });
     $('#protRingChk').checked = App.opts.protRingShow !== false;

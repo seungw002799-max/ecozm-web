@@ -647,3 +647,6 @@ body:not([data-theme="prot"]) #tabLayout.embedded .row:has(#btnLabelReset), body
 .wc-pop .field input { width: 100%; } .wc-msg { color: #0b6e69; font-weight: 700; margin-top: 4px; min-height: 1em; }
 .wc-pop .bullets li { font-size: 11px; }
 .pp-wconf { background: #fff8e8; border: 1px solid #f0c27a; border-radius: 6px; padding: 5px 8px; margin: 4px 0 6px; font-size: 12px; display: flex; align-items: center; justify-content: space-between; }
+
+.prot-scope { width: 100%; margin-bottom: 4px; }
+.prot-radius.dim { opacity: .45; }

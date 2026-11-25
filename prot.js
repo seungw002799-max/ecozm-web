@@ -18,6 +18,8 @@
   // 천연기념물 명칭: 별칭(alias)에 이름, 비고(remark)에 지정번호가 있는 경우가 많아 '이름 (천연기념물 제○호)' 로 합침
   const uo = p => { const a = (p.alias || '').trim(), r = (p.remark || '').trim(); if (/천연기념물/.test(r) && a && !/천연기념물/.test(a)) return a + ' (' + r + ')'; if (/천연기념물/.test(a)) return a; return r || a || '천연기념물'; };
   const sg = p => [p.sigg_name, p.uname].filter(Boolean).join(' ');
+  // 경위도 도형의 대략 면적(㎡): 자연발생석면 지도에서 암석 영역과 완충지역 점무늬(약 760㎡ 사각형)를 가르는 데 사용
+  App.geoAreaM2 = g => { let a = 0, lat = 36; const ring = r => { let s = 0; for (let i = 0, n = r.length; i < n; i++) { const p = r[i], q = r[(i + 1) % n]; s += p[0] * q[1] - q[0] * p[1]; lat = p[1]; } return Math.abs(s) / 2; }; const poly = pl => pl.reduce((t, r, i) => t + (i ? -1 : 1) * ring(r), 0); if (g.type === 'Polygon') a = poly(g.coordinates); else if (g.type === 'MultiPolygon') a = g.coordinates.reduce((t, pl) => t + poly(pl), 0); return a * 111320 * 111320 * Math.cos(lat * Math.PI / 180); };
   // 상수원보호구역 명칭: 짐작하지 않음. ① 원자료 별칭(alias)에 구체적 이름이 있으면 사용 ② 팀 명칭표(사람이 확인해 저장) ③ 없으면 '명칭 미확인'
   // 구역 식별: 고시번호가 있으면 같은 고시의 조각을 한 구역으로(관리번호 끝 3자리=조각 번호 제외), 고시번호가 없으면 조각마다 따로
   App.waterNames = App.waterNames || {};
@@ -36,6 +38,7 @@
     sep: { label: '별도관리지역', note: SEP },
     ridge: { label: '백두대간 및 산줄기 (정맥·기맥·지맥)', note: KEI },
     river: { label: '하천 (국가·지방)', note: { src: '하천정보관리시스템(RIMGIS) API', tags: ['실시간', '중계'], extra: ['하천망도 (기후에너지환경부)', '소하천은 환경공간정보서비스 묶음에 있음'] } },
+    asb: { label: '자연발생석면 (광역지질도 1:50,000)', note: { src: '환경공간정보서비스 API', tags: ['실시간', '중계'], extra: ['석면관리 종합정보망 자연발생석면 광역지질도', '구분은 공식 지도파일(SHP)의 레이어별 개수와 API 코드(CD) 개수를 대조해 확인'] } },
     egis: { label: '환경공간정보서비스', note: { src: '환경공간정보서비스 API', tags: ['실시간', '중계'], extra: ['기후에너지환경부'] } },
   };
   // 출처(제공 기관)별로 분류: 검증할 때 어디 자료인지 바로 보이도록
@@ -60,6 +63,11 @@
     { cat: 'egis', group: 'egis', id: 'inland_wet', label: '내륙습지', short: '내륙습지', src: 'egis', typename: 'me:na_plg_wetland', name: p => p.wl_nm || '내륙습지', color: '#26A69A', note: Object.assign({}, EG, { extra: '국가 내륙습지 목록 (인공습지 포함)' }) },
     { cat: 'egis', group: 'egis', id: 'riverside', label: '수변구역', short: '수변구역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='수변구역'", name: () => '수변구역', color: '#29B6F6', note: EG },
     { cat: 'egis', group: 'egis', id: 'discharge', label: '폐수배출시설 설치제한지역', short: '폐수배출시설 설치제한지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='배출시설설치제한지역'", name: () => '폐수배출시설 설치제한지역', color: '#F4511E', note: Object.assign({}, EG, { extra: '물환경보전법 제33조' }) },
+    { cat: 'egis', group: 'asb', src: 'egis', typename: 'me:na_plg_stoneinfo', geomField: 'the_geom', labelNearest: true, note: EG, id: 'asb_hi', label: '함유 가능성 높음 (초염기성암·사문암)', short: '자연발생석면 가능성 높음', cql: 'CD=6', keep: (pr, g) => App.geoAreaM2(g) >= 1500, name: () => '자연발생석면 함유가능 암석 (가능성 높음)', color: '#2E7D32' },
+    { cat: 'egis', group: 'asb', src: 'egis', typename: 'me:na_plg_stoneinfo', geomField: 'the_geom', labelNearest: true, note: EG, id: 'asb_mid', label: '함유 가능성 중간 (변성염기성암)', short: '자연발생석면 가능성 중간', cql: 'CD=7', keep: (pr, g) => App.geoAreaM2(g) >= 1500, name: () => '자연발생석면 함유가능 암석 (가능성 중간)', color: '#C8823C' },
+    { cat: 'egis', group: 'asb', src: 'egis', typename: 'me:na_plg_stoneinfo', geomField: 'the_geom', labelNearest: true, note: EG, id: 'asb_lo', label: '함유 가능성 낮음 (단층에 접한 기타 변성암)', short: '자연발생석면 가능성 낮음', cql: 'CD=8', name: () => '자연발생석면 함유가능 암석 (가능성 낮음)', color: '#0097A7' },
+    { cat: 'egis', group: 'asb', src: 'egis', typename: 'me:na_plg_stoneinfo', geomField: 'the_geom', labelNearest: true, note: EG, id: 'asb_buf', label: '완충지역 (암석·단층 경계에서 500m)', short: '자연발생석면 완충지역', cql: 'CD IN (6,7,11)', keep: (pr, g) => App.geoAreaM2(g) < 1500, name: () => '자연발생석면 완충지역', color: '#424242' },
+    { cat: 'egis', group: 'asb', src: 'egis', typename: 'me:na_plg_stoneinfo', geomField: 'the_geom', labelNearest: true, note: EG, id: 'asb_rec', label: '석면 광산·공장 기록 지점', short: '석면 광산·공장 기록', cql: 'CD IN (1,2,3,4)', point: true, name: pr => ({ 1: '기존 석면공장 지역', 2: '석면 광체 분포 예상 지역', 3: '과거 석면광산 개발 지역(폐광)', 4: '석면 산출 기록 지역' })[pr.CD] || '석면 기록 지점', color: '#E65100' },
     { cat: 'egis', group: 'egis', id: 'wq_special', label: '상수원 수질보전 특별대책지역', short: '상수원 수질보전 특별대책지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='수질보전특별대책지역'", name: () => '특별대책지역', nameG: (p, g) => { let y = null; const w = c => { if (y !== null) return; if (typeof c[0] === 'number') y = c[1]; else c.forEach(w); }; w(g.coordinates); return (y > 37 ? '팔당호' : '대청호') + ' 특별대책지역'; }, color: '#00897B', note: Object.assign({}, EG, { extra: '팔당·대청호 2곳' }) },
     { cat: 'egis', group: 'egis', id: 'river_small', label: '소하천 (소하천구역)', short: '소하천', src: 'wfsb', base: 'https://api.mcee.go.kr/geoserver/ows', typename: 'EGIS:K33UJC100', name: () => '소하천구역', labelNearest: true, color: '#7986CB', note: VW },
     { cat: 'vworld', id: 'water', label: '상수원보호구역', short: '상수원보호구역', src: 'vworld', data: 'LT_C_UM710', name: p => App.waterName(p), uid: p => App.waterUid(p), wuid: p => App.waterUid(p), info: p => ({ sigg: [p.sido_name, p.sigg_name].filter(Boolean).join(' '), remark: p.remark || '', alias: p.alias || '', gosi: p.dyear && p.dyear !== '0000' ? p.dyear + '-' + p.dnum : '' }), kdpa: 'data/water_kdpa.geojson', kdpaFmt: n => /보호구역$/.test(n) ? n : n + ' 상수원보호구역', color: '#1565C0', note: Object.assign({}, VW, { extra: ['위치: 국토교통부 연속주제도 (수도법 상수원보호구역)', '명칭: 보호·보전지역 정보망(KDPA)과 구역이 겹치면 그 명칭 → 원자료 별칭 → 팀 명칭표 → 명칭 미확인'] }) },
@@ -275,7 +283,7 @@
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const j = await r.json();
       return { type: 'FeatureCollection', _src: '환경공간정보 실시간',
-        features: (j.features || []).filter(f => f.geometry).map(f => ({ type: 'Feature', geometry: f.geometry, properties: { name: p.nameG ? p.nameG(f.properties || {}, f.geometry) : p.name(f.properties || {}) } })) };
+        features: (j.features || []).filter(f => f.geometry && (!p.keep || p.keep(f.properties || {}, f.geometry))).map(f => ({ type: 'Feature', geometry: f.geometry, properties: { name: p.nameG ? p.nameG(f.properties || {}, f.geometry) : p.name(f.properties || {}) } })) };
     } catch (e) {
       throw new Error(`${p.short} 자료를 받지 못했습니다 (${e.name === 'AbortError' ? '시간 초과' : e.message})`);
     } finally { clearTimeout(tm); }
@@ -695,6 +703,7 @@
       App.liveSets.forEach(s => s.changed()); App.emit();
     });
     $('#protRadius').value = App.opts.protRadius || 5;
+  { App.opts.protOn = App.opts.protOn || {}; let ch = false; ['asb_hi', 'asb_mid', 'asb_lo', 'asb_buf', 'asb_rec'].forEach(id => { if (!(id in App.opts.protOn)) { App.opts.protOn[id] = false; ch = true; } }); if (ch) App.saveOpts(); }   // 자연발생석면은 처음엔 꺼 둠 (필요할 때 켜기)
   { const sc = $('#protScope'), seg = $('#protScopeSeg'); if (sc) { sc.value = App.opts.protScope || 'radius';
     const HINT = { radius: '사업지구 경계에서 입력한 거리 안', sigg: '사업지구가 속한 시군구 안 전체 (반경 무관)', both: '입력한 거리 안이면서 사업지구 시군구 안' };
     const upd = () => { const r = $('#protRadius'); if (r) r.closest('label').hidden = sc.value === 'sigg'; if (seg) seg.querySelectorAll('[data-sc]').forEach(b => b.classList.toggle('on', b.dataset.sc === sc.value)); const h = $('#protScopeHint'); if (h) h.textContent = HINT[sc.value] || ''; };

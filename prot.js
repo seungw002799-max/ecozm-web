@@ -51,7 +51,7 @@
     { cat: 'vworld', group: 'sep', id: 'monument', label: '천연기념물 (천연보호구역 포함)', short: '천연기념물', src: 'local', local: 'data/heritage_kdpa.geojson', srcName: '보호·보전지역 정보망(KDPA)', nameField: 'name', color: '#BF360C', note: { src: '보호·보전지역 정보망(KDPA, kdpa.kr)', tags: ['2025년 12월'], extra: ['국가유산청 천연기념물 400곳 · 천연보호구역 11곳 (구역이 있는 것, 명칭 포함)', '사이트에 넣어 둔 자료 · 반년마다 갱신'] } },
     { cat: 'vworld', group: 'sep', id: 'wild', label: '야생생물 보호구역', short: '야생생물 보호구역', src: 'vworld', data: 'LT_C_UM221', keep: p => !/특별/.test(p.uname || ''), name: sgW, uid: p => [p.dyear, p.dnum].filter(Boolean).join('-'), color: '#C62828', note: SEP },
     { cat: 'vworld', group: 'sep', id: 'wild_sp', label: '야생생물 특별보호구역', short: '야생생물 특별보호구역', src: 'vworld', data: 'LT_C_UM221', attr: 'uname:like:특별', name: sgW, uid: p => [p.dyear, p.dnum].filter(Boolean).join('-'), color: '#8E0000', note: SEP },
-    { cat: 'vworld', group: 'sep', id: 'fishery', label: '수산자원보호구역', short: '수산자원보호구역', src: 'vworld', data: 'LT_C_UQ141', attr: 'uname:like:수산자원', name: sg, color: '#D81B60', note: SEP },
+    { cat: 'vworld', group: 'sep', id: 'fishery', label: '수산자원보호구역', short: '수산자원보호구역', src: 'vworld', data: 'LT_C_UQ141', attr: 'uname:like:수산자원', name: sg, kdpa: 'data/fishery_kdpa.geojson', kdpaFmt: n => /보호구역$/.test(n) ? n : n + ' 수산자원보호구역', color: '#D81B60', note: SEP },
     { cat: 'vworld', group: 'sep', id: 'wetland', label: '습지보호지역 (내륙)', short: '습지보호지역', src: 'vworld', data: 'LT_C_UM901', name: sg, color: '#00838F', note: SEP },
     { cat: 'vworld', group: 'sep', id: 'wetland_c', label: '습지보호지역 (연안, 해양수산부)', short: '연안 습지보호지역', src: 'vworld', data: 'LT_C_WGISARWET', name: p => p.uname || p.name || p.wet_name || '습지보호지역', color: '#006064', note: SEP },
     { cat: 'vworld', group: 'sep', id: 'baekdu', label: '백두대간보호지역', short: '백두대간보호지역', src: 'vworld', data: 'LT_C_UF901', name: p => '백두대간보호지역' + (p.uname && p.uname !== '백두대간보호지역' ? ' (' + p.uname + ')' : ''), color: '#6D4C41', note: SEP },
@@ -62,7 +62,7 @@
     { cat: 'egis', group: 'egis', id: 'discharge', label: '폐수배출시설 설치제한지역', short: '폐수배출시설 설치제한지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='배출시설설치제한지역'", name: () => '폐수배출시설 설치제한지역', color: '#F4511E', note: Object.assign({}, EG, { extra: '물환경보전법 제33조' }) },
     { cat: 'egis', group: 'egis', id: 'wq_special', label: '상수원 수질보전 특별대책지역', short: '상수원 수질보전 특별대책지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='수질보전특별대책지역'", name: () => '특별대책지역', nameG: (p, g) => { let y = null; const w = c => { if (y !== null) return; if (typeof c[0] === 'number') y = c[1]; else c.forEach(w); }; w(g.coordinates); return (y > 37 ? '팔당호' : '대청호') + ' 특별대책지역'; }, color: '#00897B', note: Object.assign({}, EG, { extra: '팔당·대청호 2곳' }) },
     { cat: 'egis', group: 'egis', id: 'river_small', label: '소하천 (소하천구역)', short: '소하천', src: 'wfsb', base: 'https://api.mcee.go.kr/geoserver/ows', typename: 'EGIS:K33UJC100', name: () => '소하천구역', labelNearest: true, color: '#7986CB', note: VW },
-    { cat: 'kdpa', id: 'water', label: '상수원보호구역', short: '상수원보호구역', src: 'local', local: 'data/water_kdpa.geojson', srcName: '보호·보전지역 정보망(KDPA)', nameField: 'name', nameFmt: n => /보호구역$/.test(n) ? n : n + ' 상수원보호구역', color: '#1565C0', note: { src: '보호·보전지역 정보망(KDPA, kdpa.kr)', tags: ['2025년 12월'], extra: ['WDPA 등재 국가 보호지역 중 상수원보호구역 293곳 (명칭 포함)', '사이트에 넣어 둔 자료 · 반년마다 갱신'] } },
+    { cat: 'vworld', id: 'water', label: '상수원보호구역', short: '상수원보호구역', src: 'vworld', data: 'LT_C_UM710', name: p => App.waterName(p), uid: p => App.waterUid(p), wuid: p => App.waterUid(p), info: p => ({ sigg: [p.sido_name, p.sigg_name].filter(Boolean).join(' '), remark: p.remark || '', alias: p.alias || '', gosi: p.dyear && p.dyear !== '0000' ? p.dyear + '-' + p.dnum : '' }), kdpa: 'data/water_kdpa.geojson', kdpaFmt: n => /보호구역$/.test(n) ? n : n + ' 상수원보호구역', color: '#1565C0', note: Object.assign({}, VW, { extra: ['위치: 국토교통부 연속주제도 (수도법 상수원보호구역)', '명칭: 보호·보전지역 정보망(KDPA)과 구역이 겹치면 그 명칭 → 원자료 별칭 → 팀 명칭표 → 명칭 미확인'] }) },
     { cat: 'egis', group: 'egis', id: 'air', label: '대기환경규제지역', short: '대기환경규제지역', src: 'egis', typename: 'me:ca_plg_air_restrict', name: () => '대기환경규제지역', color: '#FFB300', note: EG },
     // kei
     { cat: 'kei', group: 'ridge', id: 'ridge1', label: '백두대간', short: '백두대간', src: 'kei', typename: 'keilocal:mtridge_l1_pl', name: p => p.mbsnnm || '백두대간', color: '#4E342E', line: true, note: KEI },
@@ -215,6 +215,24 @@
     });
   }
   App.jsonp = jsonp;
+  // 브이월드(API) 구역에 보호·보전지역 정보망(KDPA) 명칭 붙이기: 위치는 API 그대로, 두 구역이 실제로 겹칠 때만 (API 구역 면적의 50% 이상)
+  const kdpaCache = {};
+  async function kdpaIndex(file) {
+    if (!kdpaCache[file]) kdpaCache[file] = (async () => { const r = await fetch(file + '?v=1'); if (!r.ok) return []; const j = await r.json(); const rd = new jsts.io.GeoJSONReader(); return (j.features || []).map(f => { let g = null; try { g = rd.read(f.geometry); if (!g.isValid()) g = g.buffer(0); } catch (e) { g = null; } return g ? { n: (f.properties || {}).name || '', g, e: g.getEnvelopeInternal() } : null; }).filter(Boolean); })();
+    return kdpaCache[file];
+  }
+  async function attachKdpa(p, feats) {
+    let idx = []; try { idx = await kdpaIndex(p.kdpa); } catch (e) { return; }
+    if (!idx.length) return;
+    const rd = new jsts.io.GeoJSONReader();
+    feats.forEach(f => {
+      let g; try { g = rd.read(f.geometry); if (!g.isValid()) g = g.buffer(0); } catch (e) { return; }
+      const ge = g.getEnvelopeInternal(), area = g.getArea(); if (!(area > 0)) return;
+      let best = null, ba = 0;
+      idx.forEach(k => { if (!k.e.intersects(ge)) return; let a = 0; try { a = k.g.intersection(g).getArea(); } catch (e) { a = 0; } if (a > ba) { ba = a; best = k; } });
+      if (best && best.n && ba / area >= 0.5) { f.properties.name = p.kdpaFmt ? p.kdpaFmt(best.n) : best.n; f.properties.kdpa = true; if (p.id === 'water') f.properties.uid = ''; }
+    });
+  }
   async function fetchVworld(p, bbox4326) {
     if (p.attrs && p.attrs.length) {   // 조건 여러 개: 각각 받아 합침 (같은 구역은 한 번만)
       const seen = new Set(), feats = [];
@@ -237,7 +255,8 @@
       const total = Number(r.record && r.record.total) || 0;
       if (feats.length >= total || !fs.length) break;
     }
-    return { type: 'FeatureCollection', features: feats, _src: '브이월드 실시간' };
+    if (p.kdpa) await attachKdpa(p, feats);
+    return { type: 'FeatureCollection', features: feats, _src: '브이월드 실시간' + (p.kdpa ? ' · 명칭 KDPA' : '') };
   }
 
   // 환경공간정보서비스 GeoServer WFS (중계 서버 경유), 조건 + 범위 필터

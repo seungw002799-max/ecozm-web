@@ -60,7 +60,7 @@
     { cat: 'egis', group: 'egis', id: 'inland_wet', label: '내륙습지', short: '내륙습지', src: 'egis', typename: 'me:na_plg_wetland', name: p => p.wl_nm || '내륙습지', color: '#26A69A', note: Object.assign({}, EG, { extra: '국가 내륙습지 목록 (인공습지 포함)' }) },
     { cat: 'egis', group: 'egis', id: 'riverside', label: '수변구역', short: '수변구역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='수변구역'", name: () => '수변구역', color: '#29B6F6', note: EG },
     { cat: 'egis', group: 'egis', id: 'discharge', label: '폐수배출시설 설치제한지역', short: '폐수배출시설 설치제한지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='배출시설설치제한지역'", name: () => '폐수배출시설 설치제한지역', color: '#F4511E', note: Object.assign({}, EG, { extra: '물환경보전법 제33조' }) },
-    { cat: 'egis', group: 'egis', id: 'asbestos', label: '자연발생석면 지질도', short: '자연발생석면', src: 'egis', typename: 'me:na_plg_stoneinfo', name: () => '자연발생석면 지질도 표시 지역', color: '#8D6E63', note: Object.assign({}, EG, { extra: ['석면관리 종합정보망 자연발생석면 광역지질도 (1:50,000)', '함유가능 암석·완충지역·석면 광산 기록 지점을 한 레이어로 표시 (API에 구분 이름이 없음)'] }) },
+    { cat: 'egis', group: 'egis', id: 'asbestos', label: '자연발생석면 지질도', short: '자연발생석면', src: 'egis', typename: 'me:na_plg_stoneinfo', geomField: 'the_geom', name: () => '자연발생석면 지질도 표시 지역', color: '#8D6E63', note: Object.assign({}, EG, { extra: ['석면관리 종합정보망 자연발생석면 광역지질도 (1:50,000)', '함유가능 암석·완충지역·석면 광산 기록 지점을 한 레이어로 표시 (API에 구분 이름이 없음)'] }) },
     { cat: 'egis', group: 'egis', id: 'wq_special', label: '상수원 수질보전 특별대책지역', short: '상수원 수질보전 특별대책지역', src: 'egis', typename: 'me:wa_plg_quality_restrict', cql: "district='수질보전특별대책지역'", name: () => '특별대책지역', nameG: (p, g) => { let y = null; const w = c => { if (y !== null) return; if (typeof c[0] === 'number') y = c[1]; else c.forEach(w); }; w(g.coordinates); return (y > 37 ? '팔당호' : '대청호') + ' 특별대책지역'; }, color: '#00897B', note: Object.assign({}, EG, { extra: '팔당·대청호 2곳' }) },
     { cat: 'egis', group: 'egis', id: 'river_small', label: '소하천 (소하천구역)', short: '소하천', src: 'wfsb', base: 'https://api.mcee.go.kr/geoserver/ows', typename: 'EGIS:K33UJC100', name: () => '소하천구역', labelNearest: true, color: '#7986CB', note: VW },
     { cat: 'vworld', id: 'water', label: '상수원보호구역', short: '상수원보호구역', src: 'vworld', data: 'LT_C_UM710', name: p => App.waterName(p), uid: p => App.waterUid(p), wuid: p => App.waterUid(p), info: p => ({ sigg: [p.sido_name, p.sigg_name].filter(Boolean).join(' '), remark: p.remark || '', alias: p.alias || '', gosi: p.dyear && p.dyear !== '0000' ? p.dyear + '-' + p.dnum : '' }), kdpa: 'data/water_kdpa.geojson', kdpaFmt: n => /보호구역$/.test(n) ? n : n + ' 상수원보호구역', color: '#1565C0', note: Object.assign({}, VW, { extra: ['위치: 국토교통부 연속주제도 (수도법 상수원보호구역)', '명칭: 보호·보전지역 정보망(KDPA)과 구역이 겹치면 그 명칭 → 원자료 별칭 → 팀 명칭표 → 명칭 미확인'] }) },
@@ -265,7 +265,7 @@
   const snapB = b => { const s = 0.02; return [Math.floor(b[0] / s) * s, Math.floor(b[1] / s) * s, Math.ceil(b[2] / s) * s, Math.ceil(b[3] / s) * s].map(v => +v.toFixed(4)); };
   async function fetchEgis(p, b) {
     b = snapB(b);
-    const cql = (p.cql ? p.cql + ' AND ' : '') + `BBOX(geom,${b.join(',')},'EPSG:4326')`;
+    const cql = (p.cql ? p.cql + ' AND ' : '') + `BBOX(${p.geomField || 'geom'},${b.join(',')},'EPSG:4326')`;
     const u = 'https://api.mcee.go.kr/geoserver/me/wfs?service=WFS&version=1.0.0&request=GetFeature&outputFormat=application/json&srsName=EPSG:4326' +
       `&typeName=${p.typename}&CQL_FILTER=${encodeURIComponent(cql)}`;
     const ac = new AbortController(); const tm = setTimeout(() => ac.abort(), 60000);
